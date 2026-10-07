@@ -1,4 +1,3 @@
-"""Fetch raw source files into data/raw. Files already on disk are skipped."""
 import re
 import sys
 from pathlib import Path

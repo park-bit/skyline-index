@@ -61,13 +61,11 @@ def test_year_range_matches_data_sources(panel):
 
 
 def test_minimum_airports_with_ten_plus_years_of_data(panel):
-    # Over 1500 airports must have at least 10 years of observed airport traffic.
     traffic_obs = panel.dropna(subset=["faa_enplanements", "eurostat_passengers"], how="all")
     airports_with_10_yrs_traffic = traffic_obs.groupby("iata")["year"].nunique()
     count = (airports_with_10_yrs_traffic >= 10).sum()
     assert count >= 1500, f"expected at least 1500 airports with 10+ years of traffic data, found {count}"
 
-    # Over 8000 airports must have at least 10 years of national passenger context.
     macro_obs = panel.dropna(subset=["wb_air_passengers"])
     airports_with_10_yrs_macro = macro_obs.groupby("iata")["year"].nunique()
     count_macro = (airports_with_10_yrs_macro >= 10).sum()

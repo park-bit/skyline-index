@@ -41,7 +41,6 @@ def load_openflights_airports():
 
 
 def build_airport_table():
-    """One row per IATA code from OurAirports, with OpenFlights only filling missing ICAO codes."""
     airports = read_ourairports("airports.csv")
     airports = airports[(airports["type"] != "closed") & airports["iata_code"].str.fullmatch(r"[A-Z]{3}", na=False)]
 
@@ -77,7 +76,6 @@ def build_airport_table():
 
 
 def icao_to_iata(airports):
-    """Map every 4 letter code OurAirports knows for an airport to its IATA code."""
     raw = read_ourairports("airports.csv")
     raw = raw[raw["iata_code"].isin(airports["iata"])]
     pairs = [airports[["icao", "iata"]].rename(columns={"icao": "code"})]
