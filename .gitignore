@@ -8,14 +8,12 @@ __pycache__/
 .idea/
 .vscode/
 
-# Data directories and artifacts
-data/
+# Raw download cache
+data/raw/
 *.part
-*.parquet
 
-# Context and internal development documents
+# Local working notes and reports
 PROJECT_CONTEXT.md
-DATA_SOURCES.md
 DECISIONS.md
 LIMITATIONS.md
 reports/
