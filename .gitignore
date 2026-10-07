@@ -1,0 +1,21 @@
+# Environments and cache
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.env
+.idea/
+.vscode/
+
+# Data directories and artifacts
+data/
+*.part
+*.parquet
+
+# Context and internal development documents
+PROJECT_CONTEXT.md
+DATA_SOURCES.md
+DECISIONS.md
+LIMITATIONS.md
+reports/
