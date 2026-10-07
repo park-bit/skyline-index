@@ -52,3 +52,10 @@ Or execute all steps end to end:
 ```bash
 make all
 ```
+
+On systems without make:
+```bash
+python scripts/01_download.py
+python scripts/02_build_panel.py
+pytest -v
+```
