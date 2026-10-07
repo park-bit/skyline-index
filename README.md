@@ -26,8 +26,7 @@ skyline-index/
 ├── web/
 │   └── index.html             # Global Aviation Intelligence Map interface
 ├── Makefile                   # Workflow tasks
-├── requirements.txt           # Pinned Python dependencies
-└── run_all.py                 # Cross-platform execution script
+└── requirements.txt           # Pinned Python dependencies
 ```
 
 ## Setup
@@ -51,5 +50,5 @@ pytest -v
 
 Or execute all steps end to end:
 ```bash
-python run_all.py
+make all
 ```
