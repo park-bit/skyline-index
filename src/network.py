@@ -31,16 +31,13 @@ def compute_openflights_metrics(airports):
             g_di.add_edge(u, v, weight=1)
 
     g_un = nx.Graph(g_di)
-
-    # Core centrality and topological metrics
     pr = nx.pagerank(g_di, weight="weight")
     deg_in = dict(g_di.in_degree())
     deg_out = dict(g_di.out_degree())
     clustering = nx.clustering(g_un)
-    # Betweenness with k=400 sample gives stable relative ranking
+    # k=400 sample gives stable betweenness ranking without slow exact computation.
     betweenness = nx.betweenness_centrality(g_un, k=min(400, g_un.number_of_nodes()), seed=42)
 
-    # Calculate domestic vs international routes
     intl_counts = {}
     dom_counts = {}
     for u in g_di.nodes():
@@ -51,7 +48,6 @@ def compute_openflights_metrics(airports):
         intl_counts[u] = intl
         dom_counts[u] = dom
 
-    # Average neighbor degree
     avg_neighbor_deg = nx.average_neighbor_degree(g_un)
 
     records = []
