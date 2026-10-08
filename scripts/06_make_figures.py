@@ -75,8 +75,8 @@ def plot_index_vs_passengers(df):
 def plot_target_change_distribution(df):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
 
-    chg5 = df.dropna(subset=["target_change_h5"])["target_change_h5"]
-    chg10 = df.dropna(subset=["target_change_h10"])["target_change_h10"]
+    chg5 = df[df["comparable_target_h5"]].dropna(subset=["target_change_h5"])["target_change_h5"]
+    chg10 = df[df["comparable_target_h10"]].dropna(subset=["target_change_h10"])["target_change_h10"]
 
     ax1.hist(chg5, bins=50, color="#1f77b4", alpha=0.75, density=True)
     ax1.axvline(2.0, color="green", linestyle="--", label="Emerging threshold (+2.0)")
@@ -108,12 +108,11 @@ def plot_class_counts_per_fold(df):
     classes = ["stable", "emerging", "declining", "established_hub"]
     colors = ["#1f77b4", "#2ca02c", "#d62728", "#9467bd"]
 
-    # Horizon 5 folds.
     h5_folds = get_horizon5_folds()
     fold_names_h5 = [f"Fold {f['fold']} ({f['test_origin_year']})" for f in h5_folds]
     counts_h5 = {c: [] for c in classes}
     for f in h5_folds:
-        test_df = df[df["year"] == f["test_origin_year"]].dropna(subset=["target_class_h5"])
+        test_df = df[(df["year"] == f["test_origin_year"]) & df["comparable_target_h5"]].dropna(subset=["target_class_h5"])
         for c in classes:
             counts_h5[c].append((test_df["target_class_h5"] == c).sum())
 
@@ -129,12 +128,11 @@ def plot_class_counts_per_fold(df):
     ax1.legend(fontsize=8)
     ax1.grid(axis="y", linestyle="--", alpha=0.5)
 
-    # Horizon 10 blocked fold.
     h10_folds = get_horizon10_folds()
     fold_names_h10 = [f"Fold {f['fold']} (2013-2015)" for f in h10_folds]
     counts_h10 = {c: [] for c in classes}
     for f in h10_folds:
-        test_df = df[df["year"].isin(f["test_origin_years"])].dropna(subset=["target_class_h10"])
+        test_df = df[df["year"].isin(f["test_origin_years"]) & df["comparable_target_h10"]].dropna(subset=["target_class_h10"])
         for c in classes:
             counts_h10[c].append((test_df["target_class_h10"] == c).sum())
 
