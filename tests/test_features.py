@@ -15,7 +15,6 @@ def model_table():
 
 
 def test_no_leakage_and_target_alignment(model_table):
-    # Verify that target_level_h5 at year t matches importance at year t+5 for the same airport.
     h5_valid = model_table.dropna(subset=["target_level_h5"]).copy()
     lookup = model_table.set_index(["iata", "year"])["importance"].to_dict()
 
@@ -51,7 +50,6 @@ def test_all_four_classes_present_and_none_above_share_limit(model_table):
 
 
 def test_fold_bounds_and_overlap_specifications():
-    # Horizon 5: max training target year <= test origin year.
     for f in get_horizon5_folds():
         max_train_tgt = max(f["train_target_years"])
         test_orig = f["test_origin_year"]
@@ -59,10 +57,25 @@ def test_fold_bounds_and_overlap_specifications():
             f"Fold {f['fold']} violation: train target {max_train_tgt} > test origin {test_orig}"
         )
 
-    # Horizon 10: calendar overlap is exactly [2013, 2014].
     h10_folds = get_horizon10_folds()
     assert len(h10_folds) == 1
     f10 = h10_folds[0]
     assert f10["calendar_overlap_years"] == [2013, 2014], (
         f"Horizon 10 calendar overlap was {f10['calendar_overlap_years']}, expected [2013, 2014]"
     )
+
+
+def test_comparable_target_false_when_component_set_differs(model_table):
+    for h in [5, 10]:
+        comp_col = f"comparable_target_h{h}"
+        tgt_sig = model_table.groupby("iata")["component_signature"].shift(-h)
+        diff_mask = (model_table["component_signature"] != tgt_sig) & model_table[f"target_level_h{h}"].notna()
+
+        assert not model_table.loc[diff_mask, comp_col].any(), (
+            f"Found true comparable_target when component set differs for h={h}"
+        )
+
+        non_comp_mask = ~model_table[comp_col]
+        assert model_table.loc[non_comp_mask, f"target_class_h{h}"].isna().all(), (
+            f"Non-comparable rows had non-null target class for h={h}"
+        )
