@@ -6,8 +6,9 @@ from src.config import RAW
 
 
 def parse_faa_enplanements(airports):
-    iata_set = set(airports["iata"])
-    local_map = airports.dropna(subset=["local_code"]).set_index("local_code")["iata"].to_dict()
+    us_airports = airports[airports["country_code"] == "US"]
+    iata_set = set(us_airports["iata"])
+    local_map = us_airports.dropna(subset=["local_code"]).set_index("local_code")["iata"].to_dict()
 
     records = []
     for filepath in sorted(glob.glob(str(RAW / "faa" / "*"))):
