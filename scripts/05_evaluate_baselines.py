@@ -6,6 +6,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import pandas as pd
+from scipy.stats import pearsonr, spearmanr
+
 from src.baselines import evaluate_baselines
 from src.splits import get_horizon5_folds, get_horizon10_folds
 
@@ -72,39 +74,57 @@ def generate_folds_report():
     print(f"saved {out_file}")
 
 
-def generate_baselines_report(metrics_df):
+def generate_baselines_report(metrics_df, std_5y=None, corr_pearson=None, corr_spearman=None):
     lines = [
         "# Baseline Model Evaluation",
         "",
-        "We evaluate two non-parametric reference baselines across all temporal validation folds.",
+        "We evaluate two non-parametric reference baselines across temporal validation folds.",
         "The persistence baseline assumes that each airport maintains its current importance percentile into the future.",
         "The linear trend baseline extrapolates the annualized trajectory observed over the preceding five years.",
         "Performance is measured by mean absolute error on level and change, rank correlation on level, and precision and recall for top decile movers.",
         "",
-        "## Performance Summary Table",
-        "",
-        "| Horizon | Fold | Test Year | Baseline | MAE Level | MAE Change | Spearman | Risers Prec | Risers Rec | Fallers Prec | Fallers Rec |",
-        "|---------|------|-----------|----------|-----------|------------|----------|-------------|------------|--------------|-------------|",
     ]
 
-    for _, r in metrics_df.iterrows():
-        hz = f"h={r['horizon']}"
-        fd = str(r["fold"])
-        ty = r["test_year"]
-        bl = r["baseline"]
-        ml = f"{r['mae_level']:9.3f}"
-        mc = f"{r['mae_change']:10.3f}"
-        sp = f"{r['spearman_level']:8.4f}"
-        rp = f"{r['risers_precision']:11.3f}"
-        rr = f"{r['risers_recall']:10.3f}"
-        fp = f"{r['fallers_precision']:12.3f}"
-        fr = f"{r['fallers_recall']:11.3f}"
-        lines.append(f"| {hz:7s} | {fd:4s} | {ty:9s} | {bl:12s} | {ml} | {mc} | {sp} | {rp} | {rr} | {fp} | {fr} |")
+    if std_5y is not None:
+        lines.extend([
+            "## Index Time Variation Summary (Core Set)",
+            "",
+            f"- Standard deviation of 5-year change: {std_5y:.3f} percentile points",
+            f"- Pearson correlation between importance at t and t+5: {corr_pearson:.4f}",
+            f"- Spearman rank correlation between importance at t and t+5: {corr_spearman:.4f}",
+            "",
+        ])
+
+    for pop in ["core", "all"]:
+        sub = metrics_df[metrics_df["population"] == pop]
+        title = "Core Set (Comparable Observations)" if pop == "core" else "All Airports (Comparable Observations)"
+        lines.extend([
+            f"## Performance Summary Table: {title}",
+            "",
+            "| Horizon | Fold | Test Year | Baseline | Airports | MAE Level | MAE Change | Spearman | Risers Prec | Risers Rec | Fallers Prec | Fallers Rec |",
+            "|---------|------|-----------|----------|----------|-----------|------------|----------|-------------|------------|--------------|-------------|",
+        ])
+
+        for _, r in sub.iterrows():
+            hz = f"h={r['horizon']}"
+            fd = str(r["fold"])
+            ty = r["test_year"]
+            bl = r["baseline"]
+            na = f"{r['n_airports']:8d}"
+            ml = f"{r['mae_level']:9.3f}"
+            mc = f"{r['mae_change']:10.3f}"
+            sp = f"{r['spearman_level']:8.4f}"
+            rp = f"{r['risers_precision']:11.3f}"
+            rr = f"{r['risers_recall']:10.3f}"
+            fp = f"{r['fallers_precision']:12.3f}"
+            fr = f"{r['fallers_recall']:11.3f}"
+            lines.append(f"| {hz:7s} | {fd:4s} | {ty:9s} | {bl:12s} | {na} | {ml} | {mc} | {sp} | {rp} | {rr} | {fp} | {fr} |")
+
+        lines.append("")
 
     lines.extend([
-        "",
         "The persistence baseline achieves lower absolute error than linear extrapolation because mean reversion dominates short-term airport momentum.",
-        "However, linear trend identifies top movers better than random guessing, capturing directional shifts among expanding and contracting hubs.",
+        "Linear trend captures directional shifts for actual risers and fallers better than random selection.",
         "",
     ])
 
@@ -121,9 +141,19 @@ def main():
     print("loading model table...")
     table = pd.read_parquet(model_table_path)
 
-    print("evaluating baselines...")
-    metrics = evaluate_baselines(table)
-    generate_baselines_report(metrics)
+    # Core set index time variation metrics
+    core = table[table["importance_confidence"] == "high"]
+    valid_h5 = core[core["comparable_target_h5"] & ~core["is_covid_target_h5"]]
+    std_5y = float(valid_h5["target_change_h5"].std())
+    corr_p, _ = pearsonr(valid_h5["importance"], valid_h5["target_level_h5"])
+    corr_s, _ = spearmanr(valid_h5["importance"], valid_h5["target_level_h5"])
+
+    print(f"core set 5-year change std: {std_5y:.3f}")
+    print(f"core set correlation t vs t+5: Pearson={corr_p:.4f}, Spearman={corr_s:.4f}")
+
+    print("evaluating baselines on core set and all airports...")
+    metrics = evaluate_baselines(table, population="both")
+    generate_baselines_report(metrics, std_5y=std_5y, corr_pearson=float(corr_p), corr_spearman=float(corr_s))
 
 
 if __name__ == "__main__":

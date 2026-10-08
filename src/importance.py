@@ -118,7 +118,7 @@ def compute_market_component(panel, core_airports=None):
         pct_series = pd.Series(np.nan, index=panel.index)
         for yr, group in panel.groupby("year"):
             core_group = group[group["iata"].isin(core_set)]
-            ref_vals = np.sort(core_group[col].dropna().values) if col in core_group else np.array([])
+            ref_vals = np.sort(mkt.loc[core_group.index, col].dropna().values)
             if len(ref_vals) > 0:
                 vals = mkt.loc[group.index, col].fillna(-1e9).values
                 pct = np.searchsorted(ref_vals, vals, side="right") / len(ref_vals) * 100.0

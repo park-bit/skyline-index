@@ -9,14 +9,12 @@ def evaluate_mover_metrics(actual_change, pred_change, pct=0.10):
     n = len(actual_change)
     k = max(1, int(np.ceil(pct * n)))
 
-    # Top risers.
     act_risers = set(actual_change.nlargest(k).index)
     pred_risers = set(pred_change.nlargest(k).index)
     common_risers = len(act_risers.intersection(pred_risers))
     prec_risers = common_risers / len(pred_risers) if pred_risers else 0.0
     rec_risers = common_risers / len(act_risers) if act_risers else 0.0
 
-    # Bottom fallers.
     act_fallers = set(actual_change.nsmallest(k).index)
     pred_fallers = set(pred_change.nsmallest(k).index)
     common_fallers = len(act_fallers.intersection(pred_fallers))
@@ -31,20 +29,18 @@ def evaluate_mover_metrics(actual_change, pred_change, pct=0.10):
     }
 
 
-def evaluate_baselines(model_table):
-    df = model_table[model_table["components_used"] >= 2].copy()
+def evaluate_baselines_for_subset(df, pop_name="core"):
+    df = df.copy()
     df["change_5y"] = df["importance"] - df.groupby("iata")["importance"].shift(5)
 
     results = []
 
-    # Horizon 5 rolling folds.
     for f in get_horizon5_folds():
         test_yr = f["test_origin_year"]
-        test = df[df["year"] == test_yr].dropna(subset=["target_level_h5"]).copy()
+        test = df[(df["year"] == test_yr) & df["comparable_target_h5"]].dropna(subset=["target_level_h5"]).copy()
         actual_level = test["target_level_h5"]
         actual_change = test["target_change_h5"]
 
-        # 1. Persistence: forecast equals current importance.
         pred_p_level = test["importance"]
         pred_p_change = pd.Series(0.0, index=test.index)
         mae_p_lvl = float(np.mean(np.abs(actual_level - pred_p_level)))
@@ -53,10 +49,12 @@ def evaluate_baselines(model_table):
         m_p = evaluate_mover_metrics(actual_change, pred_p_change)
 
         results.append({
+            "population": pop_name,
             "horizon": 5,
             "fold": f["fold"],
             "test_year": str(test_yr),
             "baseline": "persistence",
+            "n_airports": len(test),
             "mae_level": round(mae_p_lvl, 3),
             "mae_change": round(mae_p_chg, 3),
             "spearman_level": round(float(spear_p), 4),
@@ -66,7 +64,6 @@ def evaluate_baselines(model_table):
             "fallers_recall": round(m_p["fallers_recall"], 3),
         })
 
-        # 2. Linear trend: extrapolate the last 5-year change.
         pred_t_change = test["change_5y"].fillna(0.0) * (5.0 / 5.0)
         pred_t_level = test["importance"] + pred_t_change
         mae_t_lvl = float(np.mean(np.abs(actual_level - pred_t_level)))
@@ -75,10 +72,12 @@ def evaluate_baselines(model_table):
         m_t = evaluate_mover_metrics(actual_change, pred_t_change)
 
         results.append({
+            "population": pop_name,
             "horizon": 5,
             "fold": f["fold"],
             "test_year": str(test_yr),
             "baseline": "linear_trend",
+            "n_airports": len(test),
             "mae_level": round(mae_t_lvl, 3),
             "mae_change": round(mae_t_chg, 3),
             "spearman_level": round(float(spear_t), 4),
@@ -88,10 +87,9 @@ def evaluate_baselines(model_table):
             "fallers_recall": round(m_t["fallers_recall"], 3),
         })
 
-    # Horizon 10 blocked split.
     for f in get_horizon10_folds():
         test_yrs = f["test_origin_years"]
-        test = df[df["year"].isin(test_yrs)].dropna(subset=["target_level_h10"]).copy()
+        test = df[df["year"].isin(test_yrs) & df["comparable_target_h10"]].dropna(subset=["target_level_h10"]).copy()
         actual_level = test["target_level_h10"]
         actual_change = test["target_change_h10"]
 
@@ -103,10 +101,12 @@ def evaluate_baselines(model_table):
         m_p = evaluate_mover_metrics(actual_change, pred_p_change)
 
         results.append({
+            "population": pop_name,
             "horizon": 10,
             "fold": f["fold"],
             "test_year": "2013-2015",
             "baseline": "persistence",
+            "n_airports": len(test),
             "mae_level": round(mae_p_lvl, 3),
             "mae_change": round(mae_p_chg, 3),
             "spearman_level": round(float(spear_p), 4),
@@ -124,10 +124,12 @@ def evaluate_baselines(model_table):
         m_t = evaluate_mover_metrics(actual_change, pred_t_change)
 
         results.append({
+            "population": pop_name,
             "horizon": 10,
             "fold": f["fold"],
             "test_year": "2013-2015",
             "baseline": "linear_trend",
+            "n_airports": len(test),
             "mae_level": round(mae_t_lvl, 3),
             "mae_change": round(mae_t_chg, 3),
             "spearman_level": round(float(spear_t), 4),
@@ -138,3 +140,16 @@ def evaluate_baselines(model_table):
         })
 
     return pd.DataFrame(results)
+
+
+def evaluate_baselines(model_table, population="both"):
+    if population == "core":
+        core = model_table[model_table["importance_confidence"] == "high"]
+        return evaluate_baselines_for_subset(core, pop_name="core")
+    elif population == "all":
+        return evaluate_baselines_for_subset(model_table, pop_name="all")
+    else:
+        core = model_table[model_table["importance_confidence"] == "high"]
+        r_core = evaluate_baselines_for_subset(core, pop_name="core")
+        r_all = evaluate_baselines_for_subset(model_table, pop_name="all")
+        return pd.concat([r_core, r_all], ignore_index=True)
