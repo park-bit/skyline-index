@@ -34,6 +34,8 @@ def compute_openflights_metrics(airports):
     pr = nx.pagerank(g_di, weight="weight")
     deg_in = dict(g_di.in_degree())
     deg_out = dict(g_di.out_degree())
+    deg_in_w = dict(g_di.in_degree(weight="weight"))
+    deg_out_w = dict(g_di.out_degree(weight="weight"))
     clustering = nx.clustering(g_un)
     # k=400 sample gives stable betweenness ranking without slow exact computation.
     betweenness = nx.betweenness_centrality(g_un, k=min(400, g_un.number_of_nodes()), seed=42)
@@ -48,18 +50,29 @@ def compute_openflights_metrics(airports):
         intl_counts[u] = intl
         dom_counts[u] = dom
 
+    top50_hubs = set(sorted(g_di.nodes(), key=lambda n: deg_out.get(n, 0), reverse=True)[:50])
+    countries_reached = {}
+    top50_links = {}
+    for u in g_di.nodes():
+        successors = list(g_di.successors(u))
+        countries_reached[u] = len({country_map.get(v) for v in successors if country_map.get(v)})
+        top50_links[u] = sum(1 for v in successors if v in top50_hubs)
+
     avg_neighbor_deg = nx.average_neighbor_degree(g_un)
 
     records = []
     for node in g_di.nodes():
         out_d = deg_out.get(node, 0)
         in_d = deg_in.get(node, 0)
+        out_w = deg_out_w.get(node, 0)
+        in_w = deg_in_w.get(node, 0)
         intl_d = intl_counts.get(node, 0)
         records.append({
             "iata": node,
             "of_routes_out": out_d,
             "of_routes_in": in_d,
             "of_routes_total": out_d + in_d,
+            "of_routes_weighted": out_w + in_w,
             "of_pagerank": pr.get(node, 0.0),
             "of_betweenness": betweenness.get(node, 0.0),
             "of_clustering": clustering.get(node, 0.0),
@@ -67,6 +80,8 @@ def compute_openflights_metrics(airports):
             "of_domestic_routes": dom_counts.get(node, 0),
             "of_intl_share": (intl_d / out_d) if out_d > 0 else 0.0,
             "of_avg_neighbor_degree": avg_neighbor_deg.get(node, 0.0),
+            "of_countries_reached": countries_reached.get(node, 0),
+            "of_top50_hub_links": top50_links.get(node, 0),
         })
 
     df = pd.DataFrame(records).sort_values("iata").reset_index(drop=True)
