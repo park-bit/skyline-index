@@ -12,8 +12,9 @@ __pycache__/
 data/raw/
 *.part
 
-# Local working notes and reports
+# Local working notes and daily reports
 PROJECT_CONTEXT.md
 DECISIONS.md
 LIMITATIONS.md
-reports/
+reports/day_*.md
+reports/panel_audit.txt
