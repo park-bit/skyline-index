@@ -68,11 +68,23 @@ def build_forecasts(model_table, h5_models, h5_clf):
     b_low_h10 = np.minimum(b_low_h10, lvl_h10)
     b_high_h10 = np.maximum(b_high_h10, lvl_h10)
 
+    # Connected routes lookup
+    from src.network import load_route_snapshot
+    r_df = load_route_snapshot()
+    r_map = {}
+    if not r_df.empty:
+        for _, r in r_df.iterrows():
+            u, v = r["source"], r["dest"]
+            if u != v:
+                r_map.setdefault(u, set()).add(v)
+
     airports_list = []
     for i in range(len(df_2025)):
         row = df_2025.iloc[i]
+        iata_code = str(row["iata"])
+        conn_routes = sorted(list(r_map.get(iata_code, set())))[:15]
         rec = {
-            "iata": str(row["iata"]),
+            "iata": iata_code,
             "name": str(row.get("name", "")),
             "city": str(row.get("municipality", "")),
             "country": str(row.get("country_code", "")),
@@ -81,6 +93,7 @@ def build_forecasts(model_table, h5_models, h5_clf):
             "importance_present": round(float(cur_imp[i]), 2),
             "importance_confidence": str(row["importance_confidence"]),
             "scored_outside_training_region": int(row.get("scored_outside_training_region", 0)),
+            "routes": conn_routes,
             "forecast_h5": {
                 "target_year": 2030,
                 "change": round(float(p_h5["pred_change"][i]), 2),

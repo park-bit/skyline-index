@@ -3,14 +3,116 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Skyline Index</title>
+  <title>Skyline Index - Global Aviation Intelligence Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Global Aviation Intelligence Map</h1>
+  <header class="app-header">
+    <div class="brand">
+      <h1 id="app-title">Global Aviation Intelligence Map</h1>
+      <span class="brand-subtitle">Forecasting airport importance across structural network graphs</span>
+    </div>
+
+    <div class="horizon-toggle" id="horizon-controls" role="group" aria-label="Forecast horizon">
+      <button type="button" class="horizon-btn active" id="btn-horizon-present" data-horizon="present">Current (2025)</button>
+      <button type="button" class="horizon-btn" id="btn-horizon-h5" data-horizon="h5">+5 Years (2030)</button>
+      <button type="button" class="horizon-btn" id="btn-horizon-h10" data-horizon="h10">+10 Years (2035)</button>
+    </div>
+
+    <div class="nav-tabs" role="tablist">
+      <button type="button" class="nav-tab active" id="tab-nav-map" role="tab" aria-selected="true">Network Map</button>
+      <button type="button" class="nav-tab" id="tab-nav-radar" role="tab" aria-selected="false">Opportunity Radar</button>
+    </div>
   </header>
-  <main id="map-container">
-    <!-- Map loaded by application scripts -->
-  </main>
+
+  <div class="main-layout">
+    <!-- Left Filter / Control Sidebar -->
+    <aside class="control-sidebar" id="control-sidebar">
+      <div class="search-box">
+        <label for="search-input" class="sr-only">Search airport</label>
+        <input type="text" id="search-input" placeholder="Search IATA, city or airport..." autocomplete="off">
+        <button type="button" id="btn-clear-search" class="clear-btn" aria-label="Clear search">&times;</button>
+      </div>
+
+      <div class="filter-group">
+        <label for="filter-confidence">Confidence</label>
+        <select id="filter-confidence">
+          <option value="all">All Airports</option>
+          <option value="high" selected>High Confidence (Core Traffic History)</option>
+          <option value="low">Low Confidence (Model Imputed)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="filter-class">Trajectory Class</label>
+        <select id="filter-class">
+          <option value="all">All Classes</option>
+          <option value="emerging">Emerging</option>
+          <option value="established_hub">Established Hub</option>
+          <option value="stable">Stable</option>
+          <option value="declining">Declining</option>
+        </select>
+      </div>
+
+      <div class="legend-panel">
+        <div class="legend-title">Legend</div>
+        <div class="legend-item"><span class="legend-color color-hub"></span> Established Hub (Rank &gt;= 90)</div>
+        <div class="legend-item"><span class="legend-color color-emerging"></span> Emerging (&gt;= +2.0 Change)</div>
+        <div class="legend-item"><span class="legend-color color-stable"></span> Stable</div>
+        <div class="legend-item"><span class="legend-color color-declining"></span> Declining (&lt;= -2.0 Change)</div>
+        <div class="legend-item"><span class="legend-shape shape-solid"></span> Solid: High Confidence (Observed Traffic)</div>
+        <div class="legend-item"><span class="legend-shape shape-hollow"></span> Hollow: Low Confidence (Static Components)</div>
+        <div class="legend-note">Marker radius scales with importance percentile score.</div>
+      </div>
+
+      <div class="about-card" id="about-card">
+        <div class="about-title">About the Index</div>
+        <p class="about-text">
+          The Skyline Index evaluates global airport importance across route network centrality, annual traffic throughput, and regional market catchment.
+          Forecasts model 5 and 10 year importance changes using machine learning trained on historical panel shifts and forward economic projections.
+          The Opportunity Radar predicts promising unserved city pairs by combining network topology with forecast airport momentum.
+        </p>
+      </div>
+    </aside>
+
+    <!-- Map Viewport -->
+    <main class="map-container" id="map-view">
+      <div id="map"></div>
+      <div id="map-status" class="map-status-overlay">Loading aviation network...</div>
+    </main>
+
+    <!-- Airport Details Drawer -->
+    <aside class="detail-drawer" id="airport-drawer" aria-hidden="true">
+      <button type="button" class="drawer-close-btn" id="drawer-close-btn" aria-label="Close details">&times;</button>
+      <div class="drawer-content" id="drawer-content">
+        <div class="drawer-placeholder">Click any airport marker on the map to view predictions and drivers.</div>
+      </div>
+    </aside>
+
+    <!-- Opportunity Radar Panel (Swapped with Map or Overlay) -->
+    <section class="radar-panel hidden" id="radar-panel" role="tabpanel">
+      <div class="radar-header">
+        <div class="radar-title-group">
+          <h2>Opportunity Radar</h2>
+          <p class="radar-disclaimer" id="radar-disclaimer">
+            Candidate routes and lists are generated from a gravity model and link prediction, not confirmed demand. The underlying network topology uses OpenFlights 2014 and OpenSky 2019-2022 route data.
+          </p>
+        </div>
+        <div class="radar-tabs" role="tablist">
+          <button type="button" class="radar-tab-btn active" id="btn-radar-airline" data-view="airline">Airline Candidates</button>
+          <button type="button" class="radar-tab-btn" id="btn-radar-investor" data-view="investor">Investor Risers</button>
+          <button type="button" class="radar-tab-btn" id="btn-radar-tourism" data-view="tourism">Tourism Destinations</button>
+        </div>
+      </div>
+
+      <div class="radar-results" id="radar-results-list">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
