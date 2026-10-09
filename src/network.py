@@ -2,7 +2,16 @@ import glob
 import pandas as pd
 import networkx as nx
 
-from src.config import RAW, PROCESSED
+from pathlib import Path
+from src.config import RAW, PROCESSED, ROUTE_SNAPSHOT_FILE
+
+
+def load_route_snapshot(file_path=None):
+    target = ROUTE_SNAPSHOT_FILE if file_path is None else Path(file_path)
+    if not target.exists():
+        return pd.DataFrame()
+    cols = ["airline", "airline_id", "source", "source_id", "dest", "dest_id", "codeshare", "stops", "equipment"]
+    return pd.read_csv(target, header=None, names=cols, na_values=["\\N"])
 
 
 def compute_openflights_metrics(airports):
@@ -10,12 +19,9 @@ def compute_openflights_metrics(airports):
     if cache_file.exists():
         return pd.read_parquet(cache_file)
 
-    routes_file = RAW / "openflights" / "routes.dat"
-    if not routes_file.exists():
+    routes = load_route_snapshot()
+    if routes.empty:
         return pd.DataFrame()
-
-    cols = ["airline", "airline_id", "source", "source_id", "dest", "dest_id", "codeshare", "stops", "equipment"]
-    routes = pd.read_csv(routes_file, header=None, names=cols, na_values=["\\N"])
 
     valid_iata = set(airports["iata"])
     valid = routes[routes["source"].isin(valid_iata) & routes["dest"].isin(valid_iata)].copy()
