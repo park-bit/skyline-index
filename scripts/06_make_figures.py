@@ -65,10 +65,10 @@ def plot_index_vs_passengers(df):
                 fontweight="bold",
             )
 
-    plt.tight_layout()
+    fig.tight_layout()
     out_file = FIGURES_DIR / "index_vs_passengers.png"
-    plt.savefig(out_file, dpi=150)
-    plt.close()
+    fig.savefig(out_file, dpi=150)
+    plt.close(fig)
     print(f"saved {out_file}")
 
 
@@ -95,10 +95,10 @@ def plot_target_change_distribution(df):
     ax2.legend(loc="upper left", fontsize=8)
     ax2.grid(True, linestyle="--", alpha=0.5)
 
-    plt.tight_layout()
+    fig.tight_layout()
     out_file = FIGURES_DIR / "distribution_of_target_change.png"
-    plt.savefig(out_file, dpi=150)
-    plt.close()
+    fig.savefig(out_file, dpi=150)
+    plt.close(fig)
     print(f"saved {out_file}")
 
 
@@ -146,10 +146,10 @@ def plot_class_counts_per_fold(df):
     ax2.legend(fontsize=8)
     ax2.grid(axis="y", linestyle="--", alpha=0.5)
 
-    plt.tight_layout()
+    fig.tight_layout()
     out_file = FIGURES_DIR / "class_counts_per_fold.png"
-    plt.savefig(out_file, dpi=150)
-    plt.close()
+    fig.savefig(out_file, dpi=150)
+    plt.close(fig)
     print(f"saved {out_file}")
 
 

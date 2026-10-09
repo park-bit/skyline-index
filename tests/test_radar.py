@@ -1,6 +1,4 @@
 import json
-import networkx as nx
-import pytest
 
 from src.config import OUTPUTS
 from src.network import load_route_snapshot

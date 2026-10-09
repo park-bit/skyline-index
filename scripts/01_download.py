@@ -58,8 +58,7 @@ def download(url, path, headers=None):
     with requests.get(url, headers={**HEADERS, **(headers or {})}, stream=True, timeout=300) as response:
         response.raise_for_status()
         with open(part, "wb") as out:
-            for chunk in response.iter_content(chunk_size=1 << 20):
-                out.write(chunk)
+            out.writelines(response.iter_content(chunk_size=1 << 20))
     part.replace(path)
     print(f"saved {path.relative_to(RAW)} ({path.stat().st_size // 1024} KB)")
 

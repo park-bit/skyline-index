@@ -1,12 +1,9 @@
-import numpy as np
-import pandas as pd
-from sklearn.linear_model import Ridge
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
 import lightgbm as lgb
-
-from src.drivers import extract_shap_drivers
+import numpy as np
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 NETWORK_FEATURES = [
     "of_routes_total", "of_routes_weighted", "of_pagerank", "of_betweenness",

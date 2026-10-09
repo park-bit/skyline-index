@@ -5,7 +5,7 @@ Splits are strictly origin-year based to prevent lookahead bias.
 
 ## Horizon 5 Rolling Folds
 
-For horizon 5, rolling origin folds ensure that all training target years occur at or before the test origin year.
+For horizon 5, rolling origin folds guarantee that all training target years occur at or before the test origin year.
 COVID target years 2020 to 2022 are completely excluded from both training and evaluation.
 
 | Fold | Train Origin Years | Train Target Years | Gap Years | Test Origin Year | Test Target Year |

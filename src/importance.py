@@ -3,12 +3,12 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 from src.config import (
+    MARKET_SUBWEIGHTS,
+    NETWORK_SUBWEIGHTS,
+    PROCESSED,
+    WEIGHT_MARKET,
     WEIGHT_NETWORK,
     WEIGHT_TRAFFIC,
-    WEIGHT_MARKET,
-    NETWORK_SUBWEIGHTS,
-    MARKET_SUBWEIGHTS,
-    PROCESSED,
 )
 
 
@@ -35,7 +35,7 @@ def get_core_airports(panel=None, min_traffic_years=2):
     ) & (panel["wb_gdp_usd"].notna() | panel["imf_gdp_per_capita_usd"].notna())
     mkt_iatas = set(panel[has_mkt]["iata"].unique())
 
-    core_set = sorted(list(set(traffic_years[traffic_years >= min_traffic_years].index) & net_iatas & mkt_iatas))
+    core_set = sorted(set(traffic_years[traffic_years >= min_traffic_years].index) & net_iatas & mkt_iatas)
 
     if len(core_set) > 0 and len(panel) > 50000:
         PROCESSED.mkdir(parents=True, exist_ok=True)

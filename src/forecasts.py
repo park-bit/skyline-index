@@ -1,16 +1,16 @@
 import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from src.config import OUTPUTS, RAW
+from src.config import OUTPUTS
+from src.drivers import extract_shap_drivers
 from src.macro import load_country_mapping, load_imf_indicators, load_un_demographics
 from src.models import (
-    ALL_FEATURES,
     predict_classes,
     predict_ensemble,
 )
-from src.drivers import extract_shap_drivers
 
 
 def load_future_macro_2030():
@@ -82,7 +82,7 @@ def build_forecasts(model_table, h5_models, h5_clf):
     for i in range(len(df_2025)):
         row = df_2025.iloc[i]
         iata_code = str(row["iata"])
-        conn_routes = sorted(list(r_map.get(iata_code, set())))[:15]
+        conn_routes = sorted(r_map.get(iata_code, set()))[:15]
         rec = {
             "iata": iata_code,
             "name": str(row.get("name", "")),

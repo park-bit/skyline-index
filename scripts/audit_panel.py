@@ -1,5 +1,6 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 panel_path = ROOT / "data" / "processed" / "airport_year_panel.parquet"
@@ -19,7 +20,7 @@ unique_counts = df.groupby("iata").nunique()
 time_varying = [col for col in df.columns if col not in ["iata", "year"] and (unique_counts[col] > 1).any()]
 static_cols = [col for col in df.columns if col not in ["iata", "year"] and col not in time_varying]
 
-lines.append(f"1. COLUMNS DYNAMICS OVER TIME")
+lines.append("1. COLUMNS DYNAMICS OVER TIME")
 lines.append("-----------------------------")
 lines.append(f"Time-varying columns ({len(time_varying)}):")
 for c in time_varying:

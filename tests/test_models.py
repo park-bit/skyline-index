@@ -1,7 +1,7 @@
 import json
+
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.config import OUTPUTS, PROCESSED
 from src.models import (

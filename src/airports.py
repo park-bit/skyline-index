@@ -87,10 +87,9 @@ def icao_to_iata(airports):
 
 
 def load_cities():
-    with zipfile.ZipFile(RAW / "geonames" / "cities15000.zip") as archive:
-        with archive.open("cities15000.txt") as handle:
-            cities = pd.read_csv(handle, sep="\t", header=None, names=GEONAMES_COLUMNS,
-                                 keep_default_na=False, na_values=[""], quoting=3, low_memory=False)
+    with zipfile.ZipFile(RAW / "geonames" / "cities15000.zip") as archive, archive.open("cities15000.txt") as handle:
+        cities = pd.read_csv(handle, sep="\t", header=None, names=GEONAMES_COLUMNS,
+                             keep_default_na=False, na_values=[""], quoting=3, low_memory=False)
     # PPLX rows are districts of a city that is already listed, so they would double count.
     cities = cities[cities["feature_code"] != "PPLX"]
     return cities[["name", "country_code", "latitude", "longitude", "population"]].reset_index(drop=True)

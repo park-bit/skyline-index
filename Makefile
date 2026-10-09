@@ -1,4 +1,4 @@
-.PHONY: install download panel sensitivity model-table baselines figures test all
+.PHONY: install download panel sensitivity model-table baselines figures train radar test all
 
 install:
 	pip install -r requirements.txt
@@ -21,7 +21,13 @@ baselines:
 figures:
 	python scripts/06_make_figures.py
 
+train:
+	python scripts/07_train_and_evaluate.py
+
+radar:
+	python scripts/08_run_radar.py
+
 test:
 	pytest -v
 
-all: download panel sensitivity model-table baselines figures test
+all: download panel sensitivity model-table baselines figures train radar test

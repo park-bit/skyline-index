@@ -1,12 +1,8 @@
-import json
-from pathlib import Path
 import networkx as nx
 import numpy as np
-import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
-from src.config import OUTPUTS, PROCESSED
 from src.network import load_route_snapshot
 
 
@@ -99,7 +95,7 @@ def find_candidate_routes(g, airports_df, forecast_dict, top_k=250):
 
     # Restrict to active commercial nodes with at least 5 connections
     active_nodes = [n for n in g.nodes() if g.degree(n) >= 5 and n in ap_map.index]
-    existing_edges = set(tuple(sorted(e)) for e in g.edges())
+    existing_edges = {tuple(sorted(e)) for e in g.edges()}
 
     candidates = []
     # Test pairs with common neighbors (link candidates)

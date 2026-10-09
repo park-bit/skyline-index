@@ -1,9 +1,10 @@
 import glob
-import pandas as pd
-import networkx as nx
-
 from pathlib import Path
-from src.config import RAW, PROCESSED, ROUTE_SNAPSHOT_FILE
+
+import networkx as nx
+import pandas as pd
+
+from src.config import PROCESSED, RAW, ROUTE_SNAPSHOT_FILE
 
 
 def load_route_snapshot(file_path=None):

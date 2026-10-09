@@ -6,6 +6,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import pandas as pd
+
 from src.importance import run_sensitivity_analysis
 
 panel = pd.read_parquet("data/processed/airport_year_panel.parquet")

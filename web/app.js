@@ -40,10 +40,9 @@ function initMap() {
     worldCopyJump: true,
   });
 
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
-    subdomains: "abcd",
-    maxZoom: 19,
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+    attribution: "Tiles &copy; Esri - Esri, DeLorme, NAVTEQ",
+    maxZoom: 16,
   }).addTo(map);
 
   routeLayerGroup = L.layerGroup().addTo(map);

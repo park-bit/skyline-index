@@ -1,5 +1,6 @@
 import glob
 import os
+
 import pandas as pd
 
 from src.config import RAW
@@ -22,7 +23,7 @@ def parse_faa_enplanements(airports):
         sheet = "ChangeinRevenuePassengerEnplan " if "cy2014" in base else 0
         try:
             raw = pd.read_excel(filepath, sheet_name=sheet, header=None)
-        except Exception:
+        except (ValueError, KeyError, OSError):
             continue
 
         header_idx = None

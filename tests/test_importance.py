@@ -3,7 +3,11 @@ import pandas as pd
 import pytest
 
 from src.config import PROCESSED, SENSITIVITY_SPEARMAN_THRESHOLD
-from src.importance import compute_importance_index, get_core_airports, run_sensitivity_analysis
+from src.importance import (
+    compute_importance_index,
+    get_core_airports,
+    run_sensitivity_analysis,
+)
 
 
 @pytest.fixture(scope="module")

@@ -1,11 +1,12 @@
 import itertools
+
 import pandas as pd
 
 from src.airports import (
     build_airport_table,
+    city_features,
     icao_to_iata,
     load_cities,
-    city_features,
 )
 from src.config import FIRST_YEAR, LAST_YEAR, PROCESSED
 from src.macro import build_country_macro_panel
