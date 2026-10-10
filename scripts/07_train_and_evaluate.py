@@ -423,14 +423,25 @@ def main():
     models_h5 = train_models(prod_tr, prod_tr["target_change_h5"], ALL_FEATURES, seed=42)
     clf_h5 = train_classifier(prod_tr, prod_tr["target_class_h5"], ALL_FEATURES, seed=42)
 
+    # Train production horizon 10 model with damping chosen on calibration slice
+    prod_tr_h10 = df[df["comparable_target_h10"] & ~df["is_covid_target_h10"] & (df["importance_confidence"] == "high")].copy()
+    tr_h10_years = sorted(prod_tr_h10["year"].unique())
+    cal_h10_slice = prod_tr_h10[prod_tr_h10["year"] == tr_h10_years[-1]].copy()
+    cal_h10_y = cal_h10_slice["target_change_h10"]
+    models_h10 = train_models(prod_tr_h10, prod_tr_h10["target_change_h10"], ALL_FEATURES, seed=42, cal_slice=cal_h10_slice, cal_y=cal_h10_y)
+    clf_h10 = train_classifier(prod_tr_h10, prod_tr_h10["target_class_h10"], ALL_FEATURES, seed=42)
+    gamma_star_h10 = find_damping_factor(models_h10, cal_h10_slice, cal_h10_y)
+
     models_dir = OUTPUTS / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(models_h5, models_dir / "production_models_h5.joblib")
     joblib.dump(clf_h5, models_dir / "production_clf_h5.joblib")
+    joblib.dump(models_h10, models_dir / "production_models_h10.joblib")
+    joblib.dump(clf_h10, models_dir / "production_clf_h10.joblib")
     (models_dir / "seed.txt").write_text("42", encoding="utf-8")
 
-    # Generate forward forecasts for 2025
-    forecasts = build_forecasts(df, models_h5, clf_h5)
+    # Generate forward forecasts for 2025 using directly validated horizon 10 model
+    forecasts = build_forecasts(df, models_h5, clf_h5, h10_models=models_h10, h10_clf=clf_h10, gamma_h10=gamma_star_h10)
     save_forecasts_json(forecasts)
     print("Forecasts exported to data/outputs/forecasts.json")
     print(f"Total airports with forecasts: {len(forecasts['airports'])}")

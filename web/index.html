@@ -92,6 +92,7 @@
         <p class="about-text">
           The Skyline Index evaluates global airport importance across route network centrality, annual traffic throughput, and regional market catchment.
           Forecasts model 5 and 10 year importance changes using machine learning trained on historical panel shifts and forward economic projections.
+          At horizon 10, persistence (predicting zero change) wins on test MAE (4.608 vs 7.629 for the damped model) due to decadal mean reversion; we ship the damped model (damping factor 0.9) to supply directional signals alongside baseline persistence benchmarks. Horizon 10 uncertainty bands achieve 46 percent test coverage and are labelled as rough ranges.
           The Opportunity Radar predicts promising unserved city pairs by combining network topology with forecast airport momentum.
         </p>
       </div>

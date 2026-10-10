@@ -109,8 +109,8 @@ Findings:
 - Riser precision is close to random (0.10) at horizon 5, reaching 0.102 to 0.120 on Fold 1 and 0.143 to 0.147 on Fold 2.
 - LightGBM beats persistence on change MAE by a small margin (4.078 versus 4.175 on Fold 1, and 3.537 versus 3.893 on Fold 2).
 - The model does better on fallers than risers, achieving 0.169 on Fold 1 and 0.248 on Fold 2 (versus 0.094 and 0.088 for persistence).
-- At Horizon 10, supervised models lose to persistence on change MAE (persistence achieves 4.608, while LightGBM yields 8.056 and the damped ensemble yields 7.629). Over ten years, multi-year noise mean-reverts, and predicting zero change achieves lower average error than supervised extrapolation.
-- The 10-year calibrated band achieves 46.2% coverage, well below the 70% threshold. It is labeled as a rough range.
+- At Horizon 10, supervised models lose to persistence on change MAE (persistence achieves 4.608, while LightGBM yields 8.056 and the damped ensemble yields 7.629). Over ten years, multi-year noise mean-reverts, and predicting zero change achieves lower average error than supervised extrapolation. We ship the damped model (damping factor 0.9 chosen on calibration slice) to provide directional signals, but report both.
+- The 10-year calibrated band achieves 46.2% coverage, well below the 70% threshold. It is labeled as a rough range in the map and documentation.
 
 ### Region Transfer Experiment
 

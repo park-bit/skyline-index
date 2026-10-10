@@ -331,7 +331,7 @@ function renderDrawer(ap) {
     <div class="band-info">
       <div class="band-title">Uncertainty Intervals (${currentHorizon === "h10" ? "+10Y" : "+5Y"})</div>
       ${ap.reconstruction_interval ? `<div>Reconstruction Interval: <b>[${ap.reconstruction_interval[0]}, ${ap.reconstruction_interval[1]}]</b></div>` : ""}
-      <div>Calibrated Predictive Band: <b>${bandText}</b></div>
+      <div>${currentHorizon === "h10" ? "Rough Range (46% empirical coverage)" : "Calibrated Predictive Band"}: <b>${bandText}</b></div>
     </div>
 
     <div class="sparkline-box">

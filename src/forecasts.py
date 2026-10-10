@@ -24,7 +24,7 @@ def load_future_macro_2030():
     return imf_30, un_30
 
 
-def build_forecasts(model_table, h5_models, h5_clf):
+def build_forecasts(model_table, h5_models, h5_clf, h10_models=None, h10_clf=None, gamma_h10=0.9):
     df_2025 = model_table[model_table["year"] == 2025].copy().reset_index(drop=True)
     has_routes_or_traffic = (
         (df_2025["of_routes_total"] > 0)
@@ -41,34 +41,41 @@ def build_forecasts(model_table, h5_models, h5_clf):
     cls_h5 = predict_classes(h5_clf, df_2025, features)
     pos_h5, neg_h5 = extract_shap_drivers(h5_models["lgb"], df_2025, features, top_k=3)
 
-    # Step 2: 2030 forward features using IMF and UN projections
-    df_2030 = df_2025.copy()
-    df_2030["importance"] = p_h5["pred_level"]
-    df_2030["importance_momentum_5y"] = p_h5["pred_change"]
+    if h10_models is not None and h10_clf is not None:
+        p_h10 = predict_ensemble(h10_models, df_2025, cur_imp, damped_factor=gamma_h10)
+        cls_h10 = predict_classes(h10_clf, df_2025, features)
+        pos_h10, neg_h10 = extract_shap_drivers(h10_models["lgb"], df_2025, features, top_k=3)
+        lvl_h10 = np.clip(p_h10["pred_level"], 0.0, 100.0)
+        chg_h10 = lvl_h10 - cur_imp
+        b_low_h10 = p_h10["band_low"]
+        b_high_h10 = p_h10["band_high"]
+    else:
+        # Fallback projection using IMF and UN projections
+        df_2030 = df_2025.copy()
+        df_2030["importance"] = p_h5["pred_level"]
+        df_2030["importance_momentum_5y"] = p_h5["pred_change"]
 
-    imf_30, un_30 = load_future_macro_2030()
-    imf_growth_30 = imf_30["imf_gdp_growth_pct"].to_dict() if "imf_gdp_growth_pct" in imf_30 else {}
-    un_age_30 = un_30["un_median_age"].to_dict() if "un_median_age" in un_30 else {}
-    un_pop_30 = un_30["un_pop_thousands"].to_dict() if "un_pop_thousands" in un_30 else {}
+        imf_30, un_30 = load_future_macro_2030()
+        imf_growth_30 = imf_30["imf_gdp_growth_pct"].to_dict() if "imf_gdp_growth_pct" in imf_30 else {}
+        un_age_30 = un_30["un_median_age"].to_dict() if "un_median_age" in un_30 else {}
+        un_pop_30 = un_30["un_pop_thousands"].to_dict() if "un_pop_thousands" in un_30 else {}
 
-    df_2030["imf_gdp_growth_pct"] = df_2030["country_code"].map(imf_growth_30).fillna(df_2025["imf_gdp_growth_pct"])
-    df_2030["un_median_age"] = df_2030["country_code"].map(un_age_30).fillna(df_2025["un_median_age"])
-    new_pop = df_2030["country_code"].map(un_pop_30) * 1000.0
-    df_2030["country_pop"] = new_pop.fillna(df_2025["country_pop"])
-    df_2030 = prepare_model_features(df_2030)
+        df_2030["imf_gdp_growth_pct"] = df_2030["country_code"].map(imf_growth_30).fillna(df_2025["imf_gdp_growth_pct"])
+        df_2030["un_median_age"] = df_2030["country_code"].map(un_age_30).fillna(df_2025["un_median_age"])
+        new_pop = df_2030["country_code"].map(un_pop_30) * 1000.0
+        df_2030["country_pop"] = new_pop.fillna(df_2025["country_pop"])
+        df_2030 = prepare_model_features(df_2030)
 
-    # Step 2: 2030 to 2035 (+10 years)
-    p_step2 = predict_ensemble(h5_models, df_2030, p_h5["pred_level"])
-    cls_h10 = predict_classes(h5_clf, df_2030, features)
-    pos_h10, neg_h10 = extract_shap_drivers(h5_models["lgb"], df_2030, features, top_k=3)
+        p_step2 = predict_ensemble(h5_models, df_2030, p_h5["pred_level"])
+        cls_h10 = predict_classes(h5_clf, df_2030, features)
+        pos_h10, neg_h10 = extract_shap_drivers(h5_models["lgb"], df_2030, features, top_k=3)
 
-    # Combined 10-year metrics
-    lvl_h10 = np.clip(p_step2["pred_level"], 0.0, 100.0)
-    chg_h10 = lvl_h10 - cur_imp
-    b_low_h10 = np.clip(p_h5["band_low"] + (p_step2["band_low"] - p_h5["pred_level"]), 0.0, 100.0)
-    b_high_h10 = np.clip(p_h5["band_high"] + (p_step2["band_high"] - p_h5["pred_level"]), 0.0, 100.0)
-    b_low_h10 = np.minimum(b_low_h10, lvl_h10)
-    b_high_h10 = np.maximum(b_high_h10, lvl_h10)
+        lvl_h10 = np.clip(p_step2["pred_level"], 0.0, 100.0)
+        chg_h10 = lvl_h10 - cur_imp
+        b_low_h10 = np.clip(p_h5["band_low"] + (p_step2["band_low"] - p_h5["pred_level"]), 0.0, 100.0)
+        b_high_h10 = np.clip(p_h5["band_high"] + (p_step2["band_high"] - p_h5["pred_level"]), 0.0, 100.0)
+        b_low_h10 = np.minimum(b_low_h10, lvl_h10)
+        b_high_h10 = np.maximum(b_high_h10, lvl_h10)
 
     # Connected routes lookup
     from src.network import load_route_snapshot
@@ -116,6 +123,7 @@ def build_forecasts(model_table, h5_models, h5_clf):
                 "level": round(float(p_h5["pred_level"][i]), 2),
                 "band_low": round(float(p_h5["band_low"][i]), 2),
                 "band_high": round(float(p_h5["band_high"][i]), 2),
+                "band_label": "calibrated interval",
                 "class": cls_h5[i],
                 "positive_drivers": pos_h5[i],
                 "negative_drivers": neg_h5[i],
@@ -126,6 +134,7 @@ def build_forecasts(model_table, h5_models, h5_clf):
                 "level": round(float(lvl_h10[i]), 2),
                 "band_low": round(float(b_low_h10[i]), 2),
                 "band_high": round(float(b_high_h10[i]), 2),
+                "band_label": "rough range",
                 "class": cls_h10[i],
                 "positive_drivers": pos_h10[i],
                 "negative_drivers": neg_h10[i],
