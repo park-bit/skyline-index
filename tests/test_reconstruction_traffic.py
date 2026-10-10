@@ -27,7 +27,7 @@ def test_reconstructed_traffic_table_structure_and_ordering(traffic_table):
         assert c in traffic_table.columns, f"missing column {c}"
 
     assert (traffic_table["traffic_recon"] >= 0).all()
-    # Uncertainty intervals strictly order lower <= point <= upper
+    # Uncertainty intervals order lower <= point <= upper
     assert (traffic_table["traffic_recon_lo"] <= traffic_table["traffic_recon"] + 1e-3).all()
     assert (traffic_table["traffic_recon"] <= traffic_table["traffic_recon_hi"] + 1e-3).all()
 

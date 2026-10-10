@@ -133,7 +133,7 @@ def build_point_in_time_features(panel):
     df["has_observed_traffic"] = has_obs_traffic.astype(int)
     df["scored_outside_training_region"] = (~df["iata"].isin(airports_with_traffic_history)).astype(int)
 
-    # 2019 to 2022 OpenSky growth is strictly point-in-time and evaluated at year 2022 and beyond
+    # 2019 to 2022 OpenSky growth is point-in-time and evaluated at year 2022 and beyond
     os_19 = df[df["year"] == 2019].set_index("iata")["opensky_flights"].to_dict()
     os_22 = df[df["year"] == 2022].set_index("iata")["opensky_flights"].to_dict()
     recent_growth = {}
