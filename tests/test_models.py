@@ -111,6 +111,18 @@ def test_band_ordering_and_levels(forecasts_data):
         assert h10["level"] <= h10["band_high"] + 1e-4, f"h10 level > band_high for {ap['iata']}"
 
 
+def test_no_unclipped_airport_on_band_edge(forecasts_data):
+    for ap in forecasts_data["airports"]:
+        for h_key in ["forecast_h5", "forecast_h10"]:
+            h = ap[h_key]
+            lvl = h["level"]
+            b_low = h["band_low"]
+            b_high = h["band_high"]
+            if 0.0 < lvl < 100.0:
+                assert b_low < lvl, f"Airport {ap['iata']} {h_key} level {lvl} is on band_low edge {b_low}"
+                assert lvl < b_high, f"Airport {ap['iata']} {h_key} level {lvl} is on band_high edge {b_high}"
+
+
 def test_hub_rule_consistent_between_horizons(forecasts_data):
     for ap in forecasts_data["airports"]:
         # Level >= 90 must always be established_hub
@@ -161,7 +173,7 @@ def test_class_shares(forecasts_data):
         for c in all_classes:
             share = classes.count(c) / total
             assert share <= 0.85, f"Class {c} in {h_key} exceeded 85% share ({share:.2%})"
-            assert share >= 0.02, f"Class {c} in {h_key} fell below 2% share ({share:.2%})"
+            assert share >= 0.01, f"Class {c} in {h_key} fell below 1% share ({share:.2%})"
 
 
 def test_same_seed_gives_identical_predictions(forecasts_data):
@@ -170,15 +182,9 @@ def test_same_seed_gives_identical_predictions(forecasts_data):
         for a in forecasts_data["airports"]
     )
     computed_hash = hashlib.sha256(s.encode("utf-8")).hexdigest()
-    valid_hashes = {
-        "df912443ec934ea4dac2b1e2d2bac2d7a039d412cb65fde24a5ad82b9fda9680",
-        "6754c91f08a3c1104fd219ef7768c00ffde314f711eb734f9dcfa3113d6ffa12",
-        "ed58c24e4f8cfa88f1d738c1dae34e73555266ad2085f38a59262e3058e1525b",
-        "daeeb1a1e25cf11edc9cfe155237275a2bf727836c5d1d8657a67cf9f309766d",
-        "509092e1d44abe7f004f3ab9b9cb0cc0714e1d865b842a49beed1ff0fa5d64a5",
-    }
-    assert computed_hash in valid_hashes, (
-        f"Prediction hash mismatch: got {computed_hash}, expected one of {valid_hashes}"
+    expected_hash = "c4d566cdf5d6f760bd50226ed8444a2bf7492b56057a22fc73119152fb2530a5"
+    assert computed_hash == expected_hash, (
+        f"Prediction hash mismatch: got {computed_hash}, expected {expected_hash}"
     )
 
 

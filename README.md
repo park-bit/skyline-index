@@ -69,26 +69,26 @@ Quantile LightGBM models at alpha 0.10 and alpha 0.90 provide uncertainty bands,
 | 5 | 1 | 2018 | persistence | 1,479 | 0.088 | 0.088 | 0.054 | 0.054 | 4.538 | 0.9721 | - |
 | 5 | 1 | 2018 | linear_trend | 1,479 | 0.155 | 0.155 | 0.088 | 0.088 | 4.948 | 0.9643 | - |
 | 5 | 1 | 2018 | ridge | 1,479 | 0.061 | 0.061 | 0.169 | 0.169 | 4.940 | 0.9699 | - |
-| 5 | 1 | 2018 | lightgbm | 1,479 | 0.108 | 0.108 | 0.135 | 0.135 | 4.320 | 0.9727 | - |
-| 5 | 1 | 2018 | ensemble | 1,479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.537 | 0.9720 | 0.588 |
+| 5 | 1 | 2018 | lightgbm | 1,479 | 0.108 | 0.108 | 0.155 | 0.155 | 4.319 | 0.9727 | - |
+| 5 | 1 | 2018 | ensemble | 1,479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.542 | 0.9719 | 0.622 |
 | 5 | 2 | 2019 | persistence | 1,416 | 0.106 | 0.106 | 0.077 | 0.077 | 3.481 | 0.9851 | - |
 | 5 | 2 | 2019 | linear_trend | 1,416 | 0.155 | 0.155 | 0.077 | 0.077 | 7.033 | 0.9732 | - |
 | 5 | 2 | 2019 | ridge | 1,416 | 0.261 | 0.261 | 0.218 | 0.218 | 3.326 | 0.9848 | - |
 | 5 | 2 | 2019 | lightgbm | 1,416 | 0.394 | 0.394 | 0.261 | 0.261 | 2.824 | 0.9839 | - |
-| 5 | 2 | 2019 | ensemble | 1,416 | 0.401 | 0.401 | 0.239 | 0.239 | 2.952 | 0.9850 | 0.946 |
+| 5 | 2 | 2019 | ensemble | 1,416 | 0.401 | 0.401 | 0.239 | 0.239 | 2.952 | 0.9850 | 0.895 |
 | 5 | 3 (COVID) | 2020 | persistence | 1,322 | 0.098 | 0.098 | 0.060 | 0.060 | 3.871 | 0.9810 | - |
 | 5 | 3 (COVID) | 2020 | lightgbm | 1,322 | 0.195 | 0.195 | 0.406 | 0.406 | 3.899 | 0.9809 | - |
-| 5 | 3 (COVID) | 2020 | ensemble | 1,322 | 0.218 | 0.218 | 0.391 | 0.391 | 3.867 | 0.9829 | 0.932 |
+| 5 | 3 (COVID) | 2020 | ensemble | 1,322 | 0.218 | 0.218 | 0.391 | 0.391 | 3.867 | 0.9829 | 0.853 |
 | 10 | 1 | 2013-2015 | persistence | 4,123 | 0.097 | 0.097 | 0.075 | 0.075 | 5.282 | 0.9576 | - |
 | 10 | 1 | 2013-2015 | lightgbm | 4,123 | 0.063 | 0.063 | 0.090 | 0.090 | 11.044 | 0.9357 | - |
-| 10 | 1 | 2013-2015 | ensemble | 4,123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.542 |
+| 10 | 1 | 2013-2015 | ensemble | 4,123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.323 |
 | 10 | 1 | 2013-2015 | damped (gamma 0.7) | 4,123 | 0.065 | 0.065 | 0.099 | 0.099 | 10.768 | 0.9202 | - |
 
 Key model behaviors:
-- At horizon 5, LightGBM achieves lower change MAE than persistence (4.320 versus 4.538 on Fold 1, and 2.824 versus 3.481 on Fold 2).
+- At horizon 5, LightGBM achieves lower change MAE than persistence (4.319 versus 4.538 on Fold 1, and 2.824 versus 3.481 on Fold 2).
 - Riser precision at horizon 5 is unstable across folds, measuring 0.074 to 0.108 on Fold 1 before rising to 0.394 to 0.401 on Fold 2.
 - At horizon 10, supervised models lose to persistence on change MAE (persistence achieves 5.282, compared to 11.044 for LightGBM and 10.768 for the damped ensemble). Over a decade, multi-year fluctuations mean-revert, and zero predicted change yields lower average error than supervised extrapolation. The damped model is shipped to provide directional signals, but both numbers are documented.
-- Calibrated coverage at horizon 10 reaches 54.2 percent, below the 70 percent target. These bands are labeled as rough ranges.
+- Calibrated coverage at horizon 10 reaches 32.3 percent, below the 70 percent target. These bands are labeled as rough ranges.
 
 Trajectory classification rules:
 - Any airport with forecast score 90 or higher is an established hub.
@@ -96,8 +96,8 @@ Trajectory classification rules:
 - For airports with present score 95 or higher, +5 and +10 levels are set to the present score plus the +5 change, clipped to 100. The +10 level inherits the +5 level unless the +10 model indicates a larger move beyond its band, bounded below by the +5 level minus the +5 band half-width.
 
 Predicted class shares:
-- At +5: stable 0.794, established hub 0.123, emerging 0.054, declining 0.030.
-- At +10: stable 0.806, established hub 0.106, emerging 0.051, declining 0.037.
+- At +5: stable 0.755, established hub 0.118, emerging 0.113, declining 0.013.
+- At +10: stable 0.737, established hub 0.115, emerging 0.110, declining 0.039.
 
 Feature ablation yields a 5-year change MAE of 3.891 with all 46 features, 3.907 without network metrics, 3.608 without macroeconomic drivers, and 3.630 using traffic features alone.
 

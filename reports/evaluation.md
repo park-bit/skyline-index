@@ -12,17 +12,17 @@ Headline evaluation focuses on folds 1 and 2. Fold 3 (origin year 2020) is repor
 | 5 | 1 | 2018 | linear_trend | 1479 | 0.155 | 0.155 | 0.088 | 0.088 | 4.948 | 0.9643 | - | - | - |
 | 5 | 1 | 2018 | ridge | 1479 | 0.061 | 0.061 | 0.169 | 0.169 | 4.94 | 0.9699 | - | - | - |
 | 5 | 1 | 2018 | lightgbm | 1479 | 0.108 | 0.108 | 0.155 | 0.155 | 4.319 | 0.9727 | - | - | - |
-| 5 | 1 | 2018 | ensemble | 1479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.542 | 0.9719 | 0.61 | 0.59 | 0.54 |
+| 5 | 1 | 2018 | ensemble | 1479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.542 | 0.9719 | 0.8 | 0.622 | 0.544 |
 | 5 | 2 | 2019 | persistence | 1416 | 0.106 | 0.106 | 0.077 | 0.077 | 3.481 | 0.9851 | - | - | - |
 | 5 | 2 | 2019 | linear_trend | 1416 | 0.155 | 0.155 | 0.077 | 0.077 | 7.033 | 0.9732 | - | - | - |
 | 5 | 2 | 2019 | ridge | 1416 | 0.261 | 0.261 | 0.218 | 0.218 | 3.326 | 0.9848 | - | - | - |
-| 5 | 2 | 2019 | lightgbm | 1416 | 0.387 | 0.387 | 0.254 | 0.254 | 2.819 | 0.9841 | - | - | - |
-| 5 | 2 | 2019 | ensemble | 1416 | 0.366 | 0.366 | 0.246 | 0.246 | 2.952 | 0.985 | 0.809 | 0.945 | 0.648 |
+| 5 | 2 | 2019 | lightgbm | 1416 | 0.394 | 0.394 | 0.261 | 0.261 | 2.824 | 0.9839 | - | - | - |
+| 5 | 2 | 2019 | ensemble | 1416 | 0.401 | 0.401 | 0.239 | 0.239 | 2.952 | 0.985 | 0.8 | 0.895 | 0.643 |
 | 10 | 1 | 2013-2015 | persistence | 4123 | 0.097 | 0.097 | 0.075 | 0.075 | 5.282 | 0.9576 | - | - | - |
 | 10 | 1 | 2013-2015 | linear_trend | 4123 | 0.123 | 0.123 | 0.051 | 0.051 | 9.742 | 0.9331 | - | - | - |
 | 10 | 1 | 2013-2015 | ridge | 4123 | 0.053 | 0.053 | 0.063 | 0.063 | 17.326 | 0.7787 | - | - | - |
 | 10 | 1 | 2013-2015 | lightgbm | 4123 | 0.063 | 0.063 | 0.09 | 0.09 | 11.044 | 0.9357 | - | - | - |
-| 10 | 1 | 2013-2015 | ensemble | 4123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.51 | 0.547 | 0.417 |
+| 10 | 1 | 2013-2015 | ensemble | 4123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.8 | 0.323 | 0.417 |
 
 ## COVID Fold Evaluation (Fold 3, Test Origin 2020)
 
@@ -31,8 +31,8 @@ Headline evaluation focuses on folds 1 and 2. Fold 3 (origin year 2020) is repor
 | 5 | 3 | 2020 | persistence | 1322 | 0.098 | 0.098 | 0.06 | 0.06 | 3.871 | 0.981 | - | - | - |
 | 5 | 3 | 2020 | linear_trend | 1322 | 0.143 | 0.143 | 0.038 | 0.038 | 6.484 | 0.9646 | - | - | - |
 | 5 | 3 | 2020 | ridge | 1322 | 0.18 | 0.18 | 0.203 | 0.203 | 6.029 | 0.9807 | - | - | - |
-| 5 | 3 | 2020 | lightgbm | 1322 | 0.195 | 0.195 | 0.429 | 0.429 | 3.851 | 0.9813 | - | - | - |
-| 5 | 3 | 2020 | ensemble | 1322 | 0.203 | 0.203 | 0.406 | 0.406 | 3.845 | 0.983 | 0.749 | 0.937 | 0.623 |
+| 5 | 3 | 2020 | lightgbm | 1322 | 0.195 | 0.195 | 0.406 | 0.406 | 3.902 | 0.9809 | - | - | - |
+| 5 | 3 | 2020 | ensemble | 1322 | 0.218 | 0.218 | 0.391 | 0.391 | 3.869 | 0.9829 | 0.8 | 0.852 | 0.624 |
 
 ## Horizon 10 Evaluation
 
@@ -42,7 +42,7 @@ Headline evaluation focuses on folds 1 and 2. Fold 3 (origin year 2020) is repor
 | 10 | 1 | 2013-2015 | linear_trend | 4123 | 0.123 | 0.123 | 0.051 | 0.051 | 9.742 | 0.9331 | - | - |
 | 10 | 1 | 2013-2015 | ridge | 4123 | 0.053 | 0.053 | 0.063 | 0.063 | 17.326 | 0.7787 | - | - |
 | 10 | 1 | 2013-2015 | lightgbm | 4123 | 0.063 | 0.063 | 0.09 | 0.09 | 11.044 | 0.9357 | - | - |
-| 10 | 1 | 2013-2015 | ensemble | 4123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.51 | 0.547 |
+| 10 | 1 | 2013-2015 | ensemble | 4123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.8 | 0.323 |
 
 ### Horizon 10 Damping Comparison
 Damping factor gamma chosen on calibration slice: 0.7.
@@ -55,7 +55,7 @@ I evaluated performance separately across observed, reconstructed and static-onl
 
 | Data Quality | Count | Change MAE | Spearman Level | Risers Precision | Fallers Precision |
 |---|---|---|---|---|---|
-| observed | 4217 | 3.78 | 0.98 | 0.215 | 0.276 |
+| observed | 4217 | 3.788 | 0.98 | 0.231 | 0.269 |
 
 The model is weaker on static-only airports where absence of recorded flight movements forces predictions to rely solely on macro catchment drivers. Reconstructed airports achieve comparable rank preservation to observed airports.
 
@@ -65,10 +65,10 @@ I evaluated regional transfer by holding out Europe completely from training, si
 
 | Option | Held Out Region | Test N | MAE Change | Spearman Level | Risers P | Risers R | Fallers P | Fallers R |
 |---|---|---|---|---|---|---|---|---|
-| global_model | EU | 326 | 3.478 | 0.9778 | 0.03 | 0.03 | 0.273 | 0.273 |
-| global_plus_region_effects | EU | 326 | 3.495 | 0.9775 | 0.03 | 0.03 | 0.242 | 0.242 |
+| global_model | EU | 326 | 3.476 | 0.9778 | 0.03 | 0.03 | 0.242 | 0.242 |
+| global_plus_region_effects | EU | 326 | 3.495 | 0.9774 | 0.03 | 0.03 | 0.182 | 0.182 |
 | fine_tuned_regions | EU | 326 | 3.524 | 0.979 | 0.121 | 0.121 | 0.212 | 0.212 |
-| observed_benchmark | EU | 326 | 3.478 | 0.9778 | 0.03 | 0.03 | 0.273 | 0.273 |
+| observed_benchmark | EU | 326 | 3.476 | 0.9778 | 0.03 | 0.03 | 0.242 | 0.242 |
 
 ## Uncertainty Calibration
 
@@ -80,26 +80,26 @@ Classes: declining, emerging, established_hub, stable
 
 ### Fold 1 Multiclass Confusion Matrix
 ```
-[[383  19   5 123]
- [209  45   0 127]
+[[378  20   5 127]
+ [209  49   0 123]
  [  0   0 176   0]
- [182  47   0 163]]
+ [180  47   0 165]]
 ```
 
 ### Fold 2 Multiclass Confusion Matrix
 ```
-[[419   4   1  99]
- [ 56  42   0  71]
+[[421   3   1  98]
+ [ 55  40   0  74]
  [  2   0 197   0]
- [211  33   2 279]]
+ [212  35   2 276]]
 ```
 
 ### Fold 3 Multiclass Confusion Matrix
 ```
-[[297  17   2  90]
+[[301  17   2  86]
  [ 61  95   0 167]
  [  0   0 194   0]
- [159  44   1 195]]
+ [159  45   1 194]]
 ```
 
 ## Trajectory Classification Breakdown
@@ -118,18 +118,18 @@ I defined trajectory classes on change relative to the median change of the same
 
 | Data Quality | Declining | Emerging | Established Hub | Stable |
 |---|---|---|---|---|
-| observed | 0.074 | 0.017 | 0.122 | 0.787 |
-| reconstructed | 0.000 | 0.076 | 0.131 | 0.792 |
-| static_only | 0.000 | 0.160 | 0.049 | 0.791 |
+| observed | 0.018 | 0.017 | 0.127 | 0.837 |
+| reconstructed | 0.010 | 0.176 | 0.119 | 0.694 |
+| static_only | 0.004 | 0.196 | 0.040 | 0.760 |
 
 ### Predicted Class Shares by Data Quality (+10)
 
 | Data Quality | Declining | Emerging | Established Hub | Stable |
 |---|---|---|---|---|
-| observed | 0.034 | 0.096 | 0.128 | 0.741 |
-| reconstructed | 0.025 | 0.025 | 0.100 | 0.850 |
-| static_only | 0.200 | 0.093 | 0.009 | 0.698 |
+| observed | 0.043 | 0.012 | 0.122 | 0.823 |
+| reconstructed | 0.024 | 0.177 | 0.120 | 0.680 |
+| static_only | 0.133 | 0.173 | 0.018 | 0.676 |
 
 I retain the multiclass classifier solely for reporting macro F1 on historical cross-validation folds. Forward forecast classes are assigned directly: any airport with forecast level of 90 or higher is an established hub. For airports below 90, emerging and declining classes are assigned using predicted change quantiles within each data quality group, requiring change of at least 2.0 points and at least 0.5 times band half-width.
 
-The multiclass classifier achieves macro F1 scores of 0.540 on Fold 1 and 0.648 on Fold 2 across the four trajectory classes.
+The multiclass classifier achieves macro F1 scores of 0.544 on Fold 1 and 0.643 on Fold 2 across the four trajectory classes.

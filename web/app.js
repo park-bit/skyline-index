@@ -488,7 +488,7 @@ function renderAboutCard(data) {
     persistence_mae: 5.282,
     damped_mae: 10.768,
     damping_factor: 0.7,
-    coverage_pct: 54.2,
+    coverage_pct: 32.3,
   };
   const constantList = Array.isArray(data.macro_held_constant)
     ? data.macro_held_constant.map((s) => s.replace(/_/g, " ")).join(", ")
