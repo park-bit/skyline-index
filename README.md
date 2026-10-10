@@ -1,3 +1,7 @@
+<p align="left">
+  <img src="web/logo.svg" width="48" height="48" alt="skyline index logo" />
+</p>
+
 # Skyline Index: Global Aviation Intelligence Map
 
 Skyline Index models the global commercial aviation network and forecasts changes in airport importance over 5-year and 10-year horizons. The project produces an annual importance percentile rank from 0 to 100 for global commercial airports, trains supervised models on historical network topology and macroeconomic shifts, and presents forward forecasts on an interactive map with an unserved route Opportunity Radar.

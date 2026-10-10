@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>skyline-index - Global Aviation Intelligence Map</title>
-  <meta name="description" content="Explore global airport opportunity and forecast network dynamics with skyline-index interactive intelligence.">
+  <title>skyline index</title>
+  <meta name="description" content="Explore global airport opportunity and forecast network dynamics with skyline index interactive intelligence.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%233dd9c5'/></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -16,21 +16,8 @@
   <!-- Top Bar -->
   <header class="app-header">
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-        </svg>
-      </div>
-      <div>
-        <div class="brand-name">skyline-index</div>
-        <div class="brand-subtitle">Global Aviation Intelligence</div>
-      </div>
-    </div>
-
-    <div class="header-center">
-      <h1 id="app-title">Global Aviation Intelligence Map</h1>
-      <p class="header-subtitle" id="horizon-heading-note">Network importance and forecast shifts</p>
+      <img src="logo.svg" alt="skyline index logo" width="30" height="30" class="brand-logo">
+      <span class="brand-name">skyline index</span>
     </div>
 
     <nav class="top-nav" aria-label="Views">
@@ -52,9 +39,25 @@
         Opportunity Radar
       </button>
     </nav>
+    <h1 id="app-title" class="sr-only">Global Aviation Intelligence Map</h1>
   </header>
 
   <div class="map-stage">
+    <!-- Ambience Overlays -->
+    <svg class="film-grain" aria-hidden="true">
+      <filter id="grain">
+        <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" stitchTiles="stitch"/>
+        <feColorMatrix type="saturate" values="0"/>
+      </filter>
+      <rect width="100%" height="100%" filter="url(#grain)"/>
+    </svg>
+    <div class="warm-glow glow-left" aria-hidden="true"></div>
+    <div class="warm-glow glow-right" aria-hidden="true"></div>
+    <svg class="ambience-arcs" aria-hidden="true" viewBox="0 0 1440 900" preserveAspectRatio="none">
+      <path d="M -100 520 Q 380 180 980 400 T 1600 280" fill="none" stroke="#F2A93B" stroke-width="1.2" stroke-dasharray="6 14" opacity="0.06"/>
+      <path d="M 0 660 Q 640 320 1280 560 T 1700 440" fill="none" stroke="#F2A93B" stroke-width="1" stroke-dasharray="8 18" opacity="0.05"/>
+    </svg>
+
     <!-- Map Canvas Container -->
     <div id="map" class="map-canvas"></div>
     <div class="map-vignette" aria-hidden="true"></div>
@@ -87,6 +90,7 @@
           <button type="button" class="horizon-option" id="btn-horizon-h5" data-horizon="h5">+5 years</button>
           <button type="button" class="horizon-option" id="btn-horizon-h10" data-horizon="h10">+10 years</button>
         </div>
+        <div class="horizon-status-chip" id="horizon-status-chip">Showing current baseline, 2025</div>
       </div>
 
       <div class="panel-block">
@@ -245,8 +249,7 @@
 
     <!-- Map bottom footer -->
     <div class="map-bottom">
-      <span>Skyline Index : Global Aviation Intelligence</span>
-      <span id="map-bottom-horizon-label">Current baseline</span>
+      <div class="map-bottom-spacer"></div>
       <button type="button" class="compare-launch" id="btn-open-compare">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><path d="M5 9v12"/><circle cx="19" cy="18" r="3"/><path d="M19 15V3"/></svg>
         Compare airports

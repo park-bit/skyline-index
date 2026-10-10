@@ -15,10 +15,10 @@ let compareAirportA = "SIN";
 let compareAirportB = "DXB";
 
 const COLOR_MAP = {
-  established_hub: "#3dd9c5",
-  emerging: "#65cf98",
-  stable: "#a3b2c5",
-  declining: "#f58f8c",
+  established_hub: "#F5B83D",
+  emerging: "#5AA9FF",
+  stable: "#7F8A99",
+  declining: "#FF6B5E",
 };
 
 async function fetchJsonWithFallback(paths) {
@@ -322,7 +322,7 @@ function drawAirportRoutes(ap) {
           [dest.latitude, dest.longitude],
         ],
         {
-          color: "#3dd9c5",
+          color: "#F2A93B",
           weight: 1.5,
           opacity: 0.45,
         }
@@ -790,7 +790,7 @@ function showCandidateOnMap(item) {
       [lat2, lon2],
     ],
     {
-      color: "#65cf98",
+      color: "#5AA9FF",
       dashArray: "6, 8",
       weight: 2.5,
       opacity: 0.9,
@@ -845,7 +845,7 @@ function renderAboutCard(data) {
   const h10Label = h10.band_label || (h10.coverage_pct < 70 ? "indicative only" : "calibrated intervals");
 
   aboutText.innerHTML = `
-    The Skyline Index evaluates global airport importance across route network centrality, annual traffic throughput, and regional market catchment.
+    The skyline index evaluates global airport importance across route network centrality, annual traffic throughput, and regional market catchment.
     Forecast methodology: ${method}.
     At horizon 10, persistence (predicting zero change) wins on test MAE (${h10.persistence_mae} versus ${h10.damped_mae} for the damped model) due to decadal mean reversion; we ship the damped model (damping factor ${h10.damping_factor}) to supply directional signals alongside baseline persistence benchmarks. Horizon 10 uncertainty bands achieve ${h10.coverage_pct} percent coverage and are labelled as ${h10Label}.
     The Opportunity Radar predicts promising unserved city pairs by combining network topology with forecast airport momentum.
@@ -861,17 +861,13 @@ function setupEventListeners() {
       e.target.classList.add("selected", "active");
       currentHorizon = e.target.getAttribute("data-horizon");
 
-      const horizonNote = document.getElementById("horizon-heading-note");
-      const bottomHorizon = document.getElementById("map-bottom-horizon-label");
+      const statusChip = document.getElementById("horizon-status-chip");
       if (currentHorizon === "present") {
-        if (horizonNote) horizonNote.textContent = "Present score and 5-year trend";
-        if (bottomHorizon) bottomHorizon.textContent = "Current baseline";
+        if (statusChip) statusChip.textContent = "Showing current baseline, 2025";
       } else if (currentHorizon === "h5") {
-        if (horizonNote) horizonNote.textContent = "+5 Years view: 2030 score";
-        if (bottomHorizon) bottomHorizon.textContent = "5-year scenario";
+        if (statusChip) statusChip.textContent = "Showing +5 years, 2030";
       } else if (currentHorizon === "h10") {
-        if (horizonNote) horizonNote.textContent = "+10 Years view: 2035 score";
-        if (bottomHorizon) bottomHorizon.textContent = "10-year scenario";
+        if (statusChip) statusChip.textContent = "Showing +10 years, 2035";
       }
 
       updateMarkerStyles();

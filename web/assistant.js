@@ -484,8 +484,8 @@ function triggerPulseRing(lat, lon) {
 
   const pulseMarker = L.circleMarker([lat, lon], {
     radius: 12,
-    color: "#3dd9c5",
-    fillColor: "#3dd9c5",
+    color: "#F2A93B",
+    fillColor: "#F2A93B",
     fillOpacity: 0.6,
     weight: 2,
     className: "skyline-pulse-ring",
