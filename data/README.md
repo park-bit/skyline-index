@@ -1,6 +1,6 @@
 # Datasets
 
-## Source summary
+## Source Summary
 
 | Source | URL | Years | Level | Licence |
 | --- | --- | --- | --- | --- |
@@ -14,18 +14,35 @@
 | IMF WEO | api.imf.org SDMX WEO | 1980 to 2031 | Country year | IMF Open access |
 | GeoNames | download.geonames.org cities15000 | Continuous (2026) | City | CC BY 4.0 |
 
-## Data notes and known gaps
+## Data Structure
+
+- `data/inputs/`: Tracked input files needed for network reconstruction (`routes.dat`, 2.27 MB).
+- `data/processed/`: Processed parquets tracked in git so the repository runs from a fresh clone without `data/raw/`:
+  - `airport_year_panel.parquet` (3.7 MB): 9,051 airports from 2000 to 2025.
+  - `model_table.parquet` (16.6 MB): Point-in-time features, importance scores, and 5-year/10-year target changes.
+  - `traffic_reconstructed.parquet` (4.0 MB): Reconstructed passenger throughput and conformal intervals.
+  - `network_reconstructed.parquet` (0.7 MB): Expected degrees and PageRank from gravity modeling.
+  - `opensky_route_pairs.parquet` (0.6 MB): ADS-B route observation pairs for out-of-time evaluation.
+  - `opensky_movements.parquet` (0.1 MB): Annual flight counts by airport.
+  - `openflights_network.parquet` (0.1 MB): Base network centrality metrics.
+  - `airport_city_features.parquet` (0.2 MB): City catchment and geographical coordinates.
+  - `core_airports.parquet` (35 KB): Reference population of active commercial airports.
+- `data/outputs/`: Generated forecast tables, fold splits, and serialized models. See `data/outputs/README.md`.
+
+## Data Notes and Known Gaps
 
 Global route network schedules by year are not publicly available for free. We use OpenFlights for baseline network topology and sample OpenSky ADS-B flights (January and July, 2019 to 2022) for pandemic period movements.
 
 Airport-level traffic is reported differently by region. US FAA numbers measure revenue passenger boardings (enplanements), while Eurostat measures total passengers carried (arrivals plus departures). These are kept in separate columns to avoid mixing metrics. Outside the US and Europe, national World Bank air passenger totals anchor traffic levels.
 
-## Processed panel
+## Full Rebuild from Raw Data
 
-Processed files are stored in data/processed/. The main dataset is airport_year_panel.parquet (about 3.6 MB), covering 9051 airports across 2000 to 2025. Because the file is well under 50 MB, it is tracked directly in the repository.
+To rebuild all processed tables from raw sources:
 
-To rebuild the dataset from scratch, run:
 ```bash
 python scripts/01_download.py
 python scripts/02_build_panel.py
+python scripts/03_build_model_table.py
 ```
+
+Then execute `training_notebook.ipynb` to run reconstruction, model training, evaluation, and forecast generation.

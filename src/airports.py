@@ -41,6 +41,16 @@ def load_openflights_airports():
 
 
 def build_airport_table():
+    raw_ourairports = RAW / "ourairports" / "airports.csv"
+    if not raw_ourairports.exists():
+        from src.config import PROCESSED
+        panel_file = PROCESSED / "airport_year_panel.parquet"
+        if panel_file.exists():
+            panel = pd.read_parquet(panel_file)
+            cols = ["iata", "icao", "name", "city", "country_code", "continent", "latitude", "longitude", "max_runway_ft"]
+            cols = [c for c in cols if c in panel.columns]
+            return panel[cols].drop_duplicates("iata").reset_index(drop=True)
+
     airports = read_ourairports("airports.csv")
     airports = airports[(airports["type"] != "closed") & airports["iata_code"].str.fullmatch(r"[A-Z]{3}", na=False)]
 

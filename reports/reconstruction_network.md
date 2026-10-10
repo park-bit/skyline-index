@@ -11,13 +11,13 @@ Negative pairs were sampled to match the distance band and endpoint size band di
 
 | Evaluation Metric | Score |
 |---|---|
-| Gravity Model AUC | 0.603 |
-| Preferential Attachment AUC | 0.665 |
-| Adamic-Adar AUC | 0.761 |
-| Combined Model ROC AUC | 0.744 |
-| Brier Score Loss | 0.0510 |
-| Precision at 100 | 0.870 |
-| Precision at 500 | 0.866 |
+| Gravity Model AUC | 0.567 |
+| Preferential Attachment AUC | 0.956 |
+| Adamic-Adar AUC | 0.940 |
+| Combined Model ROC AUC | 0.984 |
+| Brier Score Loss | 0.0495 |
+| Precision at 100 | 0.980 |
+| Precision at 500 | 0.992 |
 
 ## Out-of-Time Validation (OpenSky 2019 to 2022)
 
@@ -26,8 +26,8 @@ Candidate evaluation was restricted to city pairs unserved in 2014 with at least
 
 | Evaluation Metric | Model Score | Baseline Comparison |
 |---|---|---|
-| Out-of-Time AUC | 0.959 | 0.500 (Random Guessing) |
-| Top 500 OpenSky Appearance Share | 0.084 | 0.017 (Random Unserved Pairs) |
+| Out-of-Time AUC | 0.967 | 0.500 (Random Guessing) |
+| Top 500 OpenSky Appearance Share | 0.098 | 0.017 (Random Unserved Pairs) |
 | Precision at 100 | 0.250 | 0.000 (Persistence Baseline) |
 
 The persistence baseline assigns zero probability to every unserved pair, failing to identify newly emerging routes.

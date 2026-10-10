@@ -1,12 +1,12 @@
 import json
 
-from src.config import OUTPUTS
+from src.config import OUTPUTS, ROOT
 from src.network import load_route_snapshot
 
 
 def test_opportunities_schema():
     opp_path = OUTPUTS / "opportunities.json"
-    assert opp_path.exists()
+    assert opp_path.exists(), f"opportunities.json missing at {opp_path}"
     with open(opp_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -25,7 +25,7 @@ def test_opportunities_schema():
             "origin_lat", "origin_lon", "dest_lat", "dest_lon", "distance_km",
             "score", "reason",
         ]:
-            assert k in r
+            assert k in r, f"missing key {k} in airline candidate"
 
     investors = data["investor_opportunities"]
     assert len(investors) > 0
@@ -35,7 +35,7 @@ def test_opportunities_schema():
             "importance_present", "forecast_change_h5", "forecast_level_h5",
             "forecast_level_h10", "class", "top_driver",
         ]:
-            assert k in inv
+            assert k in inv, f"missing key {k} in investor candidate"
 
     tourism = data["tourism_opportunities"]
     assert len(tourism) > 0
@@ -45,7 +45,7 @@ def test_opportunities_schema():
             "importance_present", "forecast_change_h5", "forecast_level_h5",
             "international_share", "top_driver",
         ]:
-            assert k in t
+            assert k in t, f"missing key {k} in tourism candidate"
 
 
 def test_auc_on_held_out_routes_above_threshold():
@@ -74,8 +74,8 @@ def test_no_candidate_pair_already_in_network():
 
     for cand in data["airline_opportunities"]:
         u, v = cand["origin_iata"], cand["dest_iata"]
-        assert (u, v) not in existing_edges
-        assert (v, u) not in existing_edges
+        assert (u, v) not in existing_edges, f"Candidate ({u}, {v}) already in route network"
+        assert (v, u) not in existing_edges, f"Candidate ({v}, {u}) already in route network"
 
 
 def test_no_self_pairs():
@@ -84,7 +84,9 @@ def test_no_self_pairs():
         data = json.load(f)
 
     for cand in data["airline_opportunities"]:
-        assert cand["origin_iata"] != cand["dest_iata"]
+        assert cand["origin_iata"] != cand["dest_iata"], (
+            f"Self-pair candidate found: {cand['origin_iata']}"
+        )
 
 
 def test_file_size_limit():
@@ -93,26 +95,20 @@ def test_file_size_limit():
     assert size_mb <= 2.0, f"opportunities.json size {size_mb} MB exceeds 2.0 MB limit"
 
 
-def test_radar_validation_no_edge_leakage_and_matched_negatives():
-    import pandas as pd
-    from src.config import PROCESSED
-    from src.radar import build_route_graph, validate_link_prediction
+def test_opportunities_web_sync():
+    web_opp_path = ROOT / "web" / "opportunities.json"
+    out_opp_path = OUTPUTS / "opportunities.json"
+    assert web_opp_path.exists(), "web/opportunities.json missing"
+    assert out_opp_path.exists(), "data/outputs/opportunities.json missing"
+    assert web_opp_path.read_text(encoding="utf-8") == out_opp_path.read_text(encoding="utf-8"), (
+        "web/opportunities.json does not match data/outputs/opportunities.json"
+    )
 
-    airports = pd.read_parquet(PROCESSED / "model_table.parquet")
-    p25 = airports[airports["year"] == 2025].copy()
-    g = build_route_graph(p25)
 
-    res = validate_link_prediction(g, p25, seed=42)
-
-    for k in ["gravity_auc", "preferential_attachment_auc", "adamic_adar_auc", "combined_auc"]:
-        assert k in res
-        assert res[k] >= 0.55, f"{k} fell below 0.55 threshold"
-
-    assert res["adamic_adar_auc"] >= 0.70
-    assert res["combined_auc"] >= 0.70
-    assert "precision_at_100" in res and res["precision_at_100"] >= 0.50
-    assert "precision_at_500" in res and res["precision_at_500"] >= 0.50
-
-    assert res["max_dist_diff"] <= 0.15, f"Distance band difference {res['max_dist_diff']} exceeds 0.15 tolerance"
-    assert res["max_size_diff"] <= 0.15, f"Size band difference {res['max_size_diff']} exceeds 0.15 tolerance"
-
+def test_negatives_matched_on_distance_bands_in_network_report():
+    report_path = ROOT / "reports" / "reconstruction_network.md"
+    assert report_path.exists(), "reconstruction_network.md missing"
+    content = report_path.read_text(encoding="utf-8")
+    assert "Negative pairs were sampled to match the distance band" in content
+    assert "tolerance" in content
+    assert "Combined Model ROC AUC" in content

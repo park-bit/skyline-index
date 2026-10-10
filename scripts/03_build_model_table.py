@@ -15,4 +15,7 @@ if __name__ == "__main__":
     print(f"total rows: {len(table)}")
     for h in [5, 10]:
         v = table[table[f"target_level_h{h}"].notna() & ~table[f"is_covid_target_h{h}"]]
-        print(f"h={h}: {len(v)} valid non-covid rows across {v['year'].nunique()} origin years ({v['year'].min()} to {v['year'].max()})")
+        print(
+            f"h={h}: {len(v)} valid non-covid rows across {v['year'].nunique()} origin years "
+            f"({v['year'].min()} to {v['year'].max()})"
+        )

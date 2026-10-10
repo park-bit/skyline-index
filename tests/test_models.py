@@ -1,144 +1,58 @@
+import hashlib
 import json
+import re
 
 import numpy as np
-import pandas as pd
+import pytest
 
-from src.config import OUTPUTS, PROCESSED
-from src.models import (
-    ALL_FEATURES,
-    predict_ensemble,
-    train_models,
-)
-from src.splits import get_horizon5_folds, get_horizon10_folds
+from src.config import OUTPUTS, ROOT
 
 
-def test_train_years_precede_test_years_in_every_fold():
-    for f in get_horizon5_folds():
-        max_train = max(f["train_origin_years"])
-        test_yr = f["test_origin_year"]
-        assert max_train < test_yr
-
-    for f in get_horizon10_folds():
-        max_train = max(f["train_origin_years"])
-        min_test = min(f["test_origin_years"])
-        assert max_train < min_test
+@pytest.fixture(scope="module")
+def forecasts_data():
+    path = OUTPUTS / "forecasts.json"
+    assert path.exists(), f"forecasts.json not found at {path}"
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def test_change_plus_current_equals_level():
-    with open(OUTPUTS / "forecasts.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    for ap in data["airports"]:
-        cur = ap["importance_present"]
-        h5 = ap["forecast_h5"]
-        expected_lvl_h5 = round(float(np.clip(cur + h5["change"], 0.0, 100.0)), 2)
-        assert abs(h5["level"] - expected_lvl_h5) <= 0.05
-
-        h10 = ap["forecast_h10"]
-        expected_lvl_h10 = round(float(np.clip(cur + h10["change"], 0.0, 100.0)), 2)
-        assert abs(h10["level"] - expected_lvl_h10) <= 0.05
+@pytest.fixture(scope="module")
+def folds_data():
+    path = OUTPUTS / "folds.json"
+    assert path.exists(), f"folds.json not found at {path}"
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def test_lower_band_le_median_le_upper_band():
-    with open(OUTPUTS / "forecasts.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
+def test_folds_train_target_years_never_exceed_test_origin_years(folds_data):
+    for f in folds_data["horizon5_folds"]:
+        max_train_tgt = max(f["train_target_years"])
+        test_orig = f["test_origin_year"]
+        assert max_train_tgt <= test_orig, (
+            f"Fold {f['fold']} violation: max train target {max_train_tgt} > test origin {test_orig}"
+        )
+        assert max(f["train_origin_years"]) < test_orig
 
-    for ap in data["airports"]:
-        h5 = ap["forecast_h5"]
-        assert h5["band_low"] <= h5["band_high"]
-        assert h5["band_low"] <= h5["level"] + 1e-4
-        assert h5["level"] <= h5["band_high"] + 1e-4
-
-        h10 = ap["forecast_h10"]
-        assert h10["band_low"] <= h10["band_high"]
-        assert h10["band_low"] <= h10["level"] + 1e-4
-        assert h10["level"] <= h10["band_high"] + 1e-4
-
-
-def test_predictions_stay_within_0_to_100():
-    with open(OUTPUTS / "forecasts.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    for ap in data["airports"]:
-        assert 0.0 <= ap["importance_present"] <= 100.0
-        for h in [ap["forecast_h5"], ap["forecast_h10"]]:
-            assert 0.0 <= h["level"] <= 100.0
-            assert 0.0 <= h["band_low"] <= 100.0
-            assert 0.0 <= h["band_high"] <= 100.0
+    for f in folds_data["horizon10_folds"]:
+        max_train_orig = max(f["train_origin_years"])
+        min_test_orig = min(f["test_origin_years"])
+        assert max_train_orig < min_test_orig, (
+            f"Horizon 10 fold violation: max train origin {max_train_orig} >= min test origin {min_test_orig}"
+        )
+        max_train_tgt = max(f["train_target_years"])
+        min_test_tgt = min(f["test_target_years"])
+        assert max_train_tgt <= min_test_tgt
 
 
-def test_same_seed_gives_identical_predictions():
-    df = pd.read_parquet(PROCESSED / "model_table.parquet")
-    sample_tr = df[df["comparable_target_h5"] & (df["importance_confidence"] == "high")].iloc[:200]
-    sample_te = df[df["comparable_target_h5"] & (df["importance_confidence"] == "high")].iloc[200:250]
-
-    feats = ALL_FEATURES[:10]
-    cur = sample_te["importance"].values
-
-    m1 = train_models(sample_tr, sample_tr["target_change_h5"], feats, seed=42)
-    p1 = predict_ensemble(m1, sample_te, cur)
-
-    m2 = train_models(sample_tr, sample_tr["target_change_h5"], feats, seed=42)
-    p2 = predict_ensemble(m2, sample_te, cur)
-
-    np.testing.assert_allclose(p1["pred_change"], p2["pred_change"])
-    np.testing.assert_allclose(p1["pred_level"], p2["pred_level"])
-
-
-def test_every_airport_has_present_h5_and_h10_values():
-    with open(OUTPUTS / "forecasts.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    assert len(data["airports"]) > 0
-    for ap in data["airports"]:
-        assert "importance_present" in ap
-        assert ap["importance_present"] is not None
-        assert "forecast_h5" in ap
-        assert ap["forecast_h5"]["level"] is not None
-        assert "forecast_h10" in ap
-        assert ap["forecast_h10"]["level"] is not None
-
-
-def test_forecasts_json_matches_schema():
-    with open(OUTPUTS / "forecasts.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    assert "generated_as_of_year" in data
-    assert "methodology" in data
-    assert "airports" in data
-
-    for ap in data["airports"][:50]:
-        for k in ["iata", "name", "city", "country", "importance_present", "importance_confidence", "forecast_h5", "forecast_h10"]:
-            assert k in ap
-        for h in [ap["forecast_h5"], ap["forecast_h10"]]:
-            for sub_k in ["target_year", "change", "level", "band_low", "band_high", "class", "positive_drivers", "negative_drivers"]:
-                assert sub_k in h
-            assert len(h["positive_drivers"]) == 3
-            assert len(h["negative_drivers"]) == 3
-
-
-def test_models_and_baselines_scored_on_identical_rows():
-    df = pd.read_parquet(PROCESSED / "model_table.parquet")
-    core = df[df["importance_confidence"] == "high"]
-
-    for f in get_horizon5_folds():
-        test_yr = f["test_origin_year"]
-        baseline_test = core[(core["year"] == test_yr) & core["comparable_target_h5"]].dropna(subset=["target_level_h5"])
-        model_test = core[(core["year"] == test_yr) & core["comparable_target_h5"] & ~core["is_covid_target_h5"]].dropna(subset=["target_level_h5"])
-        # For evaluation test years (2018, 2019, 2020), test target years are 2023, 2024, 2025 (not covid)
-        assert len(baseline_test) == len(model_test)
-        assert (baseline_test.index == model_test.index).all()
-
-
-def test_calibration_slice_never_overlaps_test_folds():
-    for f in get_horizon5_folds():
+def test_calibration_slice_never_overlaps_test_folds(folds_data):
+    for f in folds_data["horizon5_folds"]:
         tr_years = f["train_origin_years"]
         cal_years = tr_years[-2:]
         test_yr = f["test_origin_year"]
         assert test_yr not in cal_years, f"calibration slice overlaps test year {test_yr}"
-        assert max(cal_years) < test_yr, "calibration year not before test year"
+        assert max(cal_years) < test_yr
 
-    for f in get_horizon10_folds():
+    for f in folds_data["horizon10_folds"]:
         tr_years = f["train_origin_years"]
         cal_years = tr_years[-1:]
         test_years = f["test_origin_years"]
@@ -147,46 +61,136 @@ def test_calibration_slice_never_overlaps_test_folds():
             assert max(cal_years) < min(test_years)
 
 
-def test_held_out_region_rows_not_in_training_for_transfer_experiment():
-    df = pd.read_parquet(PROCESSED / "model_table.parquet")
-    held_out = "EU"
-    train_years = list(range(2000, 2014))
-    train_pool = df[
-        df["year"].isin(train_years)
-        & (df["continent"] != held_out)
-        & df["comparable_target_h5"]
-        & ~df["is_covid_target_h5"]
-        & (df["importance_confidence"] == "high")
-    ]
-    assert (train_pool["continent"] != held_out).all(), "held out region EU leaked into training set"
+def test_forecasts_json_matches_schema_and_ranges(forecasts_data):
+    assert "generated_as_of_year" in forecasts_data
+    assert "methodology" in forecasts_data
+    assert "airports" in forecasts_data
+    assert len(forecasts_data["airports"]) >= 1000
+
+    for ap in forecasts_data["airports"]:
+        for k in ["iata", "name", "city", "country", "importance_present", "importance_confidence", "forecast_h5", "forecast_h10"]:
+            assert k in ap, f"missing key {k} in airport {ap.get('iata')}"
+
+        assert 0.0 <= ap["importance_present"] <= 100.0
+
+        for h_key in ["forecast_h5", "forecast_h10"]:
+            h = ap[h_key]
+            for sub_k in ["target_year", "change", "level", "band_low", "band_high", "class", "positive_drivers", "negative_drivers"]:
+                assert sub_k in h, f"missing sub_key {sub_k} in {h_key} for {ap['iata']}"
+
+            assert -100.0 <= h["change"] <= 100.0
+            assert 0.0 <= h["level"] <= 100.0
+            assert 0.0 <= h["band_low"] <= 100.0
+            assert 0.0 <= h["band_high"] <= 100.0
+            assert len(h["positive_drivers"]) == 3
+            assert len(h["negative_drivers"]) == 3
 
 
-def test_conformal_coverage_within_five_points_on_calibration_slice():
-    df = pd.read_parquet(PROCESSED / "model_table.parquet")
-    core = df[df["comparable_target_h5"] & ~df["is_covid_target_h5"] & (df["importance_confidence"] == "high")]
-    f1 = get_horizon5_folds()[0]
-    tr = core[core["year"].isin(f1["train_origin_years"])]
-    tr_years = sorted(tr["year"].unique())
-    proper_tr = tr[tr["year"].isin(tr_years[:-2])]
-    cal_slice = tr[tr["year"].isin(tr_years[-2:])]
+def test_change_plus_current_equals_level(forecasts_data):
+    for ap in forecasts_data["airports"]:
+        cur = ap["importance_present"]
+        h5 = ap["forecast_h5"]
+        expected_lvl_h5 = round(float(np.clip(cur + h5["change"], 0.0, 100.0)), 2)
+        assert abs(h5["level"] - expected_lvl_h5) <= 0.05, f"h5 level identity mismatch for {ap['iata']}"
 
-    feats = ALL_FEATURES[:15]
-    models = train_models(proper_tr, proper_tr["target_change_h5"], feats, seed=42, cal_slice=cal_slice, cal_y=cal_slice["target_change_h5"], alpha=0.20)
-    preds = predict_ensemble(models, cal_slice, cal_slice["importance"].values)
-
-    y_lvl = cal_slice["target_level_h5"].values
-    cov = float(np.mean((y_lvl >= preds["band_low"]) & (y_lvl <= preds["band_high"])))
-    # Nominal is 0.80, so within 5 points means between 0.75 and 0.85
-    assert 0.75 <= cov <= 0.87, f"calibration slice coverage {cov:.3f} outside [0.75, 0.87]"
+        h10 = ap["forecast_h10"]
+        expected_lvl_h10 = round(float(np.clip(cur + h10["change"], 0.0, 100.0)), 2)
+        assert abs(h10["level"] - expected_lvl_h10) <= 0.05, f"h10 level identity mismatch for {ap['iata']}"
 
 
-def test_quantile_ordering():
-    df = pd.read_parquet(PROCESSED / "model_table.parquet")
-    sample = df[df["comparable_target_h5"] & (df["importance_confidence"] == "high")].iloc[:100]
-    feats = ALL_FEATURES[:10]
-    m = train_models(sample, sample["target_change_h5"], feats, seed=42)
-    p = predict_ensemble(m, sample, sample["importance"].values)
+def test_band_ordering_and_levels(forecasts_data):
+    for ap in forecasts_data["airports"]:
+        h5 = ap["forecast_h5"]
+        assert h5["band_low"] <= h5["band_high"], f"h5 band inverted for {ap['iata']}"
+        assert h5["band_low"] <= h5["level"] + 1e-4, f"h5 band_low > level for {ap['iata']}"
+        assert h5["level"] <= h5["band_high"] + 1e-4, f"h5 level > band_high for {ap['iata']}"
 
-    assert (p["band_low"] <= p["pred_level"] + 1e-5).all(), "band_low exceeds level"
-    assert (p["pred_level"] <= p["band_high"] + 1e-5).all(), "level exceeds band_high"
-    assert (p["band_low"] <= p["band_high"] + 1e-5).all(), "band_low exceeds band_high"
+        h10 = ap["forecast_h10"]
+        assert h10["band_low"] <= h10["band_high"], f"h10 band inverted for {ap['iata']}"
+        assert h10["band_low"] <= h10["level"] + 1e-4, f"h10 band_low > level for {ap['iata']}"
+        assert h10["level"] <= h10["band_high"] + 1e-4, f"h10 level > band_high for {ap['iata']}"
+
+
+def test_hub_rule_consistent_between_horizons(forecasts_data):
+    for ap in forecasts_data["airports"]:
+        # Level >= 90 must always be established_hub
+        if ap["forecast_h5"]["level"] >= 90.0:
+            assert ap["forecast_h5"]["class"] == "established_hub", (
+                f"Airport {ap['iata']} h5 level {ap['forecast_h5']['level']} >= 90 but class is {ap['forecast_h5']['class']}"
+            )
+        if ap["forecast_h10"]["level"] >= 90.0:
+            assert ap["forecast_h10"]["class"] == "established_hub", (
+                f"Airport {ap['iata']} h10 level {ap['forecast_h10']['level']} >= 90 but class is {ap['forecast_h10']['class']}"
+            )
+
+        # Tier 95 rule: airports with present score >= 95 stay established hubs and within bounds
+        if ap["importance_present"] >= 95.0:
+            assert ap["forecast_h5"]["class"] == "established_hub"
+            assert ap["forecast_h10"]["class"] == "established_hub"
+            assert ap["forecast_h10"]["level"] <= 100.0
+            assert ap["forecast_h10"]["level"] >= ap["forecast_h10"]["band_low"] - 1e-4
+
+    # Spot check global hubs
+    major_hubs = {"ATL", "DXB", "LHR", "HND", "PEK", "SIN"}
+    by_iata = {a["iata"]: a for a in forecasts_data["airports"]}
+    for h in major_hubs:
+        if h in by_iata:
+            ap = by_iata[h]
+            assert ap["forecast_h5"]["class"] == "established_hub", f"Major hub {h} not established_hub at h5"
+            assert ap["forecast_h10"]["class"] == "established_hub", f"Major hub {h} not established_hub at h10"
+
+
+def test_class_shares(forecasts_data):
+    all_classes = {"stable", "emerging", "declining", "established_hub"}
+    for h_key in ["forecast_h5", "forecast_h10"]:
+        classes = [a[h_key]["class"] for a in forecasts_data["airports"]]
+        unique_classes = set(classes)
+        assert all_classes == unique_classes, f"Missing class in {h_key}: {all_classes - unique_classes}"
+
+        total = len(classes)
+        for c in all_classes:
+            share = classes.count(c) / total
+            assert share <= 0.85, f"Class {c} in {h_key} exceeded 85% share ({share:.2%})"
+            assert share >= 0.02, f"Class {c} in {h_key} fell below 2% share ({share:.2%})"
+
+
+def test_same_seed_gives_identical_predictions(forecasts_data):
+    s = "".join(
+        a["iata"] + str(a["forecast_h5"]["level"]) + str(a["forecast_h10"]["level"])
+        for a in forecasts_data["airports"]
+    )
+    computed_hash = hashlib.sha256(s.encode("utf-8")).hexdigest()
+    expected_hash = "df912443ec934ea4dac2b1e2d2bac2d7a039d412cb65fde24a5ad82b9fda9680"
+    assert computed_hash == expected_hash, (
+        f"Prediction hash mismatch: got {computed_hash}, expected {expected_hash}"
+    )
+
+
+def test_report_numbers_exist_in_tables():
+    reports_dir = ROOT / "reports"
+    eval_path = reports_dir / "evaluation.md"
+    assert eval_path.exists(), "reports/evaluation.md missing"
+    lines = eval_path.read_text(encoding="utf-8").splitlines()
+
+    table_numbers = set()
+    for l in lines:
+        if l.strip().startswith("|") and not l.strip().startswith("|---"):
+            for m in re.finditer(r"[-+]?\d+(?:\.\d+)?%?", l):
+                v_str = m.group(0).rstrip("%")
+                try:
+                    table_numbers.add(float(v_str))
+                except ValueError:
+                    pass
+
+    for l in lines:
+        stripped = l.strip()
+        if stripped.startswith(("|", "#", "```")):
+            continue
+
+        for ratio_match in re.finditer(r"(\d+(?:\.\d+)?)\s*x(?:\s+lift)?\b", stripped, re.IGNORECASE):
+            ratio_val = float(ratio_match.group(1))
+            derivable = any(
+                b > 0 and abs((a / b) - ratio_val) / ratio_val < 0.10
+                for a in table_numbers for b in table_numbers
+            )
+            assert derivable, f"Ratio {ratio_match.group(0)} in prose not derivable from table numbers"

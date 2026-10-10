@@ -71,7 +71,7 @@ def test_browser_smoke_test_with_playwright():
         with sync_playwright() as p:
             try:
                 browser = p.chromium.launch(headless=True)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 pytest.skip(f"Playwright browser not installed: {e}")
             page = browser.new_page()
 
@@ -148,14 +148,10 @@ def test_reports_contain_no_unsupported_numbers_or_ranges():
 
         table_numbers = set()
         for l in lines:
-            if l.strip().startswith("|") and not l.strip().startswith("|---"):
-                for m in re.finditer(r"[-+]?\d+(?:\.\d+)?%?", l):
-                    v_str = m.group(0).rstrip("%")
-                    try:
-                        table_numbers.add(float(v_str))
-                    except ValueError:
-                        pass
-            elif l.strip().startswith("- ") or l.strip().startswith("Damped ") or "ratio is" in l or "median of" in l:
+            stripped_l = l.strip()
+            if (stripped_l.startswith("|") and not stripped_l.startswith("|---")) or (
+                stripped_l.startswith(("- ", "Damped ")) or "ratio is" in l or "median of" in l
+            ):
                 for m in re.finditer(r"[-+]?\d+(?:\.\d+)?%?", l):
                     v_str = m.group(0).rstrip("%")
                     try:
@@ -165,7 +161,7 @@ def test_reports_contain_no_unsupported_numbers_or_ranges():
 
         for l in lines:
             stripped = l.strip()
-            if stripped.startswith("|") or stripped.startswith("#") or stripped.startswith("```"):
+            if stripped.startswith(("|", "#", "```")):
                 continue
 
             for ratio_match in re.finditer(r"(\d+(?:\.\d+)?)\s*x(?:\s+lift)?\b", stripped, re.IGNORECASE):
@@ -197,9 +193,8 @@ def test_reports_contain_no_unsupported_numbers_or_ranges():
 
                 if v1 >= 1900 and v2 >= 1900 and "." not in s1 and "." not in s2:
                     continue
-                if "." not in s1 and "." not in s2 and "%" not in s1 and "%" not in s2:
-                    if v1 < 10 and v2 < 10:
-                        continue
+                if "." not in s1 and "." not in s2 and "%" not in s1 and "%" not in s2 and v1 < 10 and v2 < 10:
+                    continue
 
                 v1_in = any(abs(v1 - t) < 1e-3 or abs(v1 - t * 100) < 1e-3 for t in table_numbers)
                 v2_in = any(abs(v2 - t) < 1e-3 or abs(v2 - t * 100) < 1e-3 for t in table_numbers)

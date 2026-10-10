@@ -7,35 +7,35 @@ Performance is measured by mean absolute error on level and change, rank correla
 
 ## Index Time Variation Summary (Core Set)
 
-- Standard deviation of 5-year change: 7.016 percentile points
-- Pearson correlation between importance at t and t+5: 0.9710
-- Spearman rank correlation between importance at t and t+5: 0.9716
+- Standard deviation of 5-year change: 6.539 percentile points
+- Pearson correlation between importance at t and t+5: 0.9806
+- Spearman rank correlation between importance at t and t+5: 0.9750
 
 ## Performance Summary Table: Core Set (Comparable Observations)
 
 | Horizon | Fold | Test Year | Baseline | Airports | MAE Level | MAE Change | Spearman | Risers Prec | Risers Rec | Fallers Prec | Fallers Rec |
 |---------|------|-----------|----------|----------|-----------|------------|----------|-------------|------------|--------------|-------------|
-| h=5     | 1    | 2018      | persistence  |     1553 |     7.213 |      7.213 |   0.8950 |       0.122 |      0.122 |        0.058 |       0.058 |
-| h=5     | 1    | 2018      | linear_trend |     1553 |     7.890 |      7.890 |   0.8884 |       0.045 |      0.045 |        0.019 |       0.019 |
-| h=5     | 2    | 2019      | persistence  |     1151 |     5.734 |      5.734 |   0.9166 |       0.147 |      0.147 |        0.052 |       0.052 |
-| h=5     | 2    | 2019      | linear_trend |     1151 |     7.822 |      7.822 |   0.9074 |       0.103 |      0.103 |        0.069 |       0.069 |
-| h=5     | 3    | 2020      | persistence  |     1135 |     6.329 |      6.329 |   0.9140 |       0.140 |      0.140 |        0.026 |       0.026 |
-| h=5     | 3    | 2020      | linear_trend |     1135 |    10.540 |     10.540 |   0.8714 |       0.026 |      0.026 |        0.053 |       0.053 |
-| h=10    | 1    | 2013-2015 | persistence  |     4571 |     7.461 |      7.461 |   0.8975 |       0.124 |      0.124 |        0.052 |       0.052 |
-| h=10    | 1    | 2013-2015 | linear_trend |     4571 |    11.420 |     11.420 |   0.8485 |       0.072 |      0.072 |        0.028 |       0.028 |
+| h=5     | 1    | 2018      | persistence  |     1479 |     4.538 |      4.538 |   0.9721 |       0.088 |      0.088 |        0.054 |       0.054 |
+| h=5     | 1    | 2018      | linear_trend |     1479 |     5.484 |      5.484 |   0.9538 |       0.128 |      0.128 |        0.122 |       0.122 |
+| h=5     | 2    | 2019      | persistence  |     1416 |     3.481 |      3.481 |   0.9851 |       0.106 |      0.106 |        0.077 |       0.077 |
+| h=5     | 2    | 2019      | linear_trend |     1416 |     7.653 |      7.653 |   0.9613 |       0.092 |      0.092 |        0.077 |       0.077 |
+| h=5     | 3    | 2020      | persistence  |     1322 |     3.871 |      3.871 |   0.9810 |       0.098 |      0.098 |        0.060 |       0.060 |
+| h=5     | 3    | 2020      | linear_trend |     1322 |     8.848 |      8.848 |   0.9435 |       0.090 |      0.090 |        0.038 |       0.038 |
+| h=10    | 1    | 2013-2015 | persistence  |     4123 |     5.282 |      5.282 |   0.9576 |       0.097 |      0.097 |        0.075 |       0.075 |
+| h=10    | 1    | 2013-2015 | linear_trend |     4123 |     9.902 |      9.902 |   0.9008 |       0.169 |      0.169 |        0.133 |       0.133 |
 
 ## Performance Summary Table: All Airports (Comparable Observations)
 
 | Horizon | Fold | Test Year | Baseline | Airports | MAE Level | MAE Change | Spearman | Risers Prec | Risers Rec | Fallers Prec | Fallers Rec |
 |---------|------|-----------|----------|----------|-----------|------------|----------|-------------|------------|--------------|-------------|
-| h=5     | 1    | 2018      | persistence  |     8965 |     3.924 |      3.924 |   0.9768 |       0.103 |      0.103 |        0.071 |       0.071 |
-| h=5     | 1    | 2018      | linear_trend |     8965 |     4.852 |      4.852 |   0.9684 |       0.132 |      0.132 |        0.036 |       0.036 |
-| h=5     | 2    | 2019      | persistence  |     8503 |     4.965 |      4.965 |   0.9681 |       0.122 |      0.122 |        0.103 |       0.103 |
-| h=5     | 2    | 2019      | linear_trend |     8503 |     6.184 |      6.184 |   0.9552 |       0.060 |      0.060 |        0.019 |       0.019 |
-| h=5     | 3    | 2020      | persistence  |     8413 |     5.004 |      5.004 |   0.9656 |       0.141 |      0.141 |        0.088 |       0.088 |
-| h=5     | 3    | 2020      | linear_trend |     8413 |     7.442 |      7.442 |   0.9372 |       0.014 |      0.014 |        0.015 |       0.015 |
-| h=10    | 1    | 2013-2015 | persistence  |    26596 |     5.398 |      5.398 |   0.9652 |       0.123 |      0.123 |        0.086 |       0.086 |
-| h=10    | 1    | 2013-2015 | linear_trend |    26596 |     6.737 |      6.737 |   0.9352 |       0.148 |      0.148 |        0.028 |       0.028 |
+| h=5     | 1    | 2018      | persistence  |     8548 |     3.940 |      3.940 |   0.9795 |       0.097 |      0.097 |        0.092 |       0.092 |
+| h=5     | 1    | 2018      | linear_trend |     8548 |     6.008 |      6.008 |   0.9587 |       0.085 |      0.085 |        0.112 |       0.112 |
+| h=5     | 2    | 2019      | persistence  |     8165 |     4.199 |      4.199 |   0.9758 |       0.120 |      0.120 |        0.080 |       0.080 |
+| h=5     | 2    | 2019      | linear_trend |     8165 |     8.538 |      8.538 |   0.9464 |       0.038 |      0.038 |        0.075 |       0.075 |
+| h=5     | 3    | 2020      | persistence  |     8185 |     4.478 |      4.478 |   0.9688 |       0.128 |      0.128 |        0.090 |       0.090 |
+| h=5     | 3    | 2020      | linear_trend |     8185 |     9.128 |      9.128 |   0.9251 |       0.027 |      0.027 |        0.016 |       0.016 |
+| h=10    | 1    | 2013-2015 | persistence  |    25329 |     4.972 |      4.972 |   0.9586 |       0.107 |      0.107 |        0.095 |       0.095 |
+| h=10    | 1    | 2013-2015 | linear_trend |    25329 |    11.192 |     11.192 |   0.8994 |       0.070 |      0.070 |        0.086 |       0.086 |
 
 The persistence baseline achieves lower absolute error than linear extrapolation because mean reversion dominates short-term airport momentum.
 Linear trend captures directional shifts for actual risers and fallers better than random selection.

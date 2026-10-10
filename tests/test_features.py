@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.config import PROCESSED
-from src.splits import get_horizon5_folds, get_horizon10_folds
+from src.config import OUTPUTS, PROCESSED
 
 
 @pytest.fixture(scope="module")
@@ -50,14 +49,21 @@ def test_all_four_classes_present_and_none_above_share_limit(model_table):
 
 
 def test_fold_bounds_and_overlap_specifications():
-    for f in get_horizon5_folds():
+    import json
+
+    folds_path = OUTPUTS / "folds.json"
+    assert folds_path.exists(), "folds.json not found"
+    with open(folds_path, "r", encoding="utf-8") as f:
+        folds = json.load(f)
+
+    for f in folds["horizon5_folds"]:
         max_train_tgt = max(f["train_target_years"])
         test_orig = f["test_origin_year"]
         assert max_train_tgt <= test_orig, (
             f"Fold {f['fold']} violation: train target {max_train_tgt} > test origin {test_orig}"
         )
 
-    h10_folds = get_horizon10_folds()
+    h10_folds = folds["horizon10_folds"]
     assert len(h10_folds) == 1
     f10 = h10_folds[0]
     assert f10["calendar_overlap_years"] == [2013, 2014], (

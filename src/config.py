@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw"
+INPUTS = ROOT / "data" / "inputs"
 PROCESSED = ROOT / "data" / "processed"
 OUTPUTS = ROOT / "data" / "outputs"
 REPORTS = ROOT / "reports"
@@ -9,7 +10,7 @@ REPORTS = ROOT / "reports"
 FIRST_YEAR = 2000
 LAST_YEAR = 2025
 OPENFLIGHTS_YEAR = 2014
-ROUTE_SNAPSHOT_FILE = RAW / "openflights" / "routes.dat"
+ROUTE_SNAPSHOT_FILE = INPUTS / "routes.dat" if (INPUTS / "routes.dat").exists() else (RAW / "openflights" / "routes.dat")
 
 WEIGHT_NETWORK = 0.47
 WEIGHT_TRAFFIC = 0.48

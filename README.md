@@ -6,10 +6,38 @@ The interactive map displays 4,079 commercial airports. Out of 9,051 total airpo
 
 ![Global Aviation Intelligence Map](docs/map.png)
 
+Find more details at the project map demo: https://skyline-index-web.vercel.app/
 
+## Project Structure
 
-
-find more [here](https://skyline-index-web.vercel.app/)
+```text
+AviationProject/
+├── training_notebook.ipynb       # End-to-end training, reconstruction, evaluation, and forecasting
+├── run_all.py                    # Pipeline runner executing data prep, notebook, and tests
+├── Makefile                      # Standard build automation targets
+├── requirements.txt              # Pinned Python package dependencies
+├── data/
+│   ├── inputs/                   # Tracked route topology inputs (routes.dat)
+│   ├── processed/                # Tracked panel parquets (runs from fresh clone without raw data)
+│   └── outputs/                  # Forecasts, opportunities, folds, and serialized models
+├── scripts/
+│   ├── 01_download.py            # Download public raw sources
+│   ├── 02_build_panel.py         # Clean and join sources into 2000-2025 airport-year panel
+│   └── 03_build_model_table.py   # Single entry point building point-in-time model table
+├── src/
+│   ├── airports.py               # Airport metadata and geographic calculations
+│   ├── config.py                 # Project paths, weights, and configuration constants
+│   ├── features.py               # Feature definitions and lag transformations
+│   ├── importance.py             # Composite importance index calculation and sensitivity
+│   ├── macro.py                  # World Bank and IMF economic indicators loader
+│   ├── network.py                # Route graph loader and topological network metrics
+│   ├── panel.py                  # Airport-year panel assembly and data quality labels
+│   ├── targets.py                # Target construction and model table generation
+│   └── traffic.py                # FAA and Eurostat observed passenger loaders
+├── reports/                      # Evaluation, ablation, baselines, and reconstruction reports
+├── web/                          # Frontend map application, styles, and opportunity views
+└── tests/                        # Artifact verification, schema checks, and notebook execution test
+```
 
 ## Why Importance is Not Only Passenger Volume
 
@@ -19,9 +47,9 @@ In this project, I define airport importance as a composite measure that combine
 
 ## Probabilistic Reconstruction of Missing Data
 
-Official airport passenger time series are concentrated in the United States (FAA) and Europe (Eurostat). Most other nations do not publish open annual airport-level passenger counts. Rather than restricting analysis to Western hubs or treating missing values as zeros, I reconstruct missing historical traffic and network topology probabilistically.
+Official airport passenger time series are concentrated in the United States (FAA) and Europe (Eurostat). Most other nations do not publish open annual airport-level passenger counts. Rather than restricting analysis to Western hubs or treating missing values as zeros, I reconstruct missing historical traffic and network topology probabilistically in `training_notebook.ipynb`.
 
-### 1. Airport Traffic Reconstruction (src/reconstruct_traffic.py)
+### 1. Airport Traffic Reconstruction
 
 - National passenger anchors: I use World Bank national commercial air passenger totals per country and year. Across observed countries and years, the empirical ratio between airport throughput sums and World Bank passengers has a global median of 2.47, with 1.98 in the United States, 1.78 in Germany, and 2.48 in France.
 - Public source availability: Automated download scripts confirmed that UK Civil Aviation Authority data is already embedded in the Eurostat avia_paoa release (1993 to 2019). Standalone portals for Canada, Australia, Brazil, and Mexico timed out, failed connection, or returned interactive form shells, and India (data.gov.in) required API key authentication. They were not ingested to avoid manual editing.
@@ -29,15 +57,15 @@ Official airport passenger time series are concentrated in the United States (FA
 - Normalization: Predicted airport shares are normalized within each country and year to sum to the anchored national total. Within-country ranks remain mostly stable over time because local drivers change slowly.
 - Uncertainty: I compute split conformal prediction intervals on validation residuals of log traffic share to construct lower (traffic_recon_lo) and upper (traffic_recon_hi) bounds per airport-year.
 
-### 2. Network Reconstruction Over Time (src/reconstruct_network.py)
+### 2. Network Reconstruction Over Time
 
-- Time-varying gravity model: I fit link probability p_ij(t) for each airport pair and year using time-varying node masses (reconstructed traffic from Phase 1 and country GDP), great-circle distance, and domestic or regional flags.
+- Time-varying gravity model: I fit link probability p_ij(t) for each airport pair and year using time-varying node masses (reconstructed traffic and country GDP), great-circle distance, and domestic or regional flags.
 - Calibration: Route probabilities are calibrated so that expected network degree in 2014 matches the observed 2014 OpenFlights snapshot.
 - Topological features: For every year from 2000 to 2025, I compute expected degree, expected weighted degree, top 50 hub links, direct countries reached, and PageRank averaged over 30 Monte Carlo sampled graphs with its standard deviation.
 
 ### 3. Reconstruction Validation Results
 
-From reports/reconstruction_traffic.md, leave-one-country-out validation in 2019 gives:
+From `reports/reconstruction_traffic.md`, leave-one-country-out validation in 2019 gives:
 
 | Country | Airports | Log MAE | Spearman | Top 20 Overlap | Within 2x Share | 80% Conformal Coverage |
 |---|---|---|---|---|---|---|
@@ -50,7 +78,7 @@ From reports/reconstruction_traffic.md, leave-one-country-out validation in 2019
 
 When training on Europe and testing on the United States, the model achieves Log MAE 1.224, Spearman 0.851, top 20 overlap 0.850, and 71.2% interval coverage, beating the city population split (Log MAE 2.356, Spearman 0.424) and equal split (Log MAE 4.002, Spearman 0.000). Applying the US model to Germany yields Log MAE 0.926 and Spearman 0.781 (versus 1.554 and 0.331 for population split).
 
-From reports/reconstruction_network.md, held-out route validation on the 20% test graph yields Combined Model ROC AUC 0.744 (Gravity 0.603, Preferential Attachment 0.665, Adamic-Adar 0.761), Brier loss 0.0510, Precision at 100 of 0.870, and Precision at 500 of 0.866. In out-of-time validation on OpenSky 2019 to 2022 route appearances, the model achieves AUC 0.959, Precision at 100 of 0.250 (versus 0.000 for persistence), and top 500 candidate appearance share of 0.084 (versus 0.017 for random unserved pairs, a 5.0x lift). Regional transfer from Europe to the US yields AUC 0.741, and US to Europe yields AUC 0.527.
+From `reports/reconstruction_network.md`, held-out route validation on the 20% test graph yields Combined Model ROC AUC 0.984 (Gravity 0.567, Preferential Attachment 0.956, Adamic-Adar 0.940), Brier loss 0.0495, Precision at 100 of 0.980, and Precision at 500 of 0.992. In out-of-time validation on OpenSky 2019 to 2022 route appearances, the model achieves AUC 0.967, Precision at 100 of 0.250 (versus 0.000 for persistence), and top 500 candidate appearance share of 0.098 (versus 0.017 for random unserved pairs, a 5.0x lift). Regional transfer from Europe to the US yields AUC 0.741, and US to Europe yields AUC 0.527.
 
 Where reconstruction struggles:
 - Island nations and isolated resource outposts have passenger volumes driven by tourism charters or mining shifts that local population and runway length do not explain.
@@ -89,7 +117,7 @@ I also fit two quantile LightGBM models at alpha 0.10 and alpha 0.90 to produce 
 
 Validation uses rolling temporal folds. Origin years 2000 to 2015 train the models, with COVID target years (2020 to 2022) excluded from loss calculations.
 
-Results from reports/evaluation.md:
+Results from `reports/evaluation.md`:
 
 | Horizon | Fold | Test Year | Model | Test N | Risers P | Risers R | Fallers P | Fallers R | MAE Change | Spearman Level | Calibrated Coverage |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -121,11 +149,11 @@ Findings:
 
 ### Trajectory Classification Breakdown
 
-Defining trajectory classes relative to data quality group medians balances classes across tiers. Training label shares: declining 0.196 to 0.310, emerging 0.229 to 0.374, established hub 0.036 to 0.151, stable 0.266 to 0.453. In forward predictions at +5, shares by data quality are declining 0.000 to 0.073, emerging 0.013 to 0.156, established hub 0.049 to 0.131, stable 0.789 to 0.796, yielding overall shares of stable 0.791, established hub 0.123, emerging 0.057, and declining 0.029. At +10, overall shares are stable 0.807, established hub 0.106, emerging 0.051, and declining 0.036. The classifier is retained solely for reporting macro F1 on historical folds (0.542 on Fold 1 and 0.643 on Fold 2).
+Defining trajectory classes relative to data quality group medians balances classes across tiers. Training label shares: declining 0.196 to 0.310, emerging 0.229 to 0.374, established hub 0.036 to 0.151, stable 0.266 to 0.453. In forward predictions at +5, shares by data quality are declining 0.000 to 0.073, emerging 0.013 to 0.156, established hub 0.049 to 0.131, stable 0.789 to 0.796, yielding overall shares of stable 0.794, established hub 0.123, emerging 0.054, and declining 0.030. At +10, overall shares are stable 0.806, established hub 0.106, emerging 0.051, and declining 0.037. The classifier is retained solely for reporting macro F1 on historical folds (0.544 on Fold 1 and 0.643 on Fold 2).
 
 ### Region Transfer Experiment
 
-From reports/evaluation.md, holding out Europe and evaluating on 326 European airports:
+From `reports/evaluation.md`, holding out Europe and evaluating on 326 European airports:
 
 | Option | Held Out Region | Test N | MAE Change | Spearman Level | Risers P | Fallers P |
 |---|---|---|---|---|---|---|
@@ -134,9 +162,9 @@ From reports/evaluation.md, holding out Europe and evaluating on 326 European ai
 | fine_tuned_regions | EU | 326 | 3.524 | 0.9790 | 0.121 | 0.212 |
 | observed_benchmark | EU | 326 | 3.476 | 0.9778 | 0.030 | 0.242 |
 
-Performance across observed airports on headline folds shows change MAE 3.787, Spearman 0.9800, risers precision 0.231, and fallers precision 0.269.
+Performance across observed airports on headline folds shows change MAE 3.788, Spearman 0.9800, risers precision 0.231, and fallers precision 0.269.
 
-From reports/ablation.md, the 5-year change MAE is 3.887 with all 46 features, 3.914 without network features, 3.607 without macro features, 3.630 with traffic features only, and 3.887 without reconstructed traffic.
+From `reports/ablation.md`, the 5-year change MAE is 3.887 with all 46 features, 3.914 without network features, 3.607 without macro features, 3.630 with traffic features only, and 3.887 without reconstructed traffic.
 
 ## Opportunity Radar
 
@@ -145,7 +173,7 @@ I built an Opportunity Radar evaluating unserved airport pairs using the network
 2. Link prediction using Adamic-Adar common neighbor centrality and preferential attachment.
 3. Momentum multiplier from the 5-year forecast importance changes of both endpoints.
 
-Validation on 2014 route splits with distance and endpoint size matched negatives yields AUC scores of 0.603 (gravity), 0.665 (preferential attachment), 0.761 (Adamic-Adar), and 0.744 (combined logistic model), with precision at 100 of 0.870 and precision at 500 of 0.866. Out-of-time validation against OpenSky 2019 to 2022 yields an AUC of 0.959 and 8.4% appearance share among the top 500 candidates (a 5.0x lift over the 1.7% random baseline).
+Validation on 2014 route splits with distance and endpoint size matched negatives yields AUC scores of 0.567 (gravity), 0.956 (preferential attachment), 0.940 (Adamic-Adar), and 0.984 (combined logistic model), with precision at 100 of 0.980 and precision at 500 of 0.992. Out-of-time validation against OpenSky 2019 to 2022 yields an AUC of 0.967 and 9.8% appearance share among the top 500 candidates (a 5.0x lift over the 1.7% random baseline).
 
 The radar exports the top 250 candidate unserved routes, alongside curated views for investors and tourism boards. The investor radar includes only airports with observed or medium confidence data. All candidates are labeled as statistical model candidates, not confirmed commercial demand.
 
@@ -166,49 +194,61 @@ I compute TreeExplainer SHAP values from the LightGBM models to explain predicti
 3. Decade mean reversion: Across a 10-year window, supervised models fail to beat persistence on MAE change because long-term aviation growth mean-reverts.
 4. Exogenous shocks: The model cannot anticipate sudden airspace closures, carrier bankruptcies, or regional conflicts that disrupt routes overnight.
 
-## How to Run the Pipeline
+## How to Train
 
-Clone the repository and install dependencies:
+Every training, splitting, reconstruction, evaluation, and forecasting step runs directly inside `training_notebook.ipynb`. All inputs required by the notebook are tracked in `data/processed/` and `data/inputs/`, allowing training to run on a fresh clone without downloading raw data.
+
+To train interactively:
 
 ```bash
-git clone https://github.com/park-bit/skyline-index.git
-cd skyline-index
-pip install -r requirements.txt
+jupyter notebook training_notebook.ipynb
 ```
 
-Download public raw datasets (OurAirports, OpenFlights, World Bank, Eurostat):
+Open the notebook and select Run All from the menu.
+
+To train headlessly from the command line:
+
+```bash
+jupyter nbconvert --to notebook --execute --inplace training_notebook.ipynb
+```
+
+The execution completes in under 15 minutes with seed 42 set at the top.
+
+## Full Rebuild from Raw Data
+
+To rebuild the entire pipeline from raw public data files to final forecasts:
 
 ```bash
 python scripts/01_download.py
+python scripts/02_build_panel.py
+python scripts/03_build_model_table.py
+jupyter nbconvert --to notebook --execute --inplace training_notebook.ipynb
 ```
 
-To run the full pipeline:
+Or run the automated pipeline runner:
 
 ```bash
 python run_all.py
 ```
 
-Or run individual scripts in order:
+## Where Each Output File is Written
 
-```bash
-python scripts/01_download.py
-python scripts/02_build_panel.py
-python scripts/03_index_sensitivity.py
-python scripts/04_build_model_table.py
-python scripts/05_evaluate_baselines.py
-python scripts/06_make_figures.py
-python scripts/07_train_and_evaluate.py
-python scripts/08_run_radar.py
-python scripts/09_reconstruct_traffic_validation.py
-python scripts/10_reconstruct_network_validation.py
-pytest -v
-```
+The notebook and data preparation steps generate the following output files:
 
-If make is installed:
-
-```bash
-make all
-```
+- `data/outputs/folds.json`: Temporal validation fold definitions.
+- `reports/folds.md`: Markdown summary of temporal splits.
+- `data/processed/traffic_reconstructed.parquet`: Reconstructed passenger throughput and conformal intervals.
+- `reports/reconstruction_traffic.md`: Traffic validation metrics, LOCO table, and LORO comparison.
+- `data/processed/network_reconstructed.parquet`: Reconstructed network features table.
+- `reports/reconstruction_network.md`: Network link prediction validation and OpenSky out-of-time check.
+- `data/processed/model_table.parquet`: Point-in-time feature matrix written by `scripts/03_build_model_table.py`.
+- `reports/baselines.md`: Baseline model performance comparison against persistence and trend.
+- `reports/index_sensitivity.md`: Index weight perturbation sensitivity results.
+- `reports/evaluation.md`: Supervised model evaluation, calibration, and regional transfer tables.
+- `reports/ablation.md`: Feature group ablation results.
+- `data/outputs/models/`: Serialized models (LightGBM regressors, quantiles, classifier, Ridge, conformal bounds).
+- `data/outputs/forecasts.json` and `web/forecasts.json`: Point forecasts, prediction bands, classes, and SHAP drivers for 2030 and 2035.
+- `data/outputs/opportunities.json` and `web/opportunities.json`: Opportunity Radar route candidates and sector opportunity tables.
 
 ## Running the Web Map Locally and Deploying
 
