@@ -30,7 +30,6 @@ def build_forecasts(model_table, h5_models, h5_clf):
         (df_2025["of_routes_total"] > 0)
         | (df_2025["has_observed_traffic"] == 1)
         | df_2025["opensky_flights"].notna()
-        | (df_2025["importance_confidence"] == "high")
     )
     df_2025 = df_2025[has_routes_or_traffic].copy().reset_index(drop=True)
     df_2025 = prepare_model_features(df_2025)

@@ -49,12 +49,12 @@ def validate_link_prediction(g, airports_df, seed=42):
         if pair not in edge_set:
             test_neg.append(pair)
 
-    ap_map = airports_df.set_index("iata")
+    ap_dict = {row["iata"]: row for _, row in airports_df.iterrows()}
 
     def pair_features(pairs):
         feats = []
         for u, v in pairs:
-            r1, r2 = ap_map.loc[u], ap_map.loc[v]
+            r1, r2 = ap_dict[u], ap_dict[v]
             d = max(50.0, haversine_km(r1["latitude"], r1["longitude"], r2["latitude"], r2["longitude"]))
             same_c = 1.0 if r1["country_code"] == r2["country_code"] else 0.0
             deg_u = g_tr.degree(u) if g_tr.has_node(u) else 0
@@ -90,33 +90,38 @@ def validate_link_prediction(g, airports_df, seed=42):
 
 
 def find_candidate_routes(g, airports_df, forecast_dict, top_k=250):
-    ap_map = airports_df.set_index("iata")
+    ap_dict = {row["iata"]: row for _, row in airports_df.iterrows()}
     f_map = {a["iata"]: a for a in forecast_dict.get("airports", [])}
 
     # Restrict to active commercial nodes with at least 5 connections
-    active_nodes = [n for n in g.nodes() if g.degree(n) >= 5 and n in ap_map.index]
+    active_nodes = [n for n in g.nodes() if g.degree(n) >= 5 and n in ap_dict]
+    active_set = set(active_nodes)
     existing_edges = {tuple(sorted(e)) for e in g.edges()}
+    nbrs_map = {n: set(g.neighbors(n)) for n in active_nodes}
 
     candidates = []
-    # Test pairs with common neighbors (link candidates)
     tested_pairs = set()
 
     for u in active_nodes:
-        nbrs_u = set(g.neighbors(u))
-        for v in active_nodes:
-            if u >= v:
+        nbrs_u = nbrs_map[u]
+        # Candidate pairs share at least one hub connection
+        hop2 = set()
+        for w in nbrs_u:
+            hop2.update(nbrs_map.get(w, ()))
+
+        for v in hop2:
+            if u >= v or v not in active_set:
                 continue
             pair = (u, v)
             if pair in existing_edges or pair in tested_pairs:
                 continue
             tested_pairs.add(pair)
 
-            nbrs_v = set(g.neighbors(v))
-            common = nbrs_u.intersection(nbrs_v)
+            common = nbrs_u.intersection(nbrs_map[v])
             if len(common) < 2:
                 continue
 
-            r1, r2 = ap_map.loc[u], ap_map.loc[v]
+            r1, r2 = ap_dict[u], ap_dict[v]
             dist = haversine_km(r1["latitude"], r1["longitude"], r2["latitude"], r2["longitude"])
             if dist < 200.0 or dist > 11000.0:
                 continue
@@ -143,7 +148,8 @@ def find_candidate_routes(g, airports_df, forecast_dict, top_k=250):
                 "origin_lat": round(float(r1["latitude"]), 4), "origin_lon": round(float(r1["longitude"]), 4),
                 "dest_lat": round(float(r2["latitude"]), 4), "dest_lon": round(float(r2["longitude"]), 4),
                 "distance_km": round(float(dist), 1), "score": round(total_score, 2), "common_connections": len(common),
-                "reason": f"Strong network overlap with {len(common)} common hubs and +{round(chg1 + chg2, 1)} combined growth",
+                "candidate_label": "model candidate, not confirmed demand",
+                "reason": f"Model candidate: network overlap with {len(common)} common hubs and +{round(chg1 + chg2, 1)} combined growth",
             })
 
     candidates.sort(key=lambda x: x["score"], reverse=True)
@@ -164,6 +170,7 @@ def build_three_lists(airports_df, forecast_dict, candidate_routes):
             "latitude": a["latitude"], "longitude": a["longitude"], "importance_present": a["importance_present"],
             "forecast_change_h5": a["forecast_h5"]["change"], "forecast_level_h5": a["forecast_h5"]["level"],
             "forecast_level_h10": a["forecast_h10"]["level"], "class": a["forecast_h5"]["class"],
+            "candidate_label": "model candidate, not confirmed demand",
             "top_driver": a["forecast_h5"]["positive_drivers"][0] if a["forecast_h5"]["positive_drivers"] else "growth",
         }
         for rank, a in enumerate(core_risers[:60], 1)
@@ -189,13 +196,14 @@ def build_three_lists(airports_df, forecast_dict, candidate_routes):
             "latitude": a["latitude"], "longitude": a["longitude"], "importance_present": a["importance_present"],
             "forecast_change_h5": a["forecast_h5"]["change"], "forecast_level_h5": a["forecast_h5"]["level"],
             "international_share": round(float(intl_sh), 3),
+            "candidate_label": "model candidate, not confirmed demand",
             "top_driver": a["forecast_h5"]["positive_drivers"][0] if a["forecast_h5"]["positive_drivers"] else "reach",
         }
         for rank, (_, a, intl_sh) in enumerate(tourism_cands[:60], 1)
     ]
 
     return {
-        "disclaimer": "Candidate routes and lists are generated from a gravity model and link prediction, not confirmed demand. The underlying network topology uses OpenFlights 2014 and OpenSky 2019-2022 route data.",
+        "disclaimer": "Candidate routes and lists are generated from the network model as model candidates, not confirmed demand. Underlying network topology uses OpenFlights 2014 and OpenSky 2019 to 2022 route data.",
         "airline_opportunities": candidate_routes,
         "investor_opportunities": investor_list,
         "tourism_opportunities": tourism_list,

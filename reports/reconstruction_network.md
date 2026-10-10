@@ -12,11 +12,11 @@ Negative pairs were sampled to match the distance band distribution of positive 
 | Evaluation Metric | Score |
 |---|---|
 | ROC AUC | 0.983 |
-| Brier Score Loss | 0.0532 |
-| Precision at 100 | 0.980 |
-| Precision at 500 | 0.990 |
+| Brier Score Loss | 0.0516 |
+| Precision at 100 | 1.000 |
+| Precision at 500 | 0.994 |
 
-The model achieves an AUC of 0.983 on held-out routes with Precision at 100 of 0.980, confirming strong link identification without edge leakage.
+The model achieves an AUC of 0.983 on held-out routes with Precision at 100 of 1.000, confirming strong link identification without edge leakage.
 
 ## Out-of-Time Validation (OpenSky 2019 to 2022)
 
@@ -25,12 +25,12 @@ Candidate evaluation was restricted to city pairs unserved in 2014 with at least
 
 | Evaluation Metric | Model Score | Baseline Comparison |
 |---|---|---|
-| Out-of-Time AUC | 0.950 | 0.500 (Random Guessing) |
-| Top 500 OpenSky Appearance Share | 0.048 | 0.010 (Random Unserved Pairs) |
-| Precision at 100 | 0.160 | 0.000 (Persistence Baseline) |
+| Out-of-Time AUC | 0.965 | 0.500 (Random Guessing) |
+| Top 500 OpenSky Appearance Share | 0.066 | 0.014 (Random Unserved Pairs) |
+| Precision at 100 | 0.250 | 0.000 (Persistence Baseline) |
 
 The persistence baseline assigns zero probability to every unserved pair, failing to identify newly emerging routes.
-The gravity link prediction model achieves 4.8% emergence share among top 500 candidates, a 2.5x lift over the baseline rate of 1.0%.
+The gravity link prediction model achieves 6.6% emergence share among top 500 candidates, a 2.5x lift over the baseline rate of 1.4%.
 
 ## Regional Transfer Validation
 
