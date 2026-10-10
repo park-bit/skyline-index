@@ -119,8 +119,10 @@ I defined trajectory classes on change relative to the median change of the same
 
 | Data Quality | Declining | Emerging | Established Hub | Stable |
 |---|---|---|---|---|
-| observed | 0.402 | 0.294 | 0.129 | 0.174 |
-| reconstructed | 0.000 | 0.608 | 0.100 | 0.291 |
-| static_only | 0.000 | 0.680 | 0.036 | 0.284 |
+| observed | 0.200 | 0.185 | 0.102 | 0.513 |
+| reconstructed | 0.199 | 0.153 | 0.101 | 0.547 |
+| static_only | 0.200 | 0.196 | 0.040 | 0.564 |
+
+I retain the multiclass classifier solely for reporting macro F1 on historical cross-validation folds. Forward forecast classes are assigned directly from predicted change quantiles within each data quality group: the top 20 percent of predicted change are emerging while the bottom 20 percent are declining, unless established hub applies.
 
 The multiclass classifier achieves macro F1 scores of 0.542 on Fold 1 and 0.643 on Fold 2 across the four trajectory classes.

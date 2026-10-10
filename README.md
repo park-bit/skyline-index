@@ -78,7 +78,7 @@ I evaluate three supervised models:
 2. Ridge Regression with logarithmic volume transformations and standard scaling.
 3. Equal-weight Ensemble averaging LightGBM and Ridge predictions.
 
-I also fit two quantile LightGBM models at alpha 0.10 and alpha 0.90 to produce uncertainty bands, and a 4-class LightGBM classifier predicting trajectory classes: emerging (change >= +2.0 relative to group median), declining (change <= -2.0 relative to group median), established hub (current rank >= 90 and relative change >= -1.0), or stable.
+I also fit two quantile LightGBM models at alpha 0.10 and alpha 0.90 to produce uncertainty bands, and a 4-class LightGBM classifier for historical fold macro F1 reporting. In production forecasts at +5 and +10, trajectory classes are assigned directly from predicted change quantiles within each data quality group: the top 20 percent of predicted change are emerging while the bottom 20 percent are declining, unless established hub applies (current rank >= 90 and predicted change >= -1.0).
 
 ### Temporal Validation Folds
 
@@ -116,7 +116,7 @@ Findings:
 
 ### Trajectory Classification Breakdown
 
-Defining trajectory classes relative to data quality group medians balances classes across tiers. Training label shares: declining 0.196 to 0.310, emerging 0.229 to 0.374, established hub 0.036 to 0.151, stable 0.266 to 0.453. In forward predictions, no class exceeds 50% overall (emerging 0.486, stable 0.244, declining 0.162, established hub 0.108). The classifier achieves macro F1 scores of 0.542 on Fold 1 and 0.643 on Fold 2.
+Defining trajectory classes relative to data quality group medians balances classes across tiers. Training label shares: declining 0.196 to 0.310, emerging 0.229 to 0.374, established hub 0.036 to 0.151, stable 0.266 to 0.453. In forward predictions at +5, shares by data quality are declining 0.199 to 0.200, emerging 0.153 to 0.196, established hub 0.040 to 0.102, stable 0.513 to 0.564, yielding overall shares of stable 0.534, declining 0.199, emerging 0.168, and established hub 0.098. At +10, overall shares are stable 0.530, declining 0.200, emerging 0.196, and established hub 0.075. The classifier is retained solely for reporting macro F1 on historical folds (0.542 on Fold 1 and 0.643 on Fold 2).
 
 ### Region Transfer Experiment
 

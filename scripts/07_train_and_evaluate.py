@@ -425,8 +425,17 @@ def main():
 
     pred_dqs = [a["data_quality"] for a in forecasts["airports"]]
     pred_clss = [a["forecast_h5"]["class"] for a in forecasts["airports"]]
-    pred_df = pd.DataFrame({"data_quality": pred_dqs, "class": pred_clss})
+    pred_clss_10 = [a["forecast_h10"]["class"] for a in forecasts["airports"]]
+    pred_df = pd.DataFrame({"data_quality": pred_dqs, "class": pred_clss, "class_h10": pred_clss_10})
     pred_ct = pd.crosstab(pred_df["data_quality"], pred_df["class"], normalize="index")
+    pred_ct_10 = pd.crosstab(pred_df["data_quality"], pred_df["class_h10"], normalize="index")
+
+    print("\n--- Training Label Shares by Data Quality ---")
+    print(tr_ct.round(3))
+    print("\n--- Forecast Class Shares (+5) by Data Quality ---")
+    print(pred_ct.round(3))
+    print("\n--- Forecast Class Shares (+10) by Data Quality ---")
+    print(pred_ct_10.round(3))
 
     eval_text.extend([
         "",
@@ -459,6 +468,8 @@ def main():
     f1_f1 = headline_df[(headline_df["fold"] == 1) & (headline_df["model"] == "ensemble")]["macro_f1"].values[0]
     f1_f2 = headline_df[(headline_df["fold"] == 2) & (headline_df["model"] == "ensemble")]["macro_f1"].values[0]
     eval_text.extend([
+        "",
+        "I retain the multiclass classifier solely for reporting macro F1 on historical cross-validation folds. Forward forecast classes are assigned directly from predicted change quantiles within each data quality group: the top 20 percent of predicted change are emerging while the bottom 20 percent are declining, unless established hub applies.",
         "",
         f"The multiclass classifier achieves macro F1 scores of {f1_f1:.3f} on Fold 1 and {f1_f2:.3f} on Fold 2 across the four trajectory classes.",
         "",
