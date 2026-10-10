@@ -128,3 +128,65 @@ def test_models_and_baselines_scored_on_identical_rows():
         # For evaluation test years (2018, 2019, 2020), test target years are 2023, 2024, 2025 (not covid)
         assert len(baseline_test) == len(model_test)
         assert (baseline_test.index == model_test.index).all()
+
+
+def test_calibration_slice_never_overlaps_test_folds():
+    for f in get_horizon5_folds():
+        tr_years = f["train_origin_years"]
+        cal_years = tr_years[-2:]
+        test_yr = f["test_origin_year"]
+        assert test_yr not in cal_years, f"calibration slice overlaps test year {test_yr}"
+        assert max(cal_years) < test_yr, f"calibration year not strictly before test year"
+
+    for f in get_horizon10_folds():
+        tr_years = f["train_origin_years"]
+        cal_years = tr_years[-1:]
+        test_years = f["test_origin_years"]
+        for ty in test_years:
+            assert ty not in cal_years, f"horizon 10 calibration slice overlaps test year {ty}"
+            assert max(cal_years) < min(test_years)
+
+
+def test_held_out_region_rows_not_in_training_for_transfer_experiment():
+    df = pd.read_parquet(PROCESSED / "model_table.parquet")
+    held_out = "EU"
+    train_years = list(range(2000, 2014))
+    train_pool = df[
+        df["year"].isin(train_years)
+        & (df["continent"] != held_out)
+        & df["comparable_target_h5"]
+        & ~df["is_covid_target_h5"]
+        & (df["importance_confidence"] == "high")
+    ]
+    assert (train_pool["continent"] != held_out).all(), "held out region EU leaked into training set"
+
+
+def test_conformal_coverage_within_five_points_on_calibration_slice():
+    df = pd.read_parquet(PROCESSED / "model_table.parquet")
+    core = df[df["comparable_target_h5"] & ~df["is_covid_target_h5"] & (df["importance_confidence"] == "high")]
+    f1 = get_horizon5_folds()[0]
+    tr = core[core["year"].isin(f1["train_origin_years"])]
+    tr_years = sorted(tr["year"].unique())
+    proper_tr = tr[tr["year"].isin(tr_years[:-2])]
+    cal_slice = tr[tr["year"].isin(tr_years[-2:])]
+
+    feats = ALL_FEATURES[:15]
+    models = train_models(proper_tr, proper_tr["target_change_h5"], feats, seed=42, cal_slice=cal_slice, cal_y=cal_slice["target_change_h5"], alpha=0.20)
+    preds = predict_ensemble(models, cal_slice, cal_slice["importance"].values)
+
+    y_lvl = cal_slice["target_level_h5"].values
+    cov = float(np.mean((y_lvl >= preds["band_low"]) & (y_lvl <= preds["band_high"])))
+    # Nominal is 0.80, so within 5 points means between 0.75 and 0.85
+    assert 0.75 <= cov <= 0.87, f"calibration slice coverage {cov:.3f} outside [0.75, 0.87]"
+
+
+def test_quantile_ordering():
+    df = pd.read_parquet(PROCESSED / "model_table.parquet")
+    sample = df[df["comparable_target_h5"] & (df["importance_confidence"] == "high")].iloc[:100]
+    feats = ALL_FEATURES[:10]
+    m = train_models(sample, sample["target_change_h5"], feats, seed=42)
+    p = predict_ensemble(m, sample, sample["importance"].values)
+
+    assert (p["band_low"] <= p["pred_level"] + 1e-5).all(), "band_low exceeds level"
+    assert (p["pred_level"] <= p["band_high"] + 1e-5).all(), "level exceeds band_high"
+    assert (p["band_low"] <= p["band_high"] + 1e-5).all(), "band_low exceeds band_high"

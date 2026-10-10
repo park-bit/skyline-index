@@ -145,4 +145,17 @@ def build_point_in_time_features(panel):
 
     df["opensky_growth_recent"] = np.where(df["year"] >= 2022, df["iata"].map(recent_growth), np.nan)
 
+    dq = df.get("data_quality", pd.Series("static_only", index=df.index))
+    df["is_observed"] = (dq == "observed").astype(float)
+    df["is_reconstructed"] = (dq == "reconstructed").astype(float)
+    df["is_static_only"] = (dq == "static_only").astype(float)
+
+    lo_val = df.get("importance_lo", pd.Series(0.0, index=df.index)).fillna(0.0)
+    hi_val = df.get("importance_hi", pd.Series(0.0, index=df.index)).fillna(0.0)
+    df["recon_interval_width"] = (hi_val - lo_val).clip(lower=0.0)
+
+    cont = df.get("continent", pd.Series("", index=df.index))
+    for c in ["NA", "EU", "AS", "SA", "AF", "OC"]:
+        df[f"region_{c}"] = (cont == c).astype(float)
+
     return df

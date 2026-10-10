@@ -10,6 +10,7 @@ from src.macro import load_country_mapping, load_imf_indicators, load_un_demogra
 from src.models import (
     predict_classes,
     predict_ensemble,
+    prepare_model_features,
 )
 
 
@@ -32,6 +33,7 @@ def build_forecasts(model_table, h5_models, h5_clf):
         | (df_2025["importance_confidence"] == "high")
     )
     df_2025 = df_2025[has_routes_or_traffic].copy().reset_index(drop=True)
+    df_2025 = prepare_model_features(df_2025)
     features = h5_models["features"]
     cur_imp = df_2025["importance"].values
 
@@ -54,6 +56,7 @@ def build_forecasts(model_table, h5_models, h5_clf):
     df_2030["un_median_age"] = df_2030["country_code"].map(un_age_30).fillna(df_2025["un_median_age"])
     new_pop = df_2030["country_code"].map(un_pop_30) * 1000.0
     df_2030["country_pop"] = new_pop.fillna(df_2025["country_pop"])
+    df_2030 = prepare_model_features(df_2030)
 
     # Step 2: 2030 to 2035 (+10 years)
     p_step2 = predict_ensemble(h5_models, df_2030, p_h5["pred_level"])
@@ -83,6 +86,17 @@ def build_forecasts(model_table, h5_models, h5_clf):
         row = df_2025.iloc[i]
         iata_code = str(row["iata"])
         conn_routes = sorted(r_map.get(iata_code, set()))[:15]
+        dq_val = str(row.get("data_quality", "static_only"))
+        lo_i = round(float(row.get("importance_lo", cur_imp[i])), 1) if pd.notna(row.get("importance_lo")) else round(float(cur_imp[i]), 1)
+        hi_i = round(float(row.get("importance_hi", cur_imp[i])), 1) if pd.notna(row.get("importance_hi")) else round(float(cur_imp[i]), 1)
+        recon_interval = [min(lo_i, hi_i), max(lo_i, hi_i)]
+        if dq_val == "observed":
+            reliability_text = "Observed official passenger statistics with calibrated predictive band."
+        elif dq_val == "reconstructed":
+            reliability_text = f"Probabilistically reconstructed from national totals with interval [{recon_interval[0]}, {recon_interval[1]}]."
+        else:
+            reliability_text = "Static capacity only without historical traffic observations."
+
         rec = {
             "iata": iata_code,
             "name": str(row.get("name", "")),
@@ -93,6 +107,9 @@ def build_forecasts(model_table, h5_models, h5_clf):
             "importance_present": round(float(cur_imp[i]), 2),
             "importance_confidence": str(row["importance_confidence"]),
             "scored_outside_training_region": int(row.get("scored_outside_training_region", 0)),
+            "data_quality": dq_val,
+            "reconstruction_interval": recon_interval,
+            "reliability": reliability_text,
             "routes": conn_routes,
             "forecast_h5": {
                 "target_year": 2030,
