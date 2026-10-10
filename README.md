@@ -83,7 +83,7 @@ I evaluate three supervised models:
 2. Ridge Regression with logarithmic volume transformations and standard scaling.
 3. Equal-weight Ensemble averaging LightGBM and Ridge predictions.
 
-I also fit two quantile LightGBM models at alpha 0.10 and alpha 0.90 to produce uncertainty bands, and a 4-class LightGBM classifier for historical fold macro F1 reporting. In production forecasts at +5 and +10, trajectory classes are assigned directly from predicted change quantiles within each data quality group: the top 20 percent of predicted change are emerging while the bottom 20 percent are declining, unless established hub applies (current rank >= 90 and predicted change >= -1.0).
+I also fit two quantile LightGBM models at alpha 0.10 and alpha 0.90 to produce uncertainty bands, and a 4-class LightGBM classifier for historical fold macro F1 reporting. In production forecasts at +5 and +10, trajectory classes are assigned directly: any airport with forecast level of 90 or higher is an established hub. For airports below 90, emerging and declining classes are assigned using predicted change quantiles (top and bottom 20 percent) within each data quality group, provided predicted change has a minimum magnitude of 2.0 points and exceeds 0.5 times the airport's prediction band half-width; otherwise the class is stable. For airports with present score of 95 or higher, +10 change is shrunk toward 0 using the calibration slice damping factor to ensure consistent hub trajectories.
 
 ### Temporal Validation Folds
 
@@ -121,7 +121,7 @@ Findings:
 
 ### Trajectory Classification Breakdown
 
-Defining trajectory classes relative to data quality group medians balances classes across tiers. Training label shares: declining 0.196 to 0.310, emerging 0.229 to 0.374, established hub 0.036 to 0.151, stable 0.266 to 0.453. In forward predictions at +5, shares by data quality are declining 0.199 to 0.200, emerging 0.153 to 0.196, established hub 0.040 to 0.102, stable 0.513 to 0.564, yielding overall shares of stable 0.534, declining 0.199, emerging 0.168, and established hub 0.098. At +10, overall shares are stable 0.530, declining 0.200, emerging 0.196, and established hub 0.075. The classifier is retained solely for reporting macro F1 on historical folds (0.542 on Fold 1 and 0.643 on Fold 2).
+Defining trajectory classes relative to data quality group medians balances classes across tiers. Training label shares: declining 0.196 to 0.310, emerging 0.229 to 0.374, established hub 0.036 to 0.151, stable 0.266 to 0.453. In forward predictions at +5, shares by data quality are declining 0.000 to 0.073, emerging 0.013 to 0.156, established hub 0.049 to 0.131, stable 0.789 to 0.796, yielding overall shares of stable 0.791, established hub 0.123, emerging 0.057, and declining 0.029. At +10, overall shares are stable 0.807, established hub 0.106, emerging 0.051, and declining 0.036. The classifier is retained solely for reporting macro F1 on historical folds (0.542 on Fold 1 and 0.643 on Fold 2).
 
 ### Region Transfer Experiment
 

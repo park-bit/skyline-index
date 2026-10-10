@@ -405,6 +405,10 @@ def main():
     clf_h10 = train_classifier(prod_tr_h10, prod_tr_h10["target_class_h10"], ALL_FEATURES, seed=42)
     gamma_star_h10 = find_damping_factor(models_h10, cal_h10_slice, cal_h10_y)
 
+    tier95_slice = cal_h10_slice[cal_h10_slice["importance"] >= 95.0].copy()
+    tier95_y = cal_h10_y.loc[tier95_slice.index]
+    gamma_star_h10_tier95 = find_damping_factor(models_h10, tier95_slice, tier95_y) if len(tier95_slice) > 0 else 0.0
+
     models_dir = OUTPUTS / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(models_h5, models_dir / "production_models_h5.joblib")
@@ -414,7 +418,15 @@ def main():
     (models_dir / "seed.txt").write_text("42", encoding="utf-8")
 
     # Generate forward forecasts for 2025 using directly validated horizon 10 model
-    forecasts = build_forecasts(df, models_h5, clf_h5, h10_models=models_h10, h10_clf=clf_h10, gamma_h10=gamma_star_h10)
+    forecasts = build_forecasts(
+        df,
+        models_h5,
+        clf_h5,
+        h10_models=models_h10,
+        h10_clf=clf_h10,
+        gamma_h10=gamma_star_h10,
+        gamma_h10_tier95=gamma_star_h10_tier95,
+    )
     save_forecasts_json(forecasts)
     print("Forecasts exported to data/outputs/forecasts.json")
     print(f"Total airports with forecasts: {len(forecasts['airports'])}")
@@ -455,7 +467,7 @@ def main():
 
     eval_text.extend([
         "",
-        "### Predicted Class Shares by Data Quality",
+        "### Predicted Class Shares by Data Quality (+5)",
         "",
         "| Data Quality | Declining | Emerging | Established Hub | Stable |",
         "|---|---|---|---|---|",
@@ -465,11 +477,23 @@ def main():
             row = pred_ct.loc[dq_val]
             eval_text.append(f"| {dq_val} | {row.get('declining', 0.0):.3f} | {row.get('emerging', 0.0):.3f} | {row.get('established_hub', 0.0):.3f} | {row.get('stable', 0.0):.3f} |")
 
+    eval_text.extend([
+        "",
+        "### Predicted Class Shares by Data Quality (+10)",
+        "",
+        "| Data Quality | Declining | Emerging | Established Hub | Stable |",
+        "|---|---|---|---|---|",
+    ])
+    for dq_val in ["observed", "reconstructed", "static_only"]:
+        if dq_val in pred_ct_10.index:
+            row = pred_ct_10.loc[dq_val]
+            eval_text.append(f"| {dq_val} | {row.get('declining', 0.0):.3f} | {row.get('emerging', 0.0):.3f} | {row.get('established_hub', 0.0):.3f} | {row.get('stable', 0.0):.3f} |")
+
     f1_f1 = headline_df[(headline_df["fold"] == 1) & (headline_df["model"] == "ensemble")]["macro_f1"].values[0]
     f1_f2 = headline_df[(headline_df["fold"] == 2) & (headline_df["model"] == "ensemble")]["macro_f1"].values[0]
     eval_text.extend([
         "",
-        "I retain the multiclass classifier solely for reporting macro F1 on historical cross-validation folds. Forward forecast classes are assigned directly from predicted change quantiles within each data quality group: the top 20 percent of predicted change are emerging while the bottom 20 percent are declining, unless established hub applies.",
+        "I retain the multiclass classifier solely for reporting macro F1 on historical cross-validation folds. Forward forecast classes are assigned directly: any airport with forecast level of 90 or higher is an established hub. For airports below 90, emerging and declining classes are assigned using predicted change quantiles within each data quality group, requiring change of at least 2.0 points and at least 0.5 times band half-width.",
         "",
         f"The multiclass classifier achieves macro F1 scores of {f1_f1:.3f} on Fold 1 and {f1_f2:.3f} on Fold 2 across the four trajectory classes.",
         "",

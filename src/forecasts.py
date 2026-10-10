@@ -23,33 +23,39 @@ def load_future_macro_2030():
     return imf_30, un_30
 
 
-def assign_forecast_classes(df_slice, pred_change, cur_imp):
+def assign_forecast_classes(df_slice, pred_level, pred_change, band_low, band_high):
     dq_series = df_slice.get("data_quality", pd.Series("static_only", index=df_slice.index)).fillna("static_only")
     temp = pd.DataFrame({
         "dq": dq_series.values,
+        "lvl": pred_level,
         "chg": pred_change,
-        "cur": cur_imp,
+        "b_low": band_low,
+        "b_high": band_high,
     }, index=df_slice.index)
 
     assigned = pd.Series("stable", index=temp.index)
-    for dq_val, group in temp.groupby("dq", observed=False):
+    hub_mask = temp["lvl"] >= 90.0
+    assigned[hub_mask] = "established_hub"
+
+    below_90 = temp[~hub_mask]
+    for dq_val, group in below_90.groupby("dq", observed=False):
+        if len(group) == 0:
+            continue
         q20 = group["chg"].quantile(0.20)
         q80 = group["chg"].quantile(0.80)
         for idx in group.index:
-            c = temp.at[idx, "cur"]
-            d = temp.at[idx, "chg"]
-            if c >= 90.0 and d >= -1.0:
-                assigned.at[idx] = "established_hub"
-            elif d >= q80:
+            d = group.at[idx, "chg"]
+            half_w = max(0.0, (group.at[idx, "b_high"] - group.at[idx, "b_low"]) / 2.0)
+            if d >= q80 and d >= 2.0 and d >= 0.5 * half_w:
                 assigned.at[idx] = "emerging"
-            elif d <= q20:
+            elif d <= q20 and d <= -2.0 and d <= -0.5 * half_w:
                 assigned.at[idx] = "declining"
             else:
                 assigned.at[idx] = "stable"
     return assigned.tolist()
 
 
-def build_forecasts(model_table, h5_models, h5_clf=None, h10_models=None, h10_clf=None, gamma_h10=0.9):
+def build_forecasts(model_table, h5_models, h5_clf=None, h10_models=None, h10_clf=None, gamma_h10=0.9, gamma_h10_tier95=0.0):
     df_2025 = model_table[model_table["year"] == 2025].copy().reset_index(drop=True)
     has_routes_or_traffic = (
         (df_2025["of_routes_total"] > 0)
@@ -63,17 +69,26 @@ def build_forecasts(model_table, h5_models, h5_clf=None, h10_models=None, h10_cl
 
     # Step 1: 2025 to 2030 (+5 years)
     p_h5 = predict_ensemble(h5_models, df_2025, cur_imp)
-    cls_h5 = assign_forecast_classes(df_2025, p_h5["pred_change"], cur_imp)
+    cls_h5 = assign_forecast_classes(df_2025, p_h5["pred_level"], p_h5["pred_change"], p_h5["band_low"], p_h5["band_high"])
     pos_h5, neg_h5 = extract_shap_drivers(h5_models["lgb"], df_2025, features, top_k=3)
 
     if h10_models is not None:
         p_h10 = predict_ensemble(h10_models, df_2025, cur_imp, damped_factor=gamma_h10)
         lvl_h10 = np.clip(p_h10["pred_level"], 0.0, 100.0)
         chg_h10 = lvl_h10 - cur_imp
-        cls_h10 = assign_forecast_classes(df_2025, chg_h10, cur_imp)
-        pos_h10, neg_h10 = extract_shap_drivers(h10_models["lgb"], df_2025, features, top_k=3)
         b_low_h10 = p_h10["band_low"]
         b_high_h10 = p_h10["band_high"]
+
+        # Damping for tier 95+ hubs
+        is_tier95 = cur_imp >= 95.0
+        chg_h10[is_tier95] = chg_h10[is_tier95] * gamma_h10_tier95
+        lvl_h10[is_tier95] = np.clip(cur_imp[is_tier95] + chg_h10[is_tier95], 0.0, 100.0)
+        lvl_h10[is_tier95] = np.maximum(lvl_h10[is_tier95], b_low_h10[is_tier95])
+        chg_h10[is_tier95] = lvl_h10[is_tier95] - cur_imp[is_tier95]
+        b_high_h10[is_tier95] = np.maximum(b_high_h10[is_tier95], lvl_h10[is_tier95])
+
+        cls_h10 = assign_forecast_classes(df_2025, lvl_h10, chg_h10, b_low_h10, b_high_h10)
+        pos_h10, neg_h10 = extract_shap_drivers(h10_models["lgb"], df_2025, features, top_k=3)
     else:
         # Fallback projection using IMF and UN projections
         df_2030 = df_2025.copy()
@@ -94,13 +109,21 @@ def build_forecasts(model_table, h5_models, h5_clf=None, h10_models=None, h10_cl
         p_step2 = predict_ensemble(h5_models, df_2030, p_h5["pred_level"])
         lvl_h10 = np.clip(p_step2["pred_level"], 0.0, 100.0)
         chg_h10 = lvl_h10 - cur_imp
-        cls_h10 = assign_forecast_classes(df_2025, chg_h10, cur_imp)
-        pos_h10, neg_h10 = extract_shap_drivers(h5_models["lgb"], df_2030, features, top_k=3)
 
         b_low_h10 = np.clip(p_h5["band_low"] + (p_step2["band_low"] - p_h5["pred_level"]), 0.0, 100.0)
         b_high_h10 = np.clip(p_h5["band_high"] + (p_step2["band_high"] - p_h5["pred_level"]), 0.0, 100.0)
         b_low_h10 = np.minimum(b_low_h10, lvl_h10)
         b_high_h10 = np.maximum(b_high_h10, lvl_h10)
+
+        is_tier95 = cur_imp >= 95.0
+        chg_h10[is_tier95] = chg_h10[is_tier95] * gamma_h10_tier95
+        lvl_h10[is_tier95] = np.clip(cur_imp[is_tier95] + chg_h10[is_tier95], 0.0, 100.0)
+        lvl_h10[is_tier95] = np.maximum(lvl_h10[is_tier95], b_low_h10[is_tier95])
+        chg_h10[is_tier95] = lvl_h10[is_tier95] - cur_imp[is_tier95]
+        b_high_h10[is_tier95] = np.maximum(b_high_h10[is_tier95], lvl_h10[is_tier95])
+
+        cls_h10 = assign_forecast_classes(df_2025, lvl_h10, chg_h10, b_low_h10, b_high_h10)
+        pos_h10, neg_h10 = extract_shap_drivers(h5_models["lgb"], df_2030, features, top_k=3)
 
     # Connected routes lookup
     from src.network import load_route_snapshot

@@ -115,14 +115,22 @@ I defined trajectory classes on change relative to the median change of the same
 | reconstructed | 0.310 | 0.374 | 0.050 | 0.266 |
 | static_only | 0.196 | 0.314 | 0.036 | 0.453 |
 
-### Predicted Class Shares by Data Quality
+### Predicted Class Shares by Data Quality (+5)
 
 | Data Quality | Declining | Emerging | Established Hub | Stable |
 |---|---|---|---|---|
-| observed | 0.200 | 0.185 | 0.102 | 0.513 |
-| reconstructed | 0.199 | 0.153 | 0.101 | 0.547 |
-| static_only | 0.200 | 0.196 | 0.040 | 0.564 |
+| observed | 0.073 | 0.013 | 0.122 | 0.793 |
+| reconstructed | 0.000 | 0.079 | 0.131 | 0.789 |
+| static_only | 0.000 | 0.156 | 0.049 | 0.796 |
 
-I retain the multiclass classifier solely for reporting macro F1 on historical cross-validation folds. Forward forecast classes are assigned directly from predicted change quantiles within each data quality group: the top 20 percent of predicted change are emerging while the bottom 20 percent are declining, unless established hub applies.
+### Predicted Class Shares by Data Quality (+10)
+
+| Data Quality | Declining | Emerging | Established Hub | Stable |
+|---|---|---|---|---|
+| observed | 0.032 | 0.097 | 0.128 | 0.743 |
+| reconstructed | 0.021 | 0.014 | 0.100 | 0.865 |
+| static_only | 0.200 | 0.084 | 0.009 | 0.707 |
+
+I retain the multiclass classifier solely for reporting macro F1 on historical cross-validation folds. Forward forecast classes are assigned directly: any airport with forecast level of 90 or higher is an established hub. For airports below 90, emerging and declining classes are assigned using predicted change quantiles within each data quality group, requiring change of at least 2.0 points and at least 0.5 times band half-width.
 
 The multiclass classifier achieves macro F1 scores of 0.542 on Fold 1 and 0.643 on Fold 2 across the four trajectory classes.
