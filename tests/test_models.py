@@ -136,7 +136,7 @@ def test_calibration_slice_never_overlaps_test_folds():
         cal_years = tr_years[-2:]
         test_yr = f["test_origin_year"]
         assert test_yr not in cal_years, f"calibration slice overlaps test year {test_yr}"
-        assert max(cal_years) < test_yr, "calibration year not strictly before test year"
+        assert max(cal_years) < test_yr, "calibration year not before test year"
 
     for f in get_horizon10_folds():
         tr_years = f["train_origin_years"]

@@ -1,15 +1,21 @@
 import networkx as nx
 import numpy as np
 import pandas as pd
+import pytest
 
 from src.airports import build_airport_table, haversine_km
-from src.config import PROCESSED
+from src.config import PROCESSED, RAW
 from src.network import load_route_snapshot
 from src.reconstruct_network import (
     extract_pair_features,
     fit_route_model,
     sample_distance_matched_negatives,
 )
+
+
+def _check_raw_data():
+    if not (RAW / "ourairports_airports.csv").exists() or not (RAW / "openflights_routes.dat").exists():
+        pytest.skip("data/raw missing (run scripts/01_download.py)")
 
 
 def test_reconstructed_network_table_schema_and_values():
@@ -37,6 +43,7 @@ def test_reconstructed_network_table_schema_and_values():
 
 
 def test_route_probabilities_bounded_and_observed_edges_kept():
+    _check_raw_data()
     ap = build_airport_table().set_index("iata")
     routes = load_route_snapshot()
     valid_iata = set(ap.index)
@@ -72,6 +79,7 @@ def test_route_probabilities_bounded_and_observed_edges_kept():
 
 
 def test_hidden_edges_never_in_node_feature_computation():
+    _check_raw_data()
     ap = build_airport_table().set_index("iata")
     routes = load_route_snapshot()
     valid_iata = set(ap.index)
@@ -97,6 +105,7 @@ def test_hidden_edges_never_in_node_feature_computation():
 
 
 def test_distance_matched_negatives_distribution_tolerance():
+    _check_raw_data()
     ap = build_airport_table().set_index("iata")
     routes = load_route_snapshot()
     valid_iata = set(ap.index)

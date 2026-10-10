@@ -2,6 +2,8 @@
 
 I built Skyline Index to model the global aviation network and forecast how the relative importance of commercial airports changes over 5-year and 10-year horizons. The project produces an annual importance percentile rank from 0 to 100 for global airports, trains supervised models on historical network and macroeconomic shifts, and presents the resulting forecasts on an interactive dark-canvas web map with an unserved route Opportunity Radar.
 
+The interactive map displays 4,079 commercial airports. Out of 9,051 total airport facilities in the historical panel, the map includes active commercial airports with recorded network routes or observed traffic, excluding private airstrips, closed facilities, and unserved rural airfields without commercial flights.
+
 ![Global Aviation Intelligence Map](docs/map.png)
 
 ## Why Importance is Not Only Passenger Volume
@@ -43,7 +45,7 @@ From reports/reconstruction_traffic.md, leave-one-country-out validation in 2019
 
 When training on Europe and testing on the United States, the model achieves Log MAE 1.224, Spearman 0.851, top 20 overlap 0.850, and 71.2% interval coverage, beating the city population split (Log MAE 2.356, Spearman 0.424) and equal split (Log MAE 4.002, Spearman 0.000). Applying the US model to Germany yields Log MAE 0.926 and Spearman 0.781 (versus 1.554 and 0.331 for population split).
 
-From reports/reconstruction_network.md, held-out route validation on the 20% test graph yields ROC AUC 0.983, Brier loss 0.0516, Precision at 100 of 1.000, and Precision at 500 of 0.994. In out-of-time validation on OpenSky 2019 to 2022 route appearances, the model achieves AUC 0.965, Precision at 100 of 0.250 (versus 0.000 for persistence), and top 500 candidate appearance share of 0.066 (versus 0.014 for unserved pairs). Regional transfer from Europe to the US yields AUC 0.741, and US to Europe yields AUC 0.527.
+From reports/reconstruction_network.md, held-out route validation on the 20% test graph yields Combined Model ROC AUC 0.744 (Gravity 0.603, Preferential Attachment 0.665, Adamic-Adar 0.761), Brier loss 0.0510, Precision at 100 of 0.870, and Precision at 500 of 0.866. In out-of-time validation on OpenSky 2019 to 2022 route appearances, the model achieves AUC 0.959, Precision at 100 of 0.250 (versus 0.000 for persistence), and top 500 candidate appearance share of 0.084 (versus 0.017 for random unserved pairs, a 5.0x lift). Regional transfer from Europe to the US yields AUC 0.741, and US to Europe yields AUC 0.527.
 
 Where reconstruction struggles:
 - Island nations and isolated resource outposts have passenger volumes driven by tourism charters or mining shifts that local population and runway length do not explain.
@@ -169,13 +171,19 @@ cd skyline-index
 pip install -r requirements.txt
 ```
 
+Download public raw datasets (OurAirports, OpenFlights, World Bank, Eurostat):
+
+```bash
+python scripts/01_download.py
+```
+
 To run the full pipeline:
 
 ```bash
 python run_all.py
 ```
 
-Or run individual scripts:
+Or run individual scripts in order:
 
 ```bash
 python scripts/01_download.py
