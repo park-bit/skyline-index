@@ -52,9 +52,8 @@ function initMap() {
 
 function getAirportColor(airport, horizon) {
   if (horizon === "present") {
-    const score = airport.importance_present;
-    if (score >= 90.0) return COLOR_MAP.established_hub;
-    return COLOR_MAP.stable;
+    const cls = airport.forecast_h5 && airport.forecast_h5.class ? airport.forecast_h5.class : "stable";
+    return COLOR_MAP[cls] || COLOR_MAP.stable;
   }
   const hData = horizon === "h5" ? airport.forecast_h5 : airport.forecast_h10;
   const cls = hData && hData.class ? hData.class : "stable";
@@ -134,9 +133,7 @@ function renderMarkers() {
     // Class filter
     const activeClass =
       currentHorizon === "present"
-        ? ap.importance_present >= 90
-          ? "established_hub"
-          : "stable"
+        ? (ap.forecast_h5 && ap.forecast_h5.class ? ap.forecast_h5.class : "stable")
         : (currentHorizon === "h5" ? ap.forecast_h5 : ap.forecast_h10)?.class;
 
     if (filterCls !== "all" && activeClass !== filterCls) return;
@@ -483,6 +480,34 @@ function switchTab(tab) {
   }
 }
 
+function renderAboutCard(data) {
+  const card = document.getElementById("about-card");
+  if (!card) return;
+  const method = data.methodology || "Ensemble of LightGBM and Ridge with IMF and UN forward projections";
+  const h10 = data.horizon10_evaluation || {
+    persistence_mae: 5.282,
+    damped_mae: 10.768,
+    damping_factor: 0.7,
+    coverage_pct: 54.2,
+  };
+  const constantList = Array.isArray(data.macro_held_constant)
+    ? data.macro_held_constant.map((s) => s.replace(/_/g, " ")).join(", ")
+    : "network topology, airport catchment, historical traffic volume";
+  const projectedList = Array.isArray(data.macro_projected)
+    ? data.macro_projected.map((s) => s.replace(/_/g, " ")).join(", ")
+    : "IMF GDP growth, UN median age, UN population";
+
+  card.innerHTML = `
+    <div class="about-title">About the Index</div>
+    <p class="about-text" id="about-text">
+      The Skyline Index evaluates global airport importance across route network centrality, annual traffic throughput, and regional market catchment.
+      Forecast methodology: ${method}. Variables projected forward include ${projectedList}, while ${constantList} are held constant.
+      At horizon 10, persistence (predicting zero change) wins on test MAE (${h10.persistence_mae} versus ${h10.damped_mae} for the damped model) due to decadal mean reversion; we ship the damped model (damping factor ${h10.damping_factor}) to supply directional signals alongside baseline persistence benchmarks. Horizon 10 uncertainty bands achieve ${h10.coverage_pct} percent coverage and are labelled as rough ranges.
+      The Opportunity Radar predicts promising unserved city pairs by combining network topology with forecast airport momentum.
+    </p>
+  `;
+}
+
 function setupEventListeners() {
   // Horizon buttons
   document.querySelectorAll(".horizon-btn").forEach((btn) => {
@@ -490,6 +515,18 @@ function setupEventListeners() {
       document.querySelectorAll(".horizon-btn").forEach((b) => b.classList.remove("active"));
       e.target.classList.add("active");
       currentHorizon = e.target.getAttribute("data-horizon");
+
+      const horizonNote = document.getElementById("horizon-note");
+      if (horizonNote) {
+        if (currentHorizon === "present") {
+          horizonNote.textContent = "Current view: size is today's score, colour is the predicted 5 year trend.";
+        } else if (currentHorizon === "h5") {
+          horizonNote.textContent = "+5 Years view: size is 2030 score, colour is the predicted 5 year trend.";
+        } else if (currentHorizon === "h10") {
+          horizonNote.textContent = "+10 Years view: size is 2035 score, colour is the predicted 10 year trend.";
+        }
+      }
+
       updateMarkerStyles();
       if (selectedAirport) renderDrawer(selectedAirport);
     });
@@ -545,6 +582,8 @@ async function startApp() {
 
     airportsData = forecasts.airports || [];
     opportunitiesData = opportunities;
+
+    renderAboutCard(forecasts);
 
     airportsData.forEach((a) => {
       airportLookup[a.iata] = a;

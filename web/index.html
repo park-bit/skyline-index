@@ -14,10 +14,13 @@
       <span class="brand-subtitle">Forecasting airport importance across structural network graphs</span>
     </div>
 
-    <div class="horizon-toggle" id="horizon-controls" role="group" aria-label="Forecast horizon">
-      <button type="button" class="horizon-btn active" id="btn-horizon-present" data-horizon="present">Current (2025)</button>
-      <button type="button" class="horizon-btn" id="btn-horizon-h5" data-horizon="h5">+5 Years (2030)</button>
-      <button type="button" class="horizon-btn" id="btn-horizon-h10" data-horizon="h10">+10 Years (2035)</button>
+    <div class="horizon-wrapper">
+      <div class="horizon-toggle" id="horizon-controls" role="group" aria-label="Forecast horizon">
+        <button type="button" class="horizon-btn active" id="btn-horizon-present" data-horizon="present">Current (2025)</button>
+        <button type="button" class="horizon-btn" id="btn-horizon-h5" data-horizon="h5">+5 Years (2030)</button>
+        <button type="button" class="horizon-btn" id="btn-horizon-h10" data-horizon="h10">+10 Years (2035)</button>
+      </div>
+      <div class="horizon-note" id="horizon-note">Current view: size is today's score, colour is the predicted 5 year trend.</div>
     </div>
 
     <div class="nav-tabs" role="tablist">
@@ -76,10 +79,10 @@
 
       <div class="legend-panel">
         <div class="legend-title">Trajectory Class</div>
-        <div class="legend-item"><span class="legend-color color-hub"></span> Established Hub (Rank &gt;= 90)</div>
-        <div class="legend-item"><span class="legend-color color-emerging"></span> Emerging (&gt;= +2.0 Change)</div>
-        <div class="legend-item"><span class="legend-color color-stable"></span> Stable</div>
-        <div class="legend-item"><span class="legend-color color-declining"></span> Declining (&lt;= -2.0 Change)</div>
+        <div class="legend-item"><span class="legend-color color-hub"></span> Established Hub (score 90 or above)</div>
+        <div class="legend-item"><span class="legend-color color-emerging"></span> Emerging (top 20% predicted change in data quality group)</div>
+        <div class="legend-item"><span class="legend-color color-stable"></span> Stable (the rest)</div>
+        <div class="legend-item"><span class="legend-color color-declining"></span> Declining (bottom 20% predicted change in data quality group)</div>
 
         <div class="legend-title" style="margin-top: 8px;">Confidence Tier</div>
         <div class="legend-item"><span class="badge badge-confidence-high" style="padding: 1px 6px; font-size: 10px;">High</span> Observed Official Statistics</div>
@@ -95,10 +98,10 @@
 
       <div class="about-card" id="about-card">
         <div class="about-title">About the Index</div>
-        <p class="about-text">
+        <p class="about-text" id="about-text">
           The Skyline Index evaluates global airport importance across route network centrality, annual traffic throughput, and regional market catchment.
           Forecasts model 5 and 10 year importance changes using machine learning trained on historical panel shifts and forward economic projections.
-          At horizon 10, persistence (predicting zero change) wins on test MAE (4.608 vs 7.629 for the damped model) due to decadal mean reversion; we ship the damped model (damping factor 0.9) to supply directional signals alongside baseline persistence benchmarks. Horizon 10 uncertainty bands achieve 46 percent test coverage and are labelled as rough ranges.
+          At horizon 10, persistence (predicting zero change) wins on test MAE (5.282 versus 10.768 for the damped model) due to decadal mean reversion; we ship the damped model (damping factor 0.7) to supply directional signals alongside baseline persistence benchmarks. Horizon 10 uncertainty bands achieve 54.2 percent coverage and are labelled as rough ranges.
           The Opportunity Radar predicts promising unserved city pairs by combining network topology with forecast airport momentum.
         </p>
       </div>

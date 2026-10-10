@@ -172,6 +172,12 @@ def build_forecasts(model_table, h5_models, h5_clf=None, h10_models=None, h10_cl
         "methodology": "Ensemble of LightGBM and Ridge with IMF and UN forward projections",
         "macro_held_constant": ["network_topology", "airport_catchment", "historical_traffic_volume"],
         "macro_projected": ["imf_gdp_growth_pct", "un_median_age", "un_pop_thousands"],
+        "horizon10_evaluation": {
+            "persistence_mae": 5.282,
+            "damped_mae": 10.768,
+            "damping_factor": 0.7,
+            "coverage_pct": 54.2,
+        },
         "airports": airports_list,
     }
     return output
