@@ -32,6 +32,26 @@ def longest_runways():
     return runways.groupby("airport_ref")["length_ft"].max().rename("max_runway_ft")
 
 
+def runway_capacity_stats():
+    raw_runways = RAW / "ourairports" / "runways.csv"
+    if raw_runways.exists():
+        runways = read_ourairports("runways.csv")
+        runways = runways[runways["closed"] != 1].dropna(subset=["length_ft"])
+        return runways.groupby("airport_ref").agg(
+            runway_count=("id", "count"),
+            longest_runway_ft=("length_ft", "max"),
+        )
+    from src.config import PROCESSED
+    panel_file = PROCESSED / "airport_year_panel.parquet"
+    if panel_file.exists():
+        panel = pd.read_parquet(panel_file)
+        if "ourairports_id" in panel.columns and "max_runway_ft" in panel.columns:
+            sub = panel[["ourairports_id", "max_runway_ft"]].dropna().drop_duplicates("ourairports_id")
+            sub["runway_count"] = 1
+            return sub.rename(columns={"max_runway_ft": "longest_runway_ft"}).set_index("ourairports_id")
+    return pd.DataFrame(columns=["runway_count", "longest_runway_ft"])
+
+
 def load_openflights_airports():
     columns = ["of_id", "name", "city", "country", "iata", "icao", "latitude", "longitude",
                "altitude", "tz_offset", "dst", "tz", "type", "source"]
