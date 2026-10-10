@@ -1,0 +1,287 @@
+[
+  {
+    "centre": {
+      "latitude": -18.5403,
+      "longitude": -47.9116
+    },
+    "member_iata_codes": [
+      "AAX",
+      "CLV",
+      "GYN",
+      "POJ",
+      "UBA",
+      "UDI"
+    ],
+    "candidate_iata_codes": [
+      "GYN",
+      "UBA",
+      "UDI"
+    ],
+    "country": "BR",
+    "reason_line": "Cluster of 6 airports with 3 expansion candidates (GYN, UBA, UDI) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 6 airports with 3 expansion candidates (GYN, UBA, UDI) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -21.5438,
+      "longitude": -49.1226
+    },
+    "member_iata_codes": [
+      "AQA",
+      "ARU",
+      "JTC",
+      "MII",
+      "RAO",
+      "SJP"
+    ],
+    "candidate_iata_codes": [
+      "MII",
+      "RAO",
+      "SJP"
+    ],
+    "country": "BR",
+    "reason_line": "Cluster of 6 airports with 3 expansion candidates (MII, RAO, SJP) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 6 airports with 3 expansion candidates (MII, RAO, SJP) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -3.0324,
+      "longitude": 133.1337
+    },
+    "member_iata_codes": [
+      "BXB",
+      "FKQ",
+      "KNG"
+    ],
+    "candidate_iata_codes": [
+      "FKQ",
+      "KNG"
+    ],
+    "country": "ID",
+    "reason_line": "Cluster of 3 airports with 2 expansion candidates (FKQ, KNG) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 3 airports with 2 expansion candidates (FKQ, KNG) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -27.0057,
+      "longitude": -48.9202
+    },
+    "member_iata_codes": [
+      "CCM",
+      "CWB",
+      "FLN",
+      "JOI",
+      "NVT"
+    ],
+    "candidate_iata_codes": [
+      "JOI",
+      "NVT"
+    ],
+    "country": "BR",
+    "reason_line": "Cluster of 5 airports with 2 expansion candidates (JOI, NVT) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 5 airports with 2 expansion candidates (JOI, NVT) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -27.4001,
+      "longitude": -51.9498
+    },
+    "member_iata_codes": [
+      "CFC",
+      "ERM",
+      "JCB",
+      "PFB",
+      "XAP"
+    ],
+    "candidate_iata_codes": [
+      "JCB",
+      "PFB"
+    ],
+    "country": "BR",
+    "reason_line": "Cluster of 5 airports with 2 expansion candidates (JCB, PFB) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 5 airports with 2 expansion candidates (JCB, PFB) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -7.8635,
+      "longitude": 157.7419
+    },
+    "member_iata_codes": [
+      "CHY",
+      "EGM",
+      "FRE",
+      "GZO",
+      "KGE",
+      "MUA",
+      "RBV",
+      "VAO"
+    ],
+    "candidate_iata_codes": [
+      "EGM",
+      "FRE",
+      "GZO"
+    ],
+    "country": "SB",
+    "reason_line": "Cluster of 8 airports with 3 expansion candidates (EGM, FRE, GZO) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 8 airports with 3 expansion candidates (EGM, FRE, GZO) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -6.2227,
+      "longitude": -50.5359
+    },
+    "member_iata_codes": [
+      "CKS",
+      "MAB",
+      "OIA",
+      "SXX"
+    ],
+    "candidate_iata_codes": [
+      "CKS",
+      "MAB",
+      "OIA"
+    ],
+    "country": "BR",
+    "reason_line": "Cluster of 4 airports with 3 expansion candidates (CKS, MAB, OIA) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 4 airports with 3 expansion candidates (CKS, MAB, OIA) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -17.1954,
+      "longitude": -59.7219
+    },
+    "member_iata_codes": [
+      "ICI",
+      "LBS",
+      "LKB",
+      "SVU",
+      "TVU",
+      "VBV"
+    ],
+    "candidate_iata_codes": [
+      "SVU",
+      "TVU"
+    ],
+    "country": "FJ",
+    "reason_line": "Cluster of 6 airports with 2 expansion candidates (SVU, TVU) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 6 airports with 2 expansion candidates (SVU, TVU) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -3.7029,
+      "longitude": -69.6372
+    },
+    "member_iata_codes": [
+      "LET",
+      "OLC",
+      "TBT",
+      "TCD"
+    ],
+    "candidate_iata_codes": [
+      "LET",
+      "TCD"
+    ],
+    "country": "BR",
+    "reason_line": "Cluster of 4 airports with 2 expansion candidates (LET, TCD) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 4 airports with 2 expansion candidates (LET, TCD) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": -5.4378,
+      "longitude": 141.0458
+    },
+    "member_iata_codes": [
+      "OKL",
+      "TBG",
+      "UNG"
+    ],
+    "candidate_iata_codes": [
+      "OKL",
+      "UNG"
+    ],
+    "country": "PG",
+    "reason_line": "Cluster of 3 airports with 2 expansion candidates (OKL, UNG) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 3 airports with 2 expansion candidates (OKL, UNG) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": 52.5384,
+      "longitude": -79.9051
+    },
+    "member_iata_codes": [
+      "YAT",
+      "YFA",
+      "YGL",
+      "YKQ",
+      "YKU",
+      "YMO",
+      "YNC",
+      "ZEM",
+      "ZKE"
+    ],
+    "candidate_iata_codes": [
+      "YKQ",
+      "YKU"
+    ],
+    "country": "CA",
+    "reason_line": "Cluster of 9 airports with 2 expansion candidates (YKQ, YKU) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 9 airports with 2 expansion candidates (YKQ, YKU) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": 49.9671,
+      "longitude": -61.8644
+    },
+    "member_iata_codes": [
+      "YAY",
+      "YBX",
+      "YCL",
+      "YGP",
+      "YGV",
+      "YHR",
+      "YIF",
+      "YNA",
+      "YPN",
+      "YVB",
+      "YZV",
+      "ZBF",
+      "ZGS",
+      "ZKG",
+      "ZLT",
+      "ZTB"
+    ],
+    "candidate_iata_codes": [
+      "YAY",
+      "YBX",
+      "YHR",
+      "YIF",
+      "YNA",
+      "ZGS"
+    ],
+    "country": "CA",
+    "reason_line": "Cluster of 16 airports with 6 expansion candidates (YAY, YBX, YHR, YIF, YNA, ZGS) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 16 airports with 6 expansion candidates (YAY, YBX, YHR, YIF, YNA, ZGS) lacking a 2,500 m long runway facility within 150 km."
+  },
+  {
+    "centre": {
+      "latitude": 55.3468,
+      "longitude": -60.0875
+    },
+    "member_iata_codes": [
+      "YDP",
+      "YHO",
+      "YMN",
+      "YNP",
+      "YRG",
+      "YSO"
+    ],
+    "candidate_iata_codes": [
+      "YHO",
+      "YMN",
+      "YSO"
+    ],
+    "country": "CA",
+    "reason_line": "Cluster of 6 airports with 3 expansion candidates (YHO, YMN, YSO) lacking a 2,500 m long runway facility within 150 km.",
+    "reason": "Cluster of 6 airports with 3 expansion candidates (YHO, YMN, YSO) lacking a 2,500 m long runway facility within 150 km."
+  }
+]

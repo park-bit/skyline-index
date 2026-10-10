@@ -11,13 +11,13 @@ Headline evaluation focuses on folds 1 and 2. Fold 3 (origin year 2020) is repor
 | 5 | 1 | 2018 | persistence | 1479 | 0.088 | 0.088 | 0.054 | 0.054 | 4.538 | 0.9721 | - | - | - |
 | 5 | 1 | 2018 | linear_trend | 1479 | 0.155 | 0.155 | 0.088 | 0.088 | 4.948 | 0.9643 | - | - | - |
 | 5 | 1 | 2018 | ridge | 1479 | 0.061 | 0.061 | 0.169 | 0.169 | 4.94 | 0.9699 | - | - | - |
-| 5 | 1 | 2018 | lightgbm | 1479 | 0.108 | 0.108 | 0.155 | 0.155 | 4.319 | 0.9727 | - | - | - |
-| 5 | 1 | 2018 | ensemble | 1479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.542 | 0.9719 | 0.8 | 0.622 | 0.544 |
+| 5 | 1 | 2018 | lightgbm | 1479 | 0.115 | 0.115 | 0.169 | 0.169 | 4.312 | 0.9728 | - | - | - |
+| 5 | 1 | 2018 | ensemble | 1479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.534 | 0.972 | 0.8 | 0.627 | 0.544 |
 | 5 | 2 | 2019 | persistence | 1416 | 0.106 | 0.106 | 0.077 | 0.077 | 3.481 | 0.9851 | - | - | - |
 | 5 | 2 | 2019 | linear_trend | 1416 | 0.155 | 0.155 | 0.077 | 0.077 | 7.033 | 0.9732 | - | - | - |
 | 5 | 2 | 2019 | ridge | 1416 | 0.261 | 0.261 | 0.218 | 0.218 | 3.326 | 0.9848 | - | - | - |
-| 5 | 2 | 2019 | lightgbm | 1416 | 0.394 | 0.394 | 0.261 | 0.261 | 2.824 | 0.9839 | - | - | - |
-| 5 | 2 | 2019 | ensemble | 1416 | 0.401 | 0.401 | 0.239 | 0.239 | 2.952 | 0.985 | 0.8 | 0.895 | 0.643 |
+| 5 | 2 | 2019 | lightgbm | 1416 | 0.387 | 0.387 | 0.268 | 0.268 | 2.816 | 0.984 | - | - | - |
+| 5 | 2 | 2019 | ensemble | 1416 | 0.373 | 0.373 | 0.254 | 0.254 | 2.953 | 0.985 | 0.8 | 0.893 | 0.643 |
 | 10 | 1 | 2013-2015 | persistence | 4123 | 0.097 | 0.097 | 0.075 | 0.075 | 5.282 | 0.9576 | - | - | - |
 | 10 | 1 | 2013-2015 | linear_trend | 4123 | 0.123 | 0.123 | 0.051 | 0.051 | 9.742 | 0.9331 | - | - | - |
 | 10 | 1 | 2013-2015 | ridge | 4123 | 0.053 | 0.053 | 0.063 | 0.063 | 17.326 | 0.7787 | - | - | - |
@@ -30,9 +30,9 @@ Headline evaluation focuses on folds 1 and 2. Fold 3 (origin year 2020) is repor
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 5 | 3 | 2020 | persistence | 1322 | 0.098 | 0.098 | 0.06 | 0.06 | 3.871 | 0.981 | - | - | - |
 | 5 | 3 | 2020 | linear_trend | 1322 | 0.143 | 0.143 | 0.038 | 0.038 | 6.484 | 0.9646 | - | - | - |
-| 5 | 3 | 2020 | ridge | 1322 | 0.18 | 0.18 | 0.203 | 0.203 | 6.029 | 0.9807 | - | - | - |
-| 5 | 3 | 2020 | lightgbm | 1322 | 0.195 | 0.195 | 0.406 | 0.406 | 3.902 | 0.9809 | - | - | - |
-| 5 | 3 | 2020 | ensemble | 1322 | 0.218 | 0.218 | 0.391 | 0.391 | 3.869 | 0.9829 | 0.8 | 0.852 | 0.624 |
+| 5 | 3 | 2020 | ridge | 1322 | 0.18 | 0.18 | 0.203 | 0.203 | 6.03 | 0.9807 | - | - | - |
+| 5 | 3 | 2020 | lightgbm | 1322 | 0.188 | 0.188 | 0.383 | 0.383 | 3.849 | 0.981 | - | - | - |
+| 5 | 3 | 2020 | ensemble | 1322 | 0.203 | 0.203 | 0.398 | 0.398 | 3.892 | 0.9829 | 0.8 | 0.852 | 0.624 |
 
 ## Horizon 10 Evaluation
 
@@ -55,7 +55,7 @@ I evaluated performance separately across observed, reconstructed and static-onl
 
 | Data Quality | Count | Change MAE | Spearman Level | Risers Precision | Fallers Precision |
 |---|---|---|---|---|---|
-| observed | 4217 | 3.788 | 0.98 | 0.231 | 0.269 |
+| observed | 4217 | 3.793 | 0.98 | 0.217 | 0.276 |
 
 The model is weaker on static-only airports where absence of recorded flight movements forces predictions to rely solely on macro catchment drivers. Reconstructed airports achieve comparable rank preservation to observed airports.
 
@@ -65,10 +65,10 @@ I evaluated regional transfer by holding out Europe completely from training, si
 
 | Option | Held Out Region | Test N | MAE Change | Spearman Level | Risers P | Risers R | Fallers P | Fallers R |
 |---|---|---|---|---|---|---|---|---|
-| global_model | EU | 326 | 3.476 | 0.9778 | 0.03 | 0.03 | 0.242 | 0.242 |
-| global_plus_region_effects | EU | 326 | 3.495 | 0.9774 | 0.03 | 0.03 | 0.182 | 0.182 |
+| global_model | EU | 326 | 3.488 | 0.9778 | 0.0 | 0.0 | 0.242 | 0.242 |
+| global_plus_region_effects | EU | 326 | 3.505 | 0.9772 | 0.0 | 0.0 | 0.212 | 0.212 |
 | fine_tuned_regions | EU | 326 | 3.524 | 0.979 | 0.121 | 0.121 | 0.212 | 0.212 |
-| observed_benchmark | EU | 326 | 3.476 | 0.9778 | 0.03 | 0.03 | 0.242 | 0.242 |
+| observed_benchmark | EU | 326 | 3.488 | 0.9778 | 0.0 | 0.0 | 0.242 | 0.242 |
 
 ## Uncertainty Calibration
 
