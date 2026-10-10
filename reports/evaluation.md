@@ -11,8 +11,8 @@ Headline evaluation focuses on folds 1 and 2. Fold 3 (origin year 2020) is repor
 | 5 | 1 | 2018 | persistence | 1479 | 0.088 | 0.088 | 0.054 | 0.054 | 4.538 | 0.9721 | - | - | - |
 | 5 | 1 | 2018 | linear_trend | 1479 | 0.155 | 0.155 | 0.088 | 0.088 | 4.948 | 0.9643 | - | - | - |
 | 5 | 1 | 2018 | ridge | 1479 | 0.061 | 0.061 | 0.169 | 0.169 | 4.94 | 0.9699 | - | - | - |
-| 5 | 1 | 2018 | lightgbm | 1479 | 0.108 | 0.108 | 0.155 | 0.155 | 4.319 | 0.9727 | - | - | - |
-| 5 | 1 | 2018 | ensemble | 1479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.542 | 0.9719 | 0.608 | 0.59 | 0.544 |
+| 5 | 1 | 2018 | lightgbm | 1479 | 0.108 | 0.108 | 0.135 | 0.135 | 4.32 | 0.9727 | - | - | - |
+| 5 | 1 | 2018 | ensemble | 1479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.537 | 0.972 | 0.613 | 0.588 | 0.544 |
 | 5 | 2 | 2019 | persistence | 1416 | 0.106 | 0.106 | 0.077 | 0.077 | 3.481 | 0.9851 | - | - | - |
 | 5 | 2 | 2019 | linear_trend | 1416 | 0.155 | 0.155 | 0.077 | 0.077 | 7.033 | 0.9732 | - | - | - |
 | 5 | 2 | 2019 | ridge | 1416 | 0.261 | 0.261 | 0.218 | 0.218 | 3.326 | 0.9848 | - | - | - |
@@ -55,7 +55,7 @@ I evaluated performance separately across observed, reconstructed and static-onl
 
 | Data Quality | Count | Change MAE | Spearman Level | Risers Precision | Fallers Precision |
 |---|---|---|---|---|---|
-| observed | 4217 | 3.788 | 0.98 | 0.231 | 0.269 |
+| observed | 4217 | 3.786 | 0.98 | 0.231 | 0.269 |
 
 The model is weaker on static-only airports where absence of recorded flight movements forces predictions to rely solely on macro catchment drivers. Reconstructed airports achieve comparable rank preservation to observed airports.
 

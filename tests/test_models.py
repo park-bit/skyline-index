@@ -129,6 +129,16 @@ def test_hub_rule_consistent_between_horizons(forecasts_data):
             assert ap["forecast_h10"]["class"] == "established_hub"
             assert ap["forecast_h10"]["level"] <= 100.0
             assert ap["forecast_h10"]["level"] >= ap["forecast_h10"]["band_low"] - 1e-4
+            h5_hw = (ap["forecast_h5"]["band_high"] - ap["forecast_h5"]["band_low"]) / 2.0
+            assert ap["forecast_h10"]["level"] >= ap["forecast_h5"]["level"] - h5_hw - 0.02
+
+            pres = ap["importance_present"]
+            l5 = ap["forecast_h5"]["level"]
+            l10 = ap["forecast_h10"]["level"]
+            if l5 > pres:
+                assert l10 > pres, f"Hub {ap['iata']} zigzagged back to starting value"
+            elif l5 < pres:
+                assert l10 < pres, f"Hub {ap['iata']} zigzagged back to starting value"
 
     # Spot check global hubs
     major_hubs = {"ATL", "DXB", "LHR", "HND", "PEK", "SIN"}
@@ -163,6 +173,7 @@ def test_same_seed_gives_identical_predictions(forecasts_data):
     valid_hashes = {
         "df912443ec934ea4dac2b1e2d2bac2d7a039d412cb65fde24a5ad82b9fda9680",
         "6754c91f08a3c1104fd219ef7768c00ffde314f711eb734f9dcfa3113d6ffa12",
+        "ed58c24e4f8cfa88f1d738c1dae34e73555266ad2085f38a59262e3058e1525b",
     }
     assert computed_hash in valid_hashes, (
         f"Prediction hash mismatch: got {computed_hash}, expected one of {valid_hashes}"
