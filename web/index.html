@@ -49,8 +49,9 @@
         <label for="filter-confidence">Confidence</label>
         <select id="filter-confidence">
           <option value="all">All Airports</option>
-          <option value="high">High Confidence (Core Traffic History)</option>
-          <option value="low">Low Confidence (Model Imputed)</option>
+          <option value="high">High Confidence (Observed Traffic)</option>
+          <option value="medium">Medium Confidence (Reconstructed &le; 12.0 pt Width)</option>
+          <option value="low">Low Confidence (Wide Spread / Static Only)</option>
         </select>
       </div>
 
@@ -79,6 +80,11 @@
         <div class="legend-item"><span class="legend-color color-emerging"></span> Emerging (&gt;= +2.0 Change)</div>
         <div class="legend-item"><span class="legend-color color-stable"></span> Stable</div>
         <div class="legend-item"><span class="legend-color color-declining"></span> Declining (&lt;= -2.0 Change)</div>
+
+        <div class="legend-title" style="margin-top: 8px;">Confidence Tier</div>
+        <div class="legend-item"><span class="badge badge-confidence-high" style="padding: 1px 6px; font-size: 10px;">High</span> Observed Official Statistics</div>
+        <div class="legend-item"><span class="badge badge-confidence-medium" style="padding: 1px 6px; font-size: 10px;">Medium</span> Reconstructed (Width &le; 12.0)</div>
+        <div class="legend-item"><span class="badge badge-confidence-low" style="padding: 1px 6px; font-size: 10px;">Low</span> Reconstructed Wide / Static Only</div>
 
         <div class="legend-title" style="margin-top: 8px;">Data Quality</div>
         <div class="legend-item"><span class="legend-shape shape-observed"></span> Solid: Observed (Official Statistics)</div>

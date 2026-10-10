@@ -161,7 +161,11 @@ def find_candidate_routes(g, airports_df, forecast_dict, top_k=250):
 def build_three_lists(airports_df, forecast_dict, candidate_routes):
     f_airports = forecast_dict.get("airports", [])
     core_risers = sorted(
-        [a for a in f_airports if a.get("importance_confidence") == "high" and a.get("forecast_h5", {}).get("change", 0.0) > 0.0],
+        [
+            a for a in f_airports
+            if (a.get("data_quality") == "observed" or a.get("importance_confidence") in ["high", "medium"])
+            and a.get("forecast_h5", {}).get("change", 0.0) > 0.0
+        ],
         key=lambda x: x["forecast_h5"]["change"], reverse=True
     )
     investor_list = [

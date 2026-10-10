@@ -128,6 +128,7 @@ function renderMarkers() {
 
     // Confidence filter
     if (filterConf === "high" && ap.importance_confidence !== "high") return;
+    if (filterConf === "medium" && ap.importance_confidence !== "medium") return;
     if (filterConf === "low" && ap.importance_confidence !== "low") return;
 
     // Class filter
@@ -279,10 +280,12 @@ function renderDrawer(ap) {
     badgeQualityText = "Static Only";
   }
 
-  const isHighConf = ap.importance_confidence === "high";
-  const confBadge = isHighConf
-    ? '<span class="badge badge-confidence-high">High Confidence</span>'
-    : '<span class="badge badge-confidence-low">Low Confidence</span>';
+  let confBadge = '<span class="badge badge-confidence-low">Low Confidence</span>';
+  if (ap.importance_confidence === "high") {
+    confBadge = '<span class="badge badge-confidence-high">High Confidence</span>';
+  } else if (ap.importance_confidence === "medium") {
+    confBadge = '<span class="badge badge-confidence-medium">Medium Confidence</span>';
+  }
 
   const posDrivers = (activeForecast.positive_drivers || [])
     .map((d) => `<li class="driver-item positive">${d}</li>`)

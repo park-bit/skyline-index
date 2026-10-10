@@ -123,7 +123,10 @@ def test_percentile_reference_set_identical_across_years(model_table):
     ref_set = set(core_airports)
 
     for yr, group in model_table.groupby("year"):
-        core_yr = set(group[group["importance_confidence"] == "high"]["iata"])
+        if "is_core" in group.columns:
+            core_yr = set(group[group["is_core"]]["iata"])
+        else:
+            core_yr = set(group[group["iata"].isin(ref_set)]["iata"])
         assert core_yr == ref_set, f"Core reference population mismatch in year {yr}"
 
 
@@ -138,3 +141,19 @@ def test_importance_intervals_contain_point_value(model_table):
 def test_no_airport_gets_importance_from_zero_inputs(model_table):
     zero_inputs = model_table[model_table["components_used"] == 0]
     assert zero_inputs["importance_raw"].isna().all(), "airport with 0 inputs got importance_raw"
+
+
+def test_confidence_label_tiers(model_table):
+    # High confidence only for observed airports
+    assert (model_table[model_table["importance_confidence"] == "high"]["data_quality"] == "observed").all()
+
+    # Static-only airports must be low confidence
+    assert (model_table[model_table["data_quality"] == "static_only"]["importance_confidence"] == "low").all()
+
+    # Reconstructed medium confidence must have interval width <= 12.0
+    recon_med = model_table[(model_table["data_quality"] == "reconstructed") & (model_table["importance_confidence"] == "medium")]
+    assert ((recon_med["importance_hi"] - recon_med["importance_lo"]) <= 12.0 + 1e-5).all()
+
+    # Reconstructed low confidence must have interval width > 12.0
+    recon_low = model_table[(model_table["data_quality"] == "reconstructed") & (model_table["importance_confidence"] == "low")]
+    assert ((recon_low["importance_hi"] - recon_low["importance_lo"]) > 12.0 - 1e-5).all()

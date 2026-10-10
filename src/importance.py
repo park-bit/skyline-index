@@ -262,7 +262,19 @@ def compute_importance_index(panel, weights=(WEIGHT_NETWORK, WEIGHT_TRAFFIC, WEI
     res["importance"] = imp
     res["importance_lo"] = imp_lo
     res["importance_hi"] = imp_hi
-    res["importance_confidence"] = np.where(res["iata"].isin(core_set), "high", "low")
+    res["is_core"] = res["iata"].isin(core_set)
+
+    width = (imp_hi - imp_lo).fillna(999.0)
+    conf = np.where(
+        res["data_quality"] == "observed",
+        "high",
+        np.where(
+            (res["data_quality"] == "reconstructed") & (width <= 12.0),
+            "medium",
+            "low",
+        ),
+    )
+    res["importance_confidence"] = conf
     return res
 
 
