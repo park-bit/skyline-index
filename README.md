@@ -120,14 +120,14 @@ Defining trajectory classes relative to data quality group medians balances clas
 
 ### Region Transfer Experiment
 
-From reports/evaluation.md, holding out Europe and evaluating on 590 European airports:
+From reports/evaluation.md, holding out Europe and evaluating on 326 European airports:
 
 | Option | Held Out Region | Test N | MAE Change | Spearman Level | Risers P | Fallers P |
 |---|---|---|---|---|---|---|
-| global_model | EU | 590 | 4.556 | 0.9786 | 0.068 | 0.102 |
-| global_plus_region_effects | EU | 590 | 4.963 | 0.9797 | 0.017 | 0.186 |
-| fine_tuned_regions | EU | 590 | 4.600 | 0.9794 | 0.153 | 0.102 |
-| observed_benchmark | EU | 590 | 4.913 | 0.9759 | 0.000 | 0.085 |
+| global_model | EU | 326 | 3.476 | 0.9778 | 0.030 | 0.242 |
+| global_plus_region_effects | EU | 326 | 3.495 | 0.9774 | 0.030 | 0.182 |
+| fine_tuned_regions | EU | 326 | 3.524 | 0.9790 | 0.121 | 0.212 |
+| observed_benchmark | EU | 326 | 3.476 | 0.9778 | 0.030 | 0.242 |
 
 Performance across observed airports on headline folds shows change MAE 3.787, Spearman 0.9800, risers precision 0.231, and fallers precision 0.269.
 
