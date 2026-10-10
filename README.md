@@ -6,6 +6,11 @@ The interactive map displays 4,079 commercial airports. Out of 9,051 total airpo
 
 ![Global Aviation Intelligence Map](docs/map.png)
 
+
+
+
+find more [here](https://skyline-index-web.vercel.app/)
+
 ## Why Importance is Not Only Passenger Volume
 
 Air transport importance is often equated with raw annual passenger volume. While passenger volume measures airport throughput, it fails to capture topological centrality, intercontinental gateway roles, or regional market isolation. A hub that connects forty regional spokes to twelve international flag carriers plays a structural coordination role in the global airline network that volume numbers alone do not reveal. If two airports both handle twenty million passengers annually, but one operates as an isolated domestic origin-destination spoke while the other serves as a global transit crossroads connecting three continents, their systemic importance to global civil aviation differs fundamentally.
