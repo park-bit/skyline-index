@@ -22,7 +22,7 @@ Headline evaluation focuses on folds 1 and 2. Fold 3 (origin year 2020) is repor
 | 10 | 1 | 2013-2015 | linear_trend | 4123 | 0.123 | 0.123 | 0.051 | 0.051 | 9.742 | 0.9331 | - | - | - |
 | 10 | 1 | 2013-2015 | ridge | 4123 | 0.053 | 0.053 | 0.063 | 0.063 | 17.326 | 0.7787 | - | - | - |
 | 10 | 1 | 2013-2015 | lightgbm | 4123 | 0.063 | 0.063 | 0.09 | 0.09 | 11.044 | 0.9357 | - | - | - |
-| 10 | 1 | 2013-2015 | ensemble | 4123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.8 | 0.435 | 0.417 |
+| 10 | 1 | 2013-2015 | ensemble | 4123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.8 | 0.323 | 0.417 |
 
 ## COVID Fold Evaluation (Fold 3, Test Origin 2020)
 
@@ -42,7 +42,7 @@ Headline evaluation focuses on folds 1 and 2. Fold 3 (origin year 2020) is repor
 | 10 | 1 | 2013-2015 | linear_trend | 4123 | 0.123 | 0.123 | 0.051 | 0.051 | 9.742 | 0.9331 | - | - |
 | 10 | 1 | 2013-2015 | ridge | 4123 | 0.053 | 0.053 | 0.063 | 0.063 | 17.326 | 0.7787 | - | - |
 | 10 | 1 | 2013-2015 | lightgbm | 4123 | 0.063 | 0.063 | 0.09 | 0.09 | 11.044 | 0.9357 | - | - |
-| 10 | 1 | 2013-2015 | ensemble | 4123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.8 | 0.435 |
+| 10 | 1 | 2013-2015 | ensemble | 4123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.8 | 0.323 |
 
 ### Horizon 10 Damping Comparison
 Damping factor gamma chosen on calibration slice: 0.7.
@@ -73,7 +73,7 @@ I evaluated regional transfer by holding out Europe completely from training, si
 ## Uncertainty Calibration
 
 I calibrated prediction intervals using split conformal calibration on training-year slices, combined with reconstruction uncertainty spread by adding variances.
-Any horizon or fold with measured coverage under 70 percent is labelled as a rough range (for example Fold 1 at horizon 5, measuring 62.2 percent). Horizon 10 bands achieve 43.5 percent coverage on the test fold when calibrated on the latest slice and are labelled as indicative only.
+Any horizon or fold with measured coverage under 70 percent is labelled as a rough range (for example Fold 1 at horizon 5, measuring 62.2 percent). Horizon 10 bands achieve 32.3 percent coverage on the test fold when calibrated on the training slice (target year 2014, prior to test target years 2023 to 2025) and are labelled as indicative only.
 
 ## Confusion Matrices (Folds 1 to 3)
 Classes: declining, emerging, established_hub, stable

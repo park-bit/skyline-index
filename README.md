@@ -81,7 +81,7 @@ Split conformal prediction intervals centered on the ensemble point forecast pro
 | 5 | 3 (COVID) | 2020 | ensemble | 1,322 | 0.218 | 0.218 | 0.391 | 0.391 | 3.867 | 0.9829 | 0.853 |
 | 10 | 1 | 2013-2015 | persistence | 4,123 | 0.097 | 0.097 | 0.075 | 0.075 | 5.282 | 0.9576 | - |
 | 10 | 1 | 2013-2015 | lightgbm | 4,123 | 0.063 | 0.063 | 0.090 | 0.090 | 11.044 | 0.9357 | - |
-| 10 | 1 | 2013-2015 | ensemble | 4,123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.435 |
+| 10 | 1 | 2013-2015 | ensemble | 4,123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.323 |
 | 10 | 1 | 2013-2015 | damped (gamma 0.7) | 4,123 | 0.065 | 0.065 | 0.099 | 0.099 | 10.768 | 0.9202 | - |
 
 Key model behaviors:
@@ -89,7 +89,7 @@ Key model behaviors:
 - Riser precision at horizon 5 is unstable across folds, measuring 0.074 to 0.108 on Fold 1 before rising to 0.394 to 0.401 on Fold 2.
 - At horizon 10, supervised models lose to persistence on change MAE (persistence achieves 5.282, compared to 11.044 for LightGBM and 10.768 for the damped ensemble). Over a decade, multi-year fluctuations mean-revert, and zero predicted change yields lower average error than supervised extrapolation. The damped model is shipped to provide directional signals, but both numbers are documented.
 - Fold 1 coverage at horizon 5 reaches 62.2 percent, below the 70 percent target, and is labeled as a rough range. Folds 2 and 3 reach 89.5 percent and 85.3 percent and are labeled as calibrated intervals.
-- Measured coverage at horizon 10 reaches 43.5 percent when calibrated on the latest slice, remaining below the 70 percent target. Horizon 10 bands are labeled as indicative only.
+- Measured coverage at horizon 10 reaches 32.3 percent when calibrated on the training slice (target year 2014, earlier than test target years 2023 to 2025), remaining below the 70 percent target. Horizon 10 bands are labeled as indicative only.
 
 Trajectory classification rules:
 - Any airport with forecast score 90 or higher is an established hub.

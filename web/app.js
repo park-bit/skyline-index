@@ -492,7 +492,7 @@ function renderAboutCard(data) {
     persistence_mae: 5.282,
     damped_mae: 10.768,
     damping_factor: 0.7,
-    coverage_pct: 43.5,
+    coverage_pct: 32.3,
   };
   const h10Label = h10.band_label || (h10.coverage_pct < 70 ? "indicative only" : "calibrated intervals");
   const constantList = Array.isArray(data.macro_held_constant)
