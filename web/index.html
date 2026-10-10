@@ -7,7 +7,7 @@
   <meta name="description" content="Explore global airport opportunity and forecast network dynamics with skyline index interactive intelligence.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
@@ -240,11 +240,11 @@
           <span>Airports tracked</span>
         </div>
         <div>
-          <strong id="stat-emerging-count" class="positive-text">0</strong>
+          <strong id="stat-emerging-count" class="class-emerging-text">0</strong>
           <span>Emerging opportunities</span>
         </div>
         <div>
-          <strong id="stat-hubs-count" class="primary-text">0</strong>
+          <strong id="stat-hubs-count" class="class-hub-text">0</strong>
           <span>Established hubs</span>
         </div>
       </div>
@@ -255,9 +255,7 @@
       <div class="radar-header">
         <div class="radar-title-group">
           <h2>Opportunity Radar</h2>
-          <p class="radar-disclaimer" id="radar-disclaimer">
-            Candidate routes and lists are generated from a gravity model and link prediction, not confirmed demand. Model candidate, not confirmed demand. The underlying network topology uses OpenFlights 2014 and OpenSky 2019-2022 route data.
-          </p>
+          <p class="radar-disclaimer" id="radar-disclaimer">Candidate routes are generated from a gravity model and link prediction. Model candidate, not confirmed demand. Network data: OpenFlights 2014 and OpenSky 2019 to 2022.</p>
         </div>
         <div class="radar-tabs" role="tablist">
           <button type="button" class="radar-tab-btn active" id="btn-radar-airline" data-view="airline">Airline Candidates</button>

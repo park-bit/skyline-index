@@ -1,6 +1,5 @@
 :root {
   --font-sans: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-serif: 'Instrument Serif', Georgia, serif;
 
   /* Night-flight palette */
   --background: #0B0E12;
@@ -12,31 +11,31 @@
   --muted-foreground: #8E96A3;
 
   /* Cockpit glow accent */
-  --accent-amber: #F2A93B;
-  --primary: #F2A93B;
+  --accent-amber: #FFB020;
+  --primary: #FFB020;
   --primary-foreground: #0B0E12;
-  --focus-ring: rgba(242, 169, 59, 0.45);
+  --focus-ring: rgba(255, 176, 32, 0.45);
 
   /* Surfaces */
   --card: rgba(18, 23, 30, var(--panel-opacity, 0.45));
   --card-solid: #12171E;
   --secondary: rgba(26, 33, 44, 0.65);
   --secondary-solid: #1A212C;
-  --accent: rgba(242, 169, 59, 0.12);
+  --accent: rgba(255, 176, 32, 0.12);
   --border: rgba(255, 255, 255, 0.10);
   --border-solid: #222B38;
 
-  /* Colorblind-safe airport classes */
-  --class-hub: #F5B83D;
-  --class-emerging: #5AA9FF;
-  --class-stable: #7F8A99;
-  --class-declining: #FF6B5E;
+  /* Clearly distinct airport class hues */
+  --class-hub: #FFB020;
+  --class-emerging: #3D9BFF;
+  --class-stable: #3CCB7F;
+  --class-declining: #FF4D6D;
 
   /* Semantic aliases */
-  --positive: #5AA9FF;
-  --negative: #FF6B5E;
-  --warning: #F5B83D;
-  --stable: #7F8A99;
+  --positive: #3D9BFF;
+  --negative: #FF4D6D;
+  --warning: #FFB020;
+  --stable: #3CCB7F;
 
   /* Map atmosphere */
   --map-ocean: #0B0E12;
@@ -54,19 +53,40 @@
   border-color: var(--border);
 }
 
+html, body {
+  font-family: var(--font-sans);
+}
+
 body {
   margin: 0;
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.45;
   height: 100vh;
   min-height: 600px;
-  display: flex;
-  flex-direction: column;
+  position: relative;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+/* Tabular numerals for all numbers */
+.score-ring strong,
+.score-delta,
+.map-statistics strong,
+.compare-metrics strong,
+.radar-card-score,
+.forecast-ticks strong,
+.count,
+.iata,
+.metadata-badge strong,
+.settings-val-chip {
+  font-variant-numeric: tabular-nums;
 }
 
 button, input, select {
@@ -113,14 +133,19 @@ button {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  border-bottom: 1px solid var(--panel-border);
-  background: var(--panel-fill);
-  backdrop-filter: var(--panel-backdrop);
-  -webkit-backdrop-filter: var(--panel-backdrop);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
-  position: relative;
-  z-index: 30;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(11, 14, 18, 0.35);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 50;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .header-settings {
@@ -223,7 +248,6 @@ button {
 .voice-fallback-msg {
   font-size: 12px;
   color: var(--muted-foreground);
-  font-style: italic;
   margin-top: 4px;
   line-height: 1.35;
 }
@@ -288,6 +312,7 @@ button {
   align-items: center;
   gap: 8px;
   transition: color 0.15s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
 .top-nav .nav-button:hover {
@@ -311,10 +336,16 @@ button {
 
 /* Map Stage */
 .map-stage {
-  flex: 1;
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100vh;
   overflow: hidden;
   background: var(--map-ocean);
+  z-index: 1;
 }
 
 /* Leaflet tile tint toward ink palette */
@@ -453,7 +484,7 @@ button {
 .left-panel {
   width: 288px;
   position: absolute;
-  top: 70px;
+  top: 76px;
   left: 24px;
   padding: 14px 18px 18px 18px;
   z-index: 10;
@@ -684,10 +715,18 @@ button {
   flex-shrink: 0;
 }
 
-.class-dot.hub { background: var(--class-hub); }
+.class-dot.hub {
+  background: var(--class-hub);
+  width: 10px;
+  height: 10px;
+}
 .class-dot.emerging { background: var(--class-emerging); }
-.class-dot.declining { background: var(--class-declining); }
 .class-dot.stable { background: var(--class-stable); }
+.class-dot.declining {
+  background: transparent;
+  border: 2px solid var(--class-declining);
+  box-sizing: border-box;
+}
 
 .class-filter .count {
   margin-left: auto;
@@ -860,12 +899,12 @@ input:checked + .slider:before {
 .airport-card {
   position: absolute;
   right: 24px;
-  top: 14px;
+  top: 76px;
   bottom: 48px;
   width: 350px;
   padding: 18px 20px 40px 20px;
   z-index: 15;
-  max-height: calc(100% - 62px);
+  max-height: calc(100% - 124px);
   overflow-y: auto;
   overflow-x: hidden;
   box-sizing: border-box;
@@ -945,9 +984,9 @@ input:checked + .slider:before {
 
 .airport-card h2 {
   margin: 6px 0 2px;
-  font-family: var(--font-serif);
-  font-size: 26px;
-  font-weight: 400;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 600;
   line-height: 1.15;
   color: var(--foreground);
 }
@@ -1036,9 +1075,9 @@ input:checked + .slider:before {
 }
 
 .score-ring strong {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 32px;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1;
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
@@ -1083,36 +1122,42 @@ input:checked + .slider:before {
   font-size: 12px;
   font-weight: 700;
   padding: 4px 8px;
-  border: 1px solid rgba(245, 184, 61, 0.35);
-  background: rgba(245, 184, 61, 0.1);
+  border: 1px solid rgba(255, 176, 32, 0.35);
+  background: rgba(255, 176, 32, 0.12);
   color: var(--class-hub);
   border-radius: var(--radius-sm);
   text-transform: capitalize;
 }
 
 .class-badge i {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
   background: currentColor;
   border-radius: 50%;
 }
 
 .class-badge.emerging {
   color: var(--class-emerging);
-  border-color: rgba(90, 169, 255, 0.35);
-  background: rgba(90, 169, 255, 0.1);
+  border-color: rgba(61, 155, 255, 0.35);
+  background: rgba(61, 155, 255, 0.12);
 }
 
 .class-badge.stable {
   color: var(--class-stable);
-  border-color: rgba(127, 138, 153, 0.35);
-  background: rgba(127, 138, 153, 0.1);
+  border-color: rgba(60, 203, 127, 0.35);
+  background: rgba(60, 203, 127, 0.12);
 }
 
 .class-badge.declining {
   color: var(--class-declining);
-  border-color: rgba(255, 107, 94, 0.35);
-  background: rgba(255, 107, 94, 0.1);
+  border-color: rgba(255, 77, 109, 0.35);
+  background: rgba(255, 77, 109, 0.12);
+}
+
+.class-badge.declining i {
+  background: transparent;
+  border: 1.5px solid var(--class-declining);
+  box-sizing: border-box;
 }
 
 .detail-section {
@@ -1260,6 +1305,10 @@ input:checked + .slider:before {
 .positive-text { color: var(--positive); }
 .warning-text { color: var(--warning); }
 .primary-text { color: var(--primary); }
+.class-emerging-text { color: var(--class-emerging); }
+.class-hub-text { color: var(--class-hub); }
+.class-stable-text { color: var(--class-stable); }
+.class-declining-text { color: var(--class-declining); }
 
 .driver-list {
   display: flex;
@@ -1280,14 +1329,14 @@ input:checked + .slider:before {
 
 .driver.positive {
   color: #ECE6D9;
-  background: rgba(242, 169, 59, 0.08);
-  border: 1px solid rgba(242, 169, 59, 0.45);
+  background: rgba(61, 155, 255, 0.10);
+  border: 1px solid rgba(61, 155, 255, 0.50);
 }
 
 .driver.negative {
-  color: #FF6B5E;
-  background: rgba(255, 107, 94, 0.08);
-  border: 1px solid rgba(255, 107, 94, 0.45);
+  color: var(--class-declining);
+  background: rgba(255, 77, 109, 0.10);
+  border: 1px solid rgba(255, 77, 109, 0.50);
 }
 
 .detail-footer {
@@ -1398,9 +1447,9 @@ input:checked + .slider:before {
 
 .map-statistics strong {
   display: block;
-  font-family: var(--font-serif);
-  font-size: 26px;
-  font-weight: 400;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 600;
   line-height: 1.1;
   margin-bottom: 2px;
   font-variant-numeric: tabular-nums;
@@ -1458,7 +1507,7 @@ input:checked + .slider:before {
   position: absolute;
   left: 336px;
   right: 398px;
-  top: 70px;
+  top: 76px;
   bottom: 50px;
   overflow-y: auto;
   z-index: 10;
@@ -1662,9 +1711,9 @@ input:checked + .slider:before {
 }
 
 .compare-column h3 {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  font-weight: 400;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 600;
   line-height: 1.15;
   margin: 4px 0 2px;
   color: var(--foreground);
@@ -1688,9 +1737,9 @@ input:checked + .slider:before {
 
 .compare-metrics strong {
   display: block;
-  font-family: var(--font-serif);
-  font-size: 22px;
-  font-weight: 400;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 600;
   line-height: 1.1;
   color: var(--accent-amber);
   font-variant-numeric: tabular-nums;
@@ -2240,4 +2289,47 @@ input:checked + .slider:before {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Assistant Choice Buttons */
+.reply-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.reply-choice-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reply-choice-btn:hover {
+  background: rgba(255, 176, 32, 0.15);
+  border-color: var(--class-hub);
+  color: #ffffff;
+}
+
+.reply-choice-btn strong {
+  color: var(--class-hub);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Radar tab active: dock reply panel above command bar with max-height 30vh */
+body.radar-tab-active .assistant-reply-panel {
+  max-height: 30vh;
+}
+
+body.radar-tab-active .radar-panel {
+  padding-bottom: 240px;
 }

@@ -15,10 +15,10 @@ let compareAirportA = "SIN";
 let compareAirportB = "DXB";
 
 const COLOR_MAP = {
-  established_hub: "#F5B83D",
-  emerging: "#5AA9FF",
-  stable: "#7F8A99",
-  declining: "#FF6B5E",
+  established_hub: "#FFB020",
+  emerging: "#3D9BFF",
+  stable: "#3CCB7F",
+  declining: "#FF4D6D",
 };
 
 async function fetchJsonWithFallback(paths) {
@@ -84,14 +84,28 @@ function getAirportColor(airport, horizon) {
 
 function getAirportRadius(airport, horizon) {
   const score = getAirportScore(airport, horizon);
+  const cls = getAirportClass(airport, horizon);
   const currentZoom = map ? map.getZoom() : 3;
   const zoomBonus = Math.max(0, currentZoom - 3) * 1.0;
-  // Radius about 2 to 3 px for low importance (score 0-20), up to about 7 px for top hubs at default zoom (zoom 3)
-  const baseRadius = 2.0 + (score / 100.0) * 5.0;
-  return Math.min(14.0, baseRadius + zoomBonus);
+  // Radius about 2 to 3 px for low importance, up to about 7 px for top hubs at default zoom
+  // Hubs largest: extra bonus for established hubs
+  const hubBonus = cls === "established_hub" ? 2.5 : 0.0;
+  const baseRadius = 2.0 + (score / 100.0) * 5.0 + hubBonus;
+  return Math.min(15.0, baseRadius + zoomBonus);
 }
 
 function getMarkerStyle(airport, color, useQualityStyling) {
+  const cls = getAirportClass(airport, currentHorizon);
+  if (cls === "declining") {
+    return {
+      fillColor: "transparent",
+      color: color,
+      weight: 2.0,
+      opacity: 0.95,
+      fillOpacity: 0.0,
+    };
+  }
+
   const dq = airport.data_quality || (airport.importance_confidence === "high" ? "observed" : "static_only");
 
   if (!useQualityStyling) {
@@ -121,13 +135,13 @@ function getMarkerStyle(airport, color, useQualityStyling) {
       fillOpacity: 0.45,
     };
   } else {
-    // static_only: hollow / minimal fill
+    // static_only: minimal fill
     return {
       fillColor: color,
       color: color,
       weight: 1.0,
       opacity: 0.85,
-      fillOpacity: 0.1,
+      fillOpacity: 0.15,
     };
   }
 }
@@ -815,6 +829,7 @@ function switchTab(tab) {
   const airportCard = document.getElementById("airport-card");
 
   if (tab === "map") {
+    document.body.classList.remove("radar-tab-active");
     mapNav.classList.add("active");
     mapNav.setAttribute("aria-pressed", "true");
     radarNav.classList.remove("active");
@@ -823,6 +838,7 @@ function switchTab(tab) {
     if (leftPanel) leftPanel.style.display = "";
     map.invalidateSize();
   } else {
+    document.body.classList.add("radar-tab-active");
     mapNav.classList.remove("active");
     mapNav.setAttribute("aria-pressed", "false");
     radarNav.classList.add("active");

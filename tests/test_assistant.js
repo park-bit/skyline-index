@@ -172,6 +172,79 @@ const tests = [
       assert.ok(res.text.includes("Command not recognized"));
     },
   },
+  {
+    name: "18. Natural phrase: I want to see london",
+    input: "I want to see london",
+    verify: (res) => {
+      assert.strictEqual(res.type, "show");
+      assert.ok(res.multipleMatches, "Expected multipleMatches for London");
+      assert.strictEqual(res.multipleMatches.length, 3, "Expected top 3 airports for London");
+      assert.strictEqual(res.multipleMatches[0].iata, "LHR");
+      assert.ok(res.text.includes("Multiple airports match"));
+    },
+  },
+  {
+    name: "19. Natural phrase: take me to SIN",
+    input: "take me to SIN",
+    verify: (res) => {
+      assert.strictEqual(res.type, "show");
+      assert.ok(res.airport);
+      assert.strictEqual(res.airport.iata, "SIN");
+    },
+  },
+  {
+    name: "20. Natural phrase: where is Tokyo",
+    input: "where is Tokyo",
+    verify: (res) => {
+      assert.strictEqual(res.type, "show");
+      assert.ok(res.airport || res.multipleMatches);
+    },
+  },
+  {
+    name: "21. Natural phrase: tell me about Hyderabad",
+    input: "tell me about Hyderabad",
+    verify: (res) => {
+      assert.strictEqual(res.type, "show");
+      assert.ok(res.airport);
+      assert.strictEqual(res.airport.iata, "HYD");
+    },
+  },
+  {
+    name: "22. Natural phrase: what about DXB",
+    input: "what about DXB",
+    verify: (res) => {
+      assert.strictEqual(res.type, "show");
+      assert.ok(res.airport);
+      assert.strictEqual(res.airport.iata, "DXB");
+    },
+  },
+  {
+    name: "23. Natural phrase: open JFK",
+    input: "open JFK",
+    verify: (res) => {
+      assert.strictEqual(res.type, "show");
+      assert.ok(res.airport);
+      assert.strictEqual(res.airport.iata, "JFK");
+    },
+  },
+  {
+    name: "24. Natural phrase: show me Paris",
+    input: "show me Paris",
+    verify: (res) => {
+      assert.strictEqual(res.type, "show");
+      assert.ok(res.airport || res.multipleMatches);
+    },
+  },
+  {
+    name: "25. Natural phrase with filler words: please show me the London airport please",
+    input: "please show me the London airport please",
+    verify: (res) => {
+      assert.strictEqual(res.type, "show");
+      assert.ok(res.multipleMatches);
+      assert.strictEqual(res.multipleMatches.length, 3);
+      assert.strictEqual(res.multipleMatches[0].iata, "LHR");
+    },
+  },
 ];
 
 let passed = 0;

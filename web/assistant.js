@@ -171,7 +171,8 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
     };
   }
 
-  const clean = raw.toLowerCase().replace(/[?!.]+$/g, "").trim();
+  let clean = raw.toLowerCase().replace(/[?!.]+$/g, "").trim();
+  clean = clean.replace(/^\s*please\s+/i, "").replace(/\s+please\s*$/i, "").trim();
 
   // Command: Help
   if (/^(?:help|\?|commands?)$/i.test(clean)) {
@@ -334,17 +335,26 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
     };
   }
 
-  // Command: Show / Find / Go to / Zoom to
-  const showMatch = clean.match(/^(?:show|find|go\s+to|zoom\s+to)\s+(.+)$/i);
-  let airportQuery = showMatch ? showMatch[1].trim() : null;
+  // Command: Show / Find / Go to / Zoom to / Natural phrases
+  const showMatch = clean.match(
+    /^(?:i\s+want\s+to\s+see|take\s+me\s+to|where\s+is|tell\s+me\s+about|what\s+about|open|show\s+me|show|find|go\s+to|zoom\s+to)\s+(.+)$/i
+  );
+  let airportQuery = null;
+  if (showMatch) {
+    let q = showMatch[1].trim();
+    // Strip filler words: please, the, airport, airports
+    q = q.replace(/\b(?:please|the|airports?)\b/gi, " ").replace(/\s+/g, " ").trim();
+    if (q) airportQuery = q;
+  }
 
-  // If no prefix, check if short input (at most 2 words) directly matches an airport
+  // If no prefix, check if short input directly matches an airport after stripping filler words
   if (!airportQuery) {
-    const words = clean.split(/\s+/).filter(Boolean);
-    if (words.length <= 2) {
-      const directMatches = fuzzyMatchAirport(clean, airports);
+    const stripped = clean.replace(/\b(?:please|the|airports?)\b/gi, " ").replace(/\s+/g, " ").trim();
+    const words = stripped.split(/\s+/).filter(Boolean);
+    if (words.length > 0 && words.length <= 2) {
+      const directMatches = fuzzyMatchAirport(stripped, airports);
       if (directMatches.length > 0) {
-        airportQuery = clean;
+        airportQuery = stripped;
       }
     }
   }
@@ -361,13 +371,15 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
 
     if (matches.length > 1) {
       const top3 = matches.slice(0, 3);
-      const optionsStr = top3.map((a) => `${a.iata} (${a.city || a.name})`).join(", ");
+      const listText = top3
+        .map((a, idx) => `${idx + 1}. ${a.iata} : ${a.city || a.name} (${(a.importance_present || 0).toFixed(1)})`)
+        .join("\n");
       return {
         type: "show",
         multipleMatches: top3,
         airport: null,
-        text: `Multiple airports match "${airportQuery}": ${optionsStr}. Say "show <IATA>" to pick one.`,
-        spokenText: `Multiple airports matched. Did you mean ${top3.map((a) => a.iata).join(", ")}?`,
+        text: `Multiple airports match "${airportQuery}". Which one would you like to see?\n${listText}`,
+        spokenText: `Multiple airports match ${airportQuery}. Which one would you like to see? ${top3.map((a) => a.iata).join(", ")}.`,
       };
     }
 
@@ -647,7 +659,6 @@ function renderReplyPanel(latestTyped = true) {
     if (isLatest && latestTyped) {
       answerEl.textContent = "";
       exchangeEl.appendChild(answerEl);
-      historyList.appendChild(exchangeEl);
 
       let charIdx = 0;
       const fullText = item.reply;
@@ -664,8 +675,26 @@ function renderReplyPanel(latestTyped = true) {
     } else {
       answerEl.textContent = item.reply;
       exchangeEl.appendChild(answerEl);
-      historyList.appendChild(exchangeEl);
     }
+
+    if (item.multipleMatches && item.multipleMatches.length > 0) {
+      const choicesEl = document.createElement("div");
+      choicesEl.className = "reply-choices";
+      item.multipleMatches.forEach((matchAp) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "reply-choice-btn";
+        btn.setAttribute("data-iata", matchAp.iata);
+        btn.innerHTML = `<strong>${matchAp.iata}</strong> ${matchAp.city || matchAp.name}`;
+        btn.addEventListener("click", () => {
+          executeAssistantCommand(`show ${matchAp.iata}`);
+        });
+        choicesEl.appendChild(btn);
+      });
+      exchangeEl.appendChild(choicesEl);
+    }
+
+    historyList.appendChild(exchangeEl);
   });
 
   panel.scrollTop = panel.scrollHeight;
@@ -691,7 +720,7 @@ function executeAssistantCommand(inputStr) {
   const result = parseAssistantCommand(text, airports, activeHorizon);
 
   // Store exchange history (keep last 3)
-  conversationHistory.push({ query: text, reply: result.text });
+  conversationHistory.push({ query: text, reply: result.text, multipleMatches: result.multipleMatches });
   if (conversationHistory.length > 3) {
     conversationHistory.shift();
   }
