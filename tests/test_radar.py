@@ -110,5 +110,5 @@ def test_negatives_matched_on_distance_bands_in_network_report():
     assert report_path.exists(), "reconstruction_network.md missing"
     content = report_path.read_text(encoding="utf-8")
     assert "Negative pairs were sampled to match the distance band" in content
-    assert "tolerance" in content
+    assert "fifteen percent tolerance" in content or "15%" in content
     assert "Combined Model ROC AUC" in content
