@@ -90,3 +90,28 @@ def test_file_size_limit():
     opp_path = OUTPUTS / "opportunities.json"
     size_mb = opp_path.stat().st_size / (1024 * 1024)
     assert size_mb <= 2.0, f"opportunities.json size {size_mb} MB exceeds 2.0 MB limit"
+
+
+def test_radar_validation_no_edge_leakage_and_matched_negatives():
+    import pandas as pd
+    from src.config import PROCESSED
+    from src.radar import build_route_graph, validate_link_prediction
+
+    airports = pd.read_parquet(PROCESSED / "model_table.parquet")
+    p25 = airports[airports["year"] == 2025].copy()
+    g = build_route_graph(p25)
+
+    res = validate_link_prediction(g, p25, seed=42)
+
+    for k in ["gravity_auc", "preferential_attachment_auc", "adamic_adar_auc", "combined_auc"]:
+        assert k in res
+        assert res[k] >= 0.55, f"{k} fell below 0.55 threshold"
+
+    assert res["adamic_adar_auc"] >= 0.70
+    assert res["combined_auc"] >= 0.70
+    assert "precision_at_100" in res and res["precision_at_100"] >= 0.50
+    assert "precision_at_500" in res and res["precision_at_500"] >= 0.50
+
+    assert res["max_dist_diff"] <= 0.15, f"Distance band difference {res['max_dist_diff']} exceeds 0.15 tolerance"
+    assert res["max_size_diff"] <= 0.15, f"Size band difference {res['max_size_diff']} exceeds 0.15 tolerance"
+

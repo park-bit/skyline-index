@@ -134,9 +134,9 @@ I built an Opportunity Radar evaluating unserved airport pairs using the network
 2. Link prediction using Adamic-Adar common neighbor centrality and preferential attachment.
 3. Momentum multiplier from the 5-year forecast importance changes of both endpoints.
 
-Validation on 2014 route splits yields AUC scores of 0.983 (gravity), 0.870 (preferential attachment), 0.938 (Adamic-Adar), and 0.993 (combined logistic model).
+Validation on 2014 route splits with distance and endpoint size matched negatives yields AUC scores of 0.603 (gravity), 0.665 (preferential attachment), 0.761 (Adamic-Adar), and 0.744 (combined logistic model), with precision at 100 of 0.870 and precision at 500 of 0.866. Out-of-time validation against OpenSky 2019 to 2022 yields an AUC of 0.959 and 8.4% appearance share among the top 500 candidates (a 5.0x lift over the 1.7% random baseline).
 
-The radar exports the top 250 candidate unserved routes, alongside curated views for investors and tourism boards. All candidates are labeled as statistical model candidates, not confirmed commercial demand.
+The radar exports the top 250 candidate unserved routes, alongside curated views for investors and tourism boards. The investor radar includes only airports with observed or medium confidence data. All candidates are labeled as statistical model candidates, not confirmed commercial demand.
 
 ## Interpretability with SHAP
 

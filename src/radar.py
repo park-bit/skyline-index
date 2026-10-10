@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
@@ -37,19 +38,119 @@ def validate_link_prediction(g, airports_df, seed=42):
     train_edges = edges[:split_idx]
     test_pos = edges[split_idx:]
 
+    # 1. Build training graph exclusively from 80% train edges
     g_tr = nx.Graph()
+    g_tr.add_nodes_from(g.nodes())
     g_tr.add_edges_from(train_edges)
-    nodes = list(g_tr.nodes())
-    edge_set = set(g.edges())
 
+    deg_tr = dict(g_tr.degree())
+    deg_full = dict(g.degree())
+
+    # 2. Recompute node degree percentiles and importance using training graph only
+    tr_deg_pct = pd.Series(deg_tr).rank(pct=True) * 100.0
+    full_deg_pct = pd.Series(deg_full).rank(pct=True) * 100.0
+
+    ap_dict = {}
+    for _, row in airports_df.iterrows():
+        iata = str(row["iata"])
+        r = dict(row)
+        old_imp = r.get("importance", 50.0)
+        net_diff = 0.40 * (tr_deg_pct.get(iata, 0.0) - full_deg_pct.get(iata, 0.0))
+        r["importance_tr"] = float(np.clip(old_imp + net_diff, 0.0, 100.0))
+        r["deg_tr"] = deg_tr.get(iata, 0)
+        ap_dict[iata] = r
+
+    def get_dist_band(d):
+        return 0 if d < 1000 else (1 if d < 2500 else (2 if d < 5000 else 3))
+
+    def get_size_band(u, v):
+        p = ap_dict[u]["deg_tr"] * ap_dict[v]["deg_tr"]
+        return 0 if p < 50 else (1 if p < 300 else 2)
+
+    # Calculate target distance and size band counts from positive test edges
+    pos_d_bands = [
+        get_dist_band(haversine_km(ap_dict[u]["latitude"], ap_dict[u]["longitude"], ap_dict[v]["latitude"], ap_dict[v]["longitude"]))
+        for u, v in test_pos
+    ]
+    pos_s_bands = [get_size_band(u, v) for u, v in test_pos]
+    target_bins = pd.Series(list(zip(pos_d_bands, pos_s_bands))).value_counts().to_dict()
+    matched_bins = {k: 0 for k in target_bins}
+
+    existing_edges = set(tuple(sorted(e)) for e in edges)
+    nodes = [n for n in g_tr.nodes() if n in ap_dict]
+
+    from collections import defaultdict
+    grid = defaultdict(list)
+    for n in nodes:
+        lat, lon = ap_dict[n]["latitude"], ap_dict[n]["longitude"]
+        grid[(int(lat // 6), int(lon // 6))].append(n)
+
+    neg_set = set()
     test_neg = []
-    while len(test_neg) < len(test_pos):
-        u, v = rng.choice(nodes, size=2, replace=False)
-        pair = tuple(sorted([u, v]))
-        if pair not in edge_set:
-            test_neg.append(pair)
 
-    ap_dict = {row["iata"]: row for _, row in airports_df.iterrows()}
+    # 3. Match negatives to positives on distance band and endpoint size band
+    for u, v in test_pos:
+        if u not in ap_dict or v not in ap_dict:
+            continue
+        d_pos = haversine_km(ap_dict[u]["latitude"], ap_dict[u]["longitude"], ap_dict[v]["latitude"], ap_dict[v]["longitude"])
+        d_band = get_dist_band(d_pos)
+        s_band = get_size_band(u, v)
+
+        found = False
+        for anchor in [u, v]:
+            if found:
+                break
+            clat, clon = int(ap_dict[anchor]["latitude"] // 6), int(ap_dict[anchor]["longitude"] // 6)
+            if d_band == 0:
+                pool = []
+                for dlat in range(-2, 3):
+                    for dlon in range(-2, 3):
+                        pool.extend(grid.get((clat + dlat, clon + dlon), []))
+            elif d_band == 1:
+                pool = []
+                for dlat in range(-5, 6):
+                    for dlon in range(-5, 6):
+                        if abs(dlat) >= 2 or abs(dlon) >= 2:
+                            pool.extend(grid.get((clat + dlat, clon + dlon), []))
+            else:
+                pool = nodes
+
+            if not pool:
+                continue
+
+            cands = rng.choice(pool, size=min(40, len(pool)), replace=False)
+            for w in cands:
+                if w == anchor:
+                    continue
+                pair = tuple(sorted([anchor, w]))
+                if pair in existing_edges or pair in neg_set:
+                    continue
+                d = haversine_km(ap_dict[anchor]["latitude"], ap_dict[anchor]["longitude"], ap_dict[w]["latitude"], ap_dict[w]["longitude"])
+                if get_dist_band(d) == d_band and get_size_band(anchor, w) == s_band:
+                    neg_set.add(pair)
+                    test_neg.append(pair)
+                    found = True
+                    break
+
+    while len(test_neg) < len(test_pos):
+        i, j = rng.choice(len(nodes), size=2, replace=False)
+        pair = tuple(sorted([nodes[i], nodes[j]]))
+        if pair not in existing_edges and pair not in neg_set:
+            test_neg.append(pair)
+            neg_set.add(pair)
+
+    # Check matching tolerance
+    neg_d_bands = [
+        get_dist_band(haversine_km(ap_dict[u]["latitude"], ap_dict[u]["longitude"], ap_dict[v]["latitude"], ap_dict[v]["longitude"]))
+        for u, v in test_neg
+    ]
+    neg_s_bands = [get_size_band(u, v) for u, v in test_neg]
+    pos_d_dist = pd.Series(pos_d_bands).value_counts(normalize=True).sort_index()
+    neg_d_dist = pd.Series(neg_d_bands).value_counts(normalize=True).sort_index()
+    pos_s_dist = pd.Series(pos_s_bands).value_counts(normalize=True).sort_index()
+    neg_s_dist = pd.Series(neg_s_bands).value_counts(normalize=True).sort_index()
+    diff_dist = float((pos_d_dist - neg_d_dist).abs().max())
+    diff_size = float((pos_s_dist - neg_s_dist).abs().max())
 
     def pair_features(pairs):
         feats = []
@@ -57,12 +158,10 @@ def validate_link_prediction(g, airports_df, seed=42):
             r1, r2 = ap_dict[u], ap_dict[v]
             d = max(50.0, haversine_km(r1["latitude"], r1["longitude"], r2["latitude"], r2["longitude"]))
             same_c = 1.0 if r1["country_code"] == r2["country_code"] else 0.0
-            deg_u = g_tr.degree(u) if g_tr.has_node(u) else 0
-            deg_v = g_tr.degree(v) if g_tr.has_node(v) else 0
-            pref = deg_u * deg_v
+            pref = r1["deg_tr"] * r2["deg_tr"]
             common = list(nx.common_neighbors(g_tr, u, v)) if (g_tr.has_node(u) and g_tr.has_node(v)) else []
             aa = sum(1.0 / np.log(max(2, g_tr.degree(w))) for w in common) if common else 0.0
-            grav = (max(1.0, r1["importance"]) * max(1.0, r2["importance"])) / (d ** 0.8) * (1.5 if same_c else 1.0)
+            grav = (max(1.0, r1["importance_tr"]) * max(1.0, r2["importance_tr"])) / (d ** 0.8) * (1.5 if same_c else 1.0)
             feats.append([np.log1p(grav), np.log1p(pref), aa])
         return np.array(feats)
 
@@ -74,18 +173,35 @@ def validate_link_prediction(g, airports_df, seed=42):
 
     tr_pos_sample = train_edges[:2500]
     tr_neg_sample = []
+    tr_neg_set = set()
     while len(tr_neg_sample) < len(tr_pos_sample):
         u, v = rng.choice(nodes, size=2, replace=False)
         p = tuple(sorted([u, v]))
-        if p not in edge_set:
+        if p not in existing_edges and p not in tr_neg_set:
             tr_neg_sample.append(p)
+            tr_neg_set.add(p)
+
     clf = LogisticRegression(random_state=seed)
     clf.fit(np.vstack([pair_features(tr_pos_sample), pair_features(tr_neg_sample)]), np.array([1] * len(tr_pos_sample) + [0] * len(tr_neg_sample)))
-    auc_comb = float(roc_auc_score(y_test, clf.predict_proba(X_test)[:, 1]))
+    probs = clf.predict_proba(X_test)[:, 1]
+    auc_comb = float(roc_auc_score(y_test, probs))
+
+    # Precision at 100 and 500
+    top100_idx = np.argsort(probs)[-100:]
+    p100 = float(np.mean(y_test[top100_idx]))
+    top500_idx = np.argsort(probs)[-500:]
+    p500 = float(np.mean(y_test[top500_idx]))
 
     return {
-        "gravity_auc": round(auc_grav, 3), "preferential_attachment_auc": round(auc_pref, 3),
-        "adamic_adar_auc": round(auc_aa, 3), "combined_auc": round(auc_comb, 3), "model": clf,
+        "gravity_auc": round(auc_grav, 3),
+        "preferential_attachment_auc": round(auc_pref, 3),
+        "adamic_adar_auc": round(auc_aa, 3),
+        "combined_auc": round(auc_comb, 3),
+        "precision_at_100": round(p100, 3),
+        "precision_at_500": round(p500, 3),
+        "max_dist_diff": round(diff_dist, 3),
+        "max_size_diff": round(diff_size, 3),
+        "model": clf,
     }
 
 

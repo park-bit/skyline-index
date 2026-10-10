@@ -79,6 +79,13 @@ def main():
 
     heldout_eval = compute_eval_metrics(y_test, scores_test)
 
+    # Validate link prediction with leak prevention and matched negatives
+    full_g = nx.Graph()
+    full_g.add_nodes_from(valid_iata)
+    full_g.add_edges_from(pos_edges)
+    from src.radar import validate_link_prediction
+    link_metrics = validate_link_prediction(full_g, ap.reset_index(), seed=42)
+
     # 2. Out-of-Time Validation against OpenSky 2019-2022
     sky_pairs_path = PROCESSED / "opensky_route_pairs.parquet"
     if not sky_pairs_path.exists():
@@ -164,18 +171,21 @@ def main():
         "I reconstructed airline network connectivity over time using a gravity model combined with topological link prediction.",
         "Observed 2014 OpenFlights routes serve as the structural anchor, while route appearance probabilities are calibrated across years.",
         "",
-        "## Honest Held-Out Validation (20 Percent Test Edges)",
+        "## Held-Out Validation (20 Percent Test Edges)",
         "",
-        "To guarantee that validation remains honest, node features and link scores were computed exclusively from the 80 percent training graph.",
-        "No held-out test edges were used during graph traversal or degree calculation.",
-        "Negative pairs were sampled to match the distance band distribution of positive edges within five percent tolerance.",
+        "Node features, degree percentiles and link prediction models were computed exclusively from the 80 percent training graph to prevent edge leakage.",
+        "No held-out test edges were used during graph traversal, degree calculation, or importance index scoring.",
+        "Negative pairs were sampled to match the distance band and endpoint size band distribution of positive edges within fifteen percent tolerance.",
         "",
         "| Evaluation Metric | Score |",
         "|---|---|",
-        f"| ROC AUC | {heldout_eval['auc']:.3f} |",
+        f"| Gravity Model AUC | {link_metrics['gravity_auc']:.3f} |",
+        f"| Preferential Attachment AUC | {link_metrics['preferential_attachment_auc']:.3f} |",
+        f"| Adamic-Adar AUC | {link_metrics['adamic_adar_auc']:.3f} |",
+        f"| Combined Model ROC AUC | {link_metrics['combined_auc']:.3f} |",
         f"| Brier Score Loss | {heldout_eval['brier']:.4f} |",
-        f"| Precision at 100 | {heldout_eval['p100']:.3f} |",
-        f"| Precision at 500 | {heldout_eval['p500']:.3f} |",
+        f"| Precision at 100 | {link_metrics['precision_at_100']:.3f} |",
+        f"| Precision at 500 | {link_metrics['precision_at_500']:.3f} |",
         "",
         "## Out-of-Time Validation (OpenSky 2019 to 2022)",
         "",

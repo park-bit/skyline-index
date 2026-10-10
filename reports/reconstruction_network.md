@@ -5,16 +5,19 @@ Observed 2014 OpenFlights routes serve as the structural anchor, while route app
 
 ## Held-Out Validation (20 Percent Test Edges)
 
-To guarantee that validation prevents edge leakage, node features and link scores were computed exclusively from the 80 percent training graph.
-No held-out test edges were used during graph traversal or degree calculation.
-Negative pairs were sampled to match the distance band distribution of positive edges within five percent tolerance.
+Node features, degree percentiles and link prediction models were computed exclusively from the 80 percent training graph to prevent edge leakage.
+No held-out test edges were used during graph traversal, degree calculation, or importance index scoring.
+Negative pairs were sampled to match the distance band and endpoint size band distribution of positive edges within fifteen percent tolerance.
 
 | Evaluation Metric | Score |
 |---|---|
-| ROC AUC | 0.983 |
-| Brier Score Loss | 0.0516 |
-| Precision at 100 | 1.000 |
-| Precision at 500 | 0.994 |
+| Gravity Model AUC | 0.603 |
+| Preferential Attachment AUC | 0.665 |
+| Adamic-Adar AUC | 0.761 |
+| Combined Model ROC AUC | 0.744 |
+| Brier Score Loss | 0.0510 |
+| Precision at 100 | 0.870 |
+| Precision at 500 | 0.866 |
 
 ## Out-of-Time Validation (OpenSky 2019 to 2022)
 
@@ -23,12 +26,12 @@ Candidate evaluation was restricted to city pairs unserved in 2014 with at least
 
 | Evaluation Metric | Model Score | Baseline Comparison |
 |---|---|---|
-| Out-of-Time AUC | 0.965 | 0.500 (Random Guessing) |
-| Top 500 OpenSky Appearance Share | 0.066 | 0.014 (Random Unserved Pairs) |
+| Out-of-Time AUC | 0.959 | 0.500 (Random Guessing) |
+| Top 500 OpenSky Appearance Share | 0.084 | 0.017 (Random Unserved Pairs) |
 | Precision at 100 | 0.250 | 0.000 (Persistence Baseline) |
 
 The persistence baseline assigns zero probability to every unserved pair, failing to identify newly emerging routes.
-The gravity link prediction model achieves 6.6% emergence share among top 500 candidates, a 4.7x lift over the baseline rate of 1.4%.
+The gravity link prediction model achieves 8.4% emergence share among top 500 candidates, a 5.0x lift over the baseline rate of 1.7%.
 
 ## Regional Transfer Validation
 
