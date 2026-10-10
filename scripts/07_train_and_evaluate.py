@@ -20,7 +20,6 @@ from src.models import (
     MACRO_FEATURES,
     NETWORK_FEATURES,
     QUALITY_FEATURES,
-    REGION_FEATURES,
     TRAFFIC_FEATURES,
     find_damping_factor,
     predict_classes,

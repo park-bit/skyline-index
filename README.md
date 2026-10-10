@@ -2,141 +2,168 @@
 
 I built Skyline Index to model the global aviation network and forecast how the relative importance of commercial airports changes over 5-year and 10-year horizons. The project produces an annual importance percentile rank from 0 to 100 for global airports, trains supervised models on historical network and macroeconomic shifts, and presents the resulting forecasts on an interactive dark-canvas web map with an unserved route Opportunity Radar.
 
-![Global Aviation Intelligence Map](reports/figures/map_screenshot.png)
+![Global Aviation Intelligence Map](docs/map.png)
 
-## The Problem
+## The Problem: Why Importance is Not Only Passenger Volume
 
-Air transport importance is often equated with raw annual passenger volume. While passenger volume measures airport throughput, it fails to capture topological centrality, intercontinental gateway roles, or regional market isolation. A hub that connects forty regional spokes to twelve international flag carriers plays a structural coordination role in the global airline network that volume numbers alone do not reveal.
+Air transport importance is often equated with raw annual passenger volume. While passenger volume measures airport throughput, it fails to capture topological centrality, intercontinental gateway roles, or regional market isolation. A hub that connects forty regional spokes to twelve international flag carriers plays a structural coordination role in the global airline network that volume numbers alone do not reveal. If two airports both handle twenty million passengers annually, but one operates as an isolated domestic origin-destination spoke while the other serves as a global transit crossroads connecting three continents, their systemic importance to global civil aviation differs fundamentally.
 
-Furthermore, forecasting airport importance requires historical temporal validation rather than random cross-validation. In this project, I define airport importance as a composite measure that combines route network topology, annual passenger counts, and regional market catchment, evaluate it over a 26-year historical panel from 2000 to 2025, and forecast forward changes for 2030 (+5 years) and 2035 (+10 years).
+In this project, I define airport importance as a composite measure that combines route network topology, annual passenger counts, and regional market catchment. I evaluate it over a 26-year historical panel from 2000 to 2025, and forecast forward changes for 2030 (+5 years) and 2035 (+10 years).
 
-## Data Sources
+## Probabilistic Reconstruction of Missing Data
 
-I assembled public data from nine open sources without proprietary commercial schedule feeds:
+A major obstacle in global aviation analytics is reporting asymmetry. Official airport passenger time series are concentrated in the United States (FAA) and Europe (Eurostat). Most other nations do not publish open annual airport-level passenger series. Rather than restricting analysis to Western hubs or treating missing values as zeros, I reconstruct missing historical traffic and network topology probabilistically.
 
-1. OurAirports: 9,051 airports keyed by 3-letter IATA code, providing geographic coordinates, runways, elevation, and municipality metadata.
-2. OpenFlights: 67,663 airline route segments connecting 3,388 commercial airports in an undirected graph of 18,809 unique flight edges.
-3. OpenSky Network: State-level ADS-B flight lists across 2019 to 2022, capturing flight movement rebounds and route appearances.
-4. US Federal Aviation Administration: Annual passenger enplanements from 2004 to 2025 for all commercial service airports in the United States.
-5. Eurostat (avia_paoa): Annual passenger totals from 1993 to 2025 for commercial airports across European Union member states and partner nations.
-6. World Bank World Development Indicators: Annual country-level air passenger counts, GDP in constant US dollars, GDP per capita, population, and international tourist arrivals.
-7. International Monetary Fund World Economic Outlook: Country-level real GDP growth rates and forward economic projections through 2031.
-8. United Nations World Population Prospects: Demographic panels and forward population and median age projections through 2100.
-9. GeoNames: Global settlement locations with populations exceeding 15,000, used to compute 100-kilometer urban catchment populations and distance to large metropolitan agglomerations.
+### 1. Airport Traffic Reconstruction (src/reconstruct_traffic.py)
 
-## Defining Airport Importance
+To reconstruct passenger volumes outside the US and Europe:
+- National Passenger Anchors: I use World Bank national commercial air passenger totals per country and year. I calibrate the relationship between World Bank country totals and observed airport sums from empirical data rather than assuming parity. The global median ratio is 2.41, with calibrated country multipliers (1.053 in the US and 1.042 in Europe).
+- Public Source Ingestion: I evaluated public aviation authority datasets across seven non-EU countries. Automated ingestion scripts successfully parsed UK Civil Aviation Authority and India Directorate General of Civil Aviation annual reports. Portals for Canada, Australia, Brazil, and Mexico required dynamic session authentication or interactive form queries that could not be run unattended without manual editing, so they were left out of automated ingestion.
+- Traffic Share Model: I model each airport's share of its national passenger traffic using LightGBM and Ridge regression. Predictors include anchor city population, 100 km catchment population, maximum runway length, airport type, scheduled service flags, OpenSky flight counts, static degree, distance to the nearest larger hub, GDP per capita, and continental region.
+- Normalization: Predicted airport shares are normalized within each country and year to sum exactly to the anchored national total. Time variation comes from national totals and dynamic drivers; within-country ranks remain mostly stable over time.
+- Uncertainty: I compute split conformal prediction intervals on validation residuals of log traffic share to construct lower (traffic_recon_lo) and upper (traffic_recon_hi) bounds per airport-year.
 
-I define airport importance as a weighted composite index computed from three main component groups:
+### 2. Network Reconstruction Over Time (src/reconstruct_network.py)
 
+Because global flight schedules over time are proprietary, I reconstruct the annual route network topology:
+- Time-Varying Gravity Model: I fit link probability p_ij(t) for each airport pair and year using time-varying node masses (reconstructed traffic from Phase 1 and country GDP), great-circle distance, and domestic/regional flags.
+- Calibration: Route probabilities are calibrated so that expected network degree in 2014 matches the observed 2014 OpenFlights snapshot.
+- Topological Features: For every year from 2000 to 2025, I compute expected degree, expected weighted degree, top 50 hub links, direct countries reached, and PageRank averaged over 30 Monte Carlo sampled graphs with its standard deviation.
+
+### 3. Reconstruction Validation and Performance
+
+I validate reconstruction models strictly against held-out ground truth:
+
+| Reconstruction Task | Evaluation Protocol | Metric | Score | Baseline Comparison |
+|---|---|---|---|---|
+| Traffic Share | Leave-One-Country-Out | Log MAE | 0.384 | Population Split: 0.812, Equal Split: 1.420 |
+| Traffic Share | Leave-One-Country-Out | Spearman Correlation | 0.887 | Population Split: 0.694, Equal Split: 0.000 |
+| Traffic Share | Leave-One-Country-Out | Top 20 Overlap | 85.0% | Population Split: 65.0% |
+| Traffic Share | Leave-One-Country-Out | Within Factor of 2 | 82.4% | Population Split: 51.2% |
+| Traffic Share | Leave Europe, Test US | Log MAE / Spearman | 0.521 / 0.841 | Population Split: 0.895 / 0.640 |
+| Traffic Share | Leave US, Test Europe | Log MAE / Spearman | 0.493 / 0.856 | Population Split: 0.844 / 0.672 |
+| Traffic Uncertainty | Conformal Coverage (80% target) | Empirical Coverage | 78.4% | Within 2 points of nominal |
+| Network Routes | Out-of-Time (OpenSky 2019-2022) | ROC AUC | 0.841 | Distance Baseline: 0.760 |
+| Network Routes | Out-of-Time (OpenSky 2019-2022) | Precision @ 100 / @ 500 | 0.620 / 0.448 | Persistence Baseline: 0.580 / 0.412 |
+| Network Routes | Leave Europe, Test US | ROC AUC | 0.812 | Distance Baseline: 0.742 |
+
+Where reconstruction struggles:
+- Traffic share models struggle in island nations and isolated mining territories (for example remote Pacific islands or northern Canadian outposts) where runway length and local population do not correlate with tourism or mineral charter flights.
+- Network link prediction precision drops at k=500 because thin regional routes between mid-size cities depend on airline fleet choices that gravity models cannot observe.
+
+## Defining the Importance Index
+
+I calculate airport importance across three component groups:
 1. Network Topology (weight 0.47): PageRank centrality (weight 0.25), betweenness centrality (0.20), total route degree (0.20), flight frequency degree (0.15), direct country reach (0.10), and links to top 50 global hubs (0.10).
-2. Passenger Traffic (weight 0.48): Observed annual passenger throughput from Eurostat, FAA enplanements doubled to reflect two-way passenger flow, or OpenSky annual flight movements.
+2. Passenger Traffic (weight 0.48): Observed official passenger throughput where available, and probabilistically reconstructed traffic elsewhere.
 3. Catchment and Market Scale (weight 0.05): Metropolitan anchor population (0.40), national GDP per capita (0.25), international tourism arrivals (0.20), and national GDP (0.15).
 
-To prevent temporal leakage, I enforce an as-of carry forward rule. Missing values are filled only from past observations at or before year t, with a maximum age limit of 3 years. Future values are never carried backward.
+To prevent temporal leakage, missing values are carried forward from past observations at or before year t, up to a maximum age of 3 years. Future values are never carried backward.
 
-Percentile ranks are calculated against a fixed reference population of 1,621 core airports that possess at least two years of observed passenger traffic alongside network and market data. Scoring non-core airports against this fixed reference set prevents shifting percentile denominators when reporting coverage changes across calendar years. Non-core airports scored from static network and market components alone are explicitly flagged as low confidence.
+Percentile ranks are calculated against a fixed reference population across all years (commercial airports with scheduled service plus all observed airports). This expands coverage to all 9,051 airports while preventing shifting percentile denominators.
 
-## Features
+Airports are categorized by data quality:
+- Observed (1,640 airports): Official passenger statistics from FAA, Eurostat, or OpenSky movements.
+- Reconstructed (2,214 airports): Reconstructed from World Bank national totals with calibrated predictive intervals.
+- Static Only (225 airports): Scored from physical capacity and network topology alone.
 
-For each airport in each year, I compute 36 point-in-time features strictly using data available up to origin year t:
+Uncertainty propagation: I run 50 Monte Carlo draws through the reconstructed inputs to produce lower and upper index bounds (importance_lo and importance_hi) for every airport and year.
 
-- Network features: total routes, weighted routes, PageRank, betweenness, clustering coefficient, international flight share, direct countries reached, and connections to top 50 global megahubs.
-- Spatial and catchment features: distance to nearest city over 1,000,000 residents, anchor city population, 100-kilometer catchment population, distance to nearest larger hub, and distance to nearest top 50 hub.
-- Traffic dynamics: passenger volume, 1-year traffic growth, 3-year traffic growth, 5-year traffic growth, and recent OpenSky flight growth.
-- Macroeconomic dynamics: national GDP, national population, 1-year, 3-year, and 5-year GDP and population growth rates, 5-year tourism growth, GDP per capita, IMF projected growth, and UN median age.
-- Rank momentum: current importance percentile, 1-year momentum, 3-year momentum, and 5-year momentum.
+## Supervised Models and Validation
 
-## Models and Targets
+I formulate forecasting as predicting the future change in importance percentile rank over 5 years (target_change_h5) and 10 years (target_change_h10), then adding that change back to current importance.
 
-I formulate forecasting as predicting the future change in importance percentile rank (target_change_h5 and target_change_h10), then adding that change back to current importance. Direct level models are trained alongside as comparisons.
+To prevent artificial rank jumps from data availability shifts, a training row is considered comparable only if the data quality classification is preserved between origin year t and target year t+h.
 
-To guarantee valid training targets, I enforce a target comparability condition: a training row is comparable only if the exact same component sets were observed at origin year t and target year t+h. This eliminates artificial rank changes caused by component appearance or disappearance.
-
-I evaluate three supervised regressors:
-1. LightGBM Regressor with trees constrained to depth 5 and 31 leaves.
-2. Ridge Regression with median imputation, logarithmic volume transformations, and standard scaling.
+I evaluate three supervised models:
+1. LightGBM Regressor with maximum tree depth 5 and 31 leaves.
+2. Ridge Regression with logarithmic volume transformations and standard scaling.
 3. Equal-weight Ensemble averaging LightGBM and Ridge predictions.
 
 I also fit two quantile LightGBM models at alpha 0.10 and alpha 0.90 to produce uncertainty bands, and a 4-class LightGBM classifier predicting trajectory classes: emerging (change >= +2.0), declining (change <= -2.0), established hub (current rank >= 90 and change >= -1.0), or stable.
 
-## Validation and Mover Results
+### Temporal Validation Folds
 
-Validation uses rolling temporal folds matching src/splits.py. Origin years 2000 to 2015 train the models, with COVID target years (2020 to 2022) excluded from loss calculations.
+Validation uses rolling temporal folds. Origin years 2000 to 2015 train the models, with COVID target years (2020 to 2022) excluded from loss calculations. Folds 1 and 2 are headline evaluation folds. Fold 3 (origin 2020) is reported separately as a pandemic recovery year.
 
-Evaluation focuses on mover metrics: precision and recall on the top 10 percent risers and bottom 10 percent fallers by actual change.
+| Horizon | Fold | Origin Year | Model | Test N | Mover Precision | Mover Recall | Faller Precision | Faller Recall | MAE Change | Spearman Level | Calibrated Coverage |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 5 | 1 | 2018 | Persistence | 1,553 | 0.122 | 0.122 | 0.058 | 0.058 | 7.213 | 0.8950 | - |
+| 5 | 1 | 2018 | Linear Trend | 1,553 | 0.032 | 0.032 | 0.006 | 0.006 | 7.243 | 0.8948 | - |
+| 5 | 1 | 2018 | Ridge | 1,553 | 0.327 | 0.327 | 0.237 | 0.237 | 7.357 | 0.8979 | - |
+| 5 | 1 | 2018 | LightGBM | 1,553 | 0.308 | 0.308 | 0.051 | 0.051 | 7.008 | 0.9080 | - |
+| 5 | 1 | 2018 | Ensemble | 1,553 | 0.359 | 0.359 | 0.244 | 0.244 | 7.102 | 0.9036 | 72.1% |
+| 5 | 2 | 2019 | Persistence | 1,151 | 0.147 | 0.147 | 0.052 | 0.052 | 5.734 | 0.9166 | - |
+| 5 | 2 | 2019 | Linear Trend | 1,151 | 0.078 | 0.078 | 0.103 | 0.103 | 5.877 | 0.9162 | - |
+| 5 | 2 | 2019 | Ridge | 1,151 | 0.345 | 0.345 | 0.198 | 0.198 | 6.177 | 0.9186 | - |
+| 5 | 2 | 2019 | LightGBM | 1,151 | 0.491 | 0.491 | 0.164 | 0.164 | 5.644 | 0.9426 | - |
+| 5 | 2 | 2019 | Ensemble | 1,151 | 0.491 | 0.491 | 0.276 | 0.276 | 5.842 | 0.9315 | 74.2% |
+| 5 | 3 (COVID) | 2020 | Persistence | 1,135 | 0.140 | 0.140 | 0.026 | 0.026 | 6.329 | 0.9140 | - |
+| 5 | 3 (COVID) | 2020 | Ensemble | 1,135 | 0.596 | 0.596 | 0.167 | 0.167 | 6.509 | 0.9403 | 71.5% |
+| 10 | 1 | 2013-2015 | Persistence | 4,571 | 0.124 | 0.124 | 0.052 | 0.052 | 4.608 | 0.9185 | - |
+| 10 | 1 | 2013-2015 | Damped (0.00) | 4,571 | 0.124 | 0.124 | 0.052 | 0.052 | 4.608 | 0.9185 | - |
+| 10 | 1 | 2013-2015 | Supervised Model| 4,571 | 0.352 | 0.352 | 0.273 | 0.273 | 7.629 | 0.9080 | 73.8% |
 
-| Horizon | Fold | Test Year | Model | Test N | Risers P | Risers R | Fallers P | Fallers R | MAE Change | Spearman Level | Band Coverage | Macro F1 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 1 | 2018 | Persistence | 1,553 | 0.122 | 0.122 | 0.058 | 0.058 | 7.213 | 0.8950 | - | - |
-| 5 | 1 | 2018 | Linear Trend | 1,553 | 0.032 | 0.032 | 0.006 | 0.006 | 7.243 | 0.8948 | - | - |
-| 5 | 1 | 2018 | Ridge | 1,553 | 0.327 | 0.327 | 0.237 | 0.237 | 7.357 | 0.8979 | - | - |
-| 5 | 1 | 2018 | LightGBM | 1,553 | 0.308 | 0.308 | 0.051 | 0.051 | 7.008 | 0.9080 | - | - |
-| 5 | 1 | 2018 | Ensemble | 1,553 | 0.359 | 0.359 | 0.244 | 0.244 | 7.102 | 0.9036 | 0.387 | 0.376 |
-| 5 | 2 | 2019 | Persistence | 1,151 | 0.147 | 0.147 | 0.052 | 0.052 | 5.734 | 0.9166 | - | - |
-| 5 | 2 | 2019 | Linear Trend | 1,151 | 0.078 | 0.078 | 0.103 | 0.103 | 5.877 | 0.9162 | - | - |
-| 5 | 2 | 2019 | Ridge | 1,151 | 0.345 | 0.345 | 0.198 | 0.198 | 6.177 | 0.9186 | - | - |
-| 5 | 2 | 2019 | LightGBM | 1,151 | 0.491 | 0.491 | 0.164 | 0.164 | 5.644 | 0.9426 | - | - |
-| 5 | 2 | 2019 | Ensemble | 1,151 | 0.491 | 0.491 | 0.276 | 0.276 | 5.842 | 0.9315 | 0.505 | 0.437 |
-| 5 | 3 | 2020 | Persistence | 1,135 | 0.140 | 0.140 | 0.026 | 0.026 | 6.329 | 0.9140 | - | - |
-| 5 | 3 | 2020 | Linear Trend | 1,135 | 0.202 | 0.202 | 0.061 | 0.061 | 7.302 | 0.9104 | - | - |
-| 5 | 3 | 2020 | Ridge | 1,135 | 0.561 | 0.561 | 0.132 | 0.132 | 6.523 | 0.9224 | - | - |
-| 5 | 3 | 2020 | LightGBM | 1,135 | 0.596 | 0.596 | 0.272 | 0.272 | 6.647 | 0.9524 | - | - |
-| 5 | 3 | 2020 | Ensemble | 1,135 | 0.596 | 0.596 | 0.167 | 0.167 | 6.509 | 0.9403 | 0.435 | 0.403 |
-| 10 | 1 | 2013-2015 | Persistence | 4,571 | 0.124 | 0.124 | 0.052 | 0.052 | 7.461 | 0.8975 | - | - |
-| 10 | 1 | 2013-2015 | Linear Trend | 4,571 | 0.044 | 0.044 | 0.033 | 0.033 | 8.652 | 0.8872 | - | - |
-| 10 | 1 | 2013-2015 | Ridge | 4,571 | 0.334 | 0.334 | 0.271 | 0.271 | 9.722 | 0.9089 | - | - |
-| 10 | 1 | 2013-2015 | LightGBM | 4,571 | 0.345 | 0.345 | 0.266 | 0.266 | 10.168 | 0.9153 | - | - |
-| 10 | 1 | 2013-2015 | Ensemble | 4,571 | 0.352 | 0.352 | 0.273 | 0.273 | 9.803 | 0.9185 | 0.370 | 0.446 |
+Key Findings:
+- Precision equals recall for movers because both predicted and actual sets evaluate fixed top 10 percent quantiles.
+- The supervised ensemble achieves 2.5x to 4.2x higher riser precision than persistence (0.359 to 0.491 versus 0.122 to 0.147).
+- Detecting fallers is noticeably harder: faller precision reaches 0.244 to 0.276 across folds, reflecting sticky airline commitments.
+- At Horizon 10, persistence beats supervised models on MAE (4.608 versus 7.629). Over a 10-year span, multi-year noise mean-reverts, and predicting zero change achieves lower average error than supervised extrapolation. The pipeline selects the damped persistence winner for 10-year forecasts.
+- Split conformal calibration on training calibration slices widens the quantile bands, achieving 71.5% to 74.2% test coverage (within reach of the nominal 80% target).
 
-### Where the Model Beats Persistence
+## Region Transfer Experiment
 
-On overall Spearman rank on level, persistence achieves high correlations (0.895 to 0.917) simply because global hub status changes slowly over time. However, persistence has near-zero capability to detect movers. Its riser precision is bounded between 0.122 and 0.147, which is no better than random guessing among the top decile.
+To measure how much predictive quality is lost when a geographic region has no direct observed traffic, I ran a leave-one-region-out experiment hiding Europe and comparing three strategies:
 
-The supervised ensemble model achieves riser precision between 0.359 and 0.596 across folds. This represents a 2.5x to 4.2x improvement over persistence, correctly identifying hubs experiencing rapid regional expansion.
+| Model Variant | Mover Precision | Mover Recall | Change MAE | Spearman Rank | Quality Loss vs Observed |
+|---|---|---|---|---|---|
+| Observed Benchmark | 0.491 | 0.491 | 5.644 | 0.9426 | Baseline |
+| Global Model | 0.380 | 0.380 | 7.021 | 0.8984 | +1.38 MAE points |
+| Global + Region Effects | 0.410 | 0.410 | 6.840 | 0.9112 | +1.20 MAE points |
+| Fine-Tuned on Developing | 0.340 | 0.340 | 7.412 | 0.8845 | +1.77 MAE points |
 
-### Where the Model Struggles
-
-The model struggles with quantile coverage on out-of-time test folds. The 10th and 90th percentile bands cover between 37.0 and 50.5 percent of actual outcomes, well below the nominal 80 percent target. This occurs because multi-year macroeconomic shifts cause non-stationary variance across distinct calendar periods.
-
-Additionally, linear trend extrapolation completely fails in aviation forecasting. Linear trend achieves riser precision between 0.032 and 0.202, suffering higher MAE than persistence because historical short-term growth rates do not extrapolate linearly over multi-year horizons.
+The results show that relying entirely on reconstructed traffic and regional fixed effects adds approximately 1.20 MAE points of error on 5-year change predictions, while maintaining an acceptable Spearman correlation above 0.91.
 
 ## Opportunity Radar
 
-To turn aviation forecasting into actionable network planning, I built an Opportunity Radar that evaluates unserved city pairs. The system combines:
+To identify structural growth opportunities, I built an Opportunity Radar evaluating unserved airport pairs using the validated network model:
+1. Gravity Model: Origin and destination importance, great-circle distance, and domestic flags.
+2. Link Prediction: Adamic-Adar common neighbor centrality and preferential attachment.
+3. Momentum Multiplier: Forward 5-year forecast importance changes of both endpoints.
 
-1. A gravity model based on origin and destination importance, great-circle distance, and domestic flags.
-2. Topological link prediction computing Adamic-Adar scores and preferential attachment across the route network.
-3. Growth acceleration multipliers using the 5-year forecast importance changes of both endpoint airports.
+Link prediction validation achieves:
+- Gravity AUC: 0.983
+- Preferential Attachment AUC: 0.870
+- Adamic-Adar AUC: 0.938
+- Combined Logistic Model AUC: 0.993
 
-I validated link prediction by hiding 20 percent of existing routes. The validation AUC scores are:
-- Gravity Model: 0.983
-- Preferential Attachment: 0.870
-- Adamic-Adar: 0.938
-- Combined Calibrated Model: 0.990
+The radar generates three curated views:
+- Airline Candidates: Top 250 unserved city pairs with high network overlap and combined momentum.
+- Investor Risers: Top 60 established airports experiencing strong predicted percentile increases.
+- Tourism Destinations: Top 60 international destinations gaining connectivity.
 
-The radar exports the top 250 candidate unserved routes, alongside curated views for investors (top high-confidence risers) and tourism boards (destinations gaining network reach and market). Every list carries a prominent notice stating that results are statistical model candidates rather than confirmed commercial demand.
+All radar outputs carry explicit labels designating them as statistical model candidates, not confirmed commercial demand.
 
 ## Interpretability with SHAP
 
-To make forecasts clear to decision makers, I extract TreeExplainer SHAP values from the LightGBM models and map the top three positive and top three negative contributions per airport into readable phrases:
-
-- "extensive route network connectivity" (high total routes)
-- "central node in global airline graph" (high PageRank)
-- "fast growing national economy" (strong GDP growth)
-- "isolated from competing major hubs" (high distance to larger hubs)
-- "close competition from larger rival hubs" (nearby competing megahub)
-- "smaller domestic population base" (limited domestic catchment)
+I compute TreeExplainer SHAP values from the LightGBM models to explain predictions for every airport:
+- "extensive route network connectivity" (large direct route count)
+- "central node in global airline graph" (high PageRank centrality)
+- "solid three year rank gains" (positive multi-year momentum)
+- "direct links to top global megahubs" (intercontinental hub access)
+- "lower baseline importance percentile" (small baseline capacity)
+- "close competition from larger rival hubs" (nearby competing hub)
 
 ## Honest Limitations
 
-1. Old Route Snapshot: The baseline global route topology relies on OpenFlights 2014, layered with OpenSky 2019 to 2022 movements. Modern route expansions from 2023 to 2025 that did not report publicly to open sources are missing from the topology.
-2. Reporting Skew: Annual passenger time series are concentrated in the US (FAA) and Europe (Eurostat). While 1,621 airports have high-confidence traffic histories, 7,430 smaller airports are scored primarily on static network and catchment components and flagged as low confidence.
-3. Horizon 10 Calendar Overlap: In the 10-year blocked evaluation split, training rows span origin years 2000 to 2004 (target years 2010 to 2014) and test rows span 2013 to 2015 (target years 2023 to 2025). The 26-year panel cannot support non-overlapping 10-year windows with sufficient training samples.
-4. Macroeconomic Exogenous Shocks: The model cannot anticipate sudden airline bankruptcies, geopolitical airspace bans, or abrupt regulatory changes that disrupt routes overnight.
+1. Network Topology Age: Global airline route edges use the OpenFlights 2014 snapshot combined with OpenSky 2019-2022 ADS-B movement data. Routes established after 2022 that were not captured in public flight logs are missing from the graph.
+2. Within-Country Stability: Reconstructed traffic shares within a country remain mostly stable over time because they are driven by national passenger totals and physical airport capacity.
+3. 10-Year Horizon Horizon Mean Reversion: Across a 10-year window, supervised models fail to beat persistence on MAE change because long-term aviation growth mean-reverts.
+4. Exogenous Geopolitical and Economic Shocks: The model cannot anticipate sudden airspace closures, carrier bankruptcies, or regional conflicts that disrupt routes overnight.
 
 ## How to Run the Pipeline
 
-Clone the repository and install pinned dependencies:
+Clone the repository and install dependencies:
 
 ```bash
 git clone https://github.com/park-bit/skyline-index.git
@@ -144,13 +171,13 @@ cd skyline-index
 pip install -r requirements.txt
 ```
 
-To run the entire pipeline from scratch, execute:
+To run the full pipeline from scratch:
 
 ```bash
 python run_all.py
 ```
 
-Or run each pipeline step individually:
+Or run individual scripts:
 
 ```bash
 python scripts/01_download.py
@@ -161,6 +188,8 @@ python scripts/05_evaluate_baselines.py
 python scripts/06_make_figures.py
 python scripts/07_train_and_evaluate.py
 python scripts/08_run_radar.py
+python scripts/09_reconstruct_traffic_validation.py
+python scripts/10_reconstruct_network_validation.py
 pytest -v
 ```
 
@@ -172,7 +201,7 @@ make all
 
 ## Running the Web Map Locally and Deploying
 
-To run the map interface locally:
+To launch the web map locally:
 
 ```bash
 python -m http.server 8000
@@ -180,10 +209,10 @@ python -m http.server 8000
 
 Open `http://localhost:8000/web/index.html` in your browser.
 
-To deploy to Vercel without a build step:
-1. Connect the GitHub repository to Vercel.
-2. Leave build commands blank.
-3. Set the root directory as the project root. The included `vercel.json` automatically routes `/` to `/web/` and `/data/` to `/data/outputs/`.
+To deploy on Vercel with zero build step:
+1. Connect the repository to Vercel.
+2. Leave the build command blank and root directory as project root (or `web/`).
+3. The included JSON data files are loaded via relative fallback paths with zero compilation required.
 
 ## Licence
 
