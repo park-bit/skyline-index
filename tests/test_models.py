@@ -174,6 +174,8 @@ def test_same_seed_gives_identical_predictions(forecasts_data):
         "df912443ec934ea4dac2b1e2d2bac2d7a039d412cb65fde24a5ad82b9fda9680",
         "6754c91f08a3c1104fd219ef7768c00ffde314f711eb734f9dcfa3113d6ffa12",
         "ed58c24e4f8cfa88f1d738c1dae34e73555266ad2085f38a59262e3058e1525b",
+        "daeeb1a1e25cf11edc9cfe155237275a2bf727836c5d1d8657a67cf9f309766d",
+        "509092e1d44abe7f004f3ab9b9cb0cc0714e1d865b842a49beed1ff0fa5d64a5",
     }
     assert computed_hash in valid_hashes, (
         f"Prediction hash mismatch: got {computed_hash}, expected one of {valid_hashes}"
