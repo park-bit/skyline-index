@@ -18,3 +18,10 @@ DECISIONS.md
 LIMITATIONS.md
 reports/day_*.md
 reports/panel_audit.txt
+
+# Scratch scripts
+check_*.py
+test_rule*.py
+update_notebook_*.py
+build_notebook.py
+fix_builder.py
