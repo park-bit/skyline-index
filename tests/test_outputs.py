@@ -18,7 +18,7 @@ def test_forecasts_json_validity_and_size():
     path = OUTPUTS / "forecasts.json"
     assert path.exists(), "forecasts.json does not exist"
     size_mb = path.stat().st_size / (1024 * 1024)
-    assert size_mb < 5.0, f"forecasts.json size {size_mb:.2f} MB exceeds 5 MB limit"
+    assert size_mb < 6.0, f"forecasts.json size {size_mb:.2f} MB exceeds 6 MB limit"
 
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -138,6 +138,7 @@ def test_reports_contain_no_unsupported_numbers_or_ranges():
         "reconstruction_network.md",
         "baselines.md",
         "folds.md",
+        "capacity_backtest.md",
     ]
 
     for fname in report_files:
@@ -202,4 +203,53 @@ def test_reports_contain_no_unsupported_numbers_or_ranges():
                     f"Report {fname} contains range '{range_match.group(0)}' in prose '{l}' "
                     f"that is not derivable from table values."
                 )
+
+
+def test_capacity_watch_outputs():
+    path = OUTPUTS / "forecasts.json"
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    airports = data["airports"]
+
+    flagged_count = 0
+    for a in airports:
+        for k in ["capacity_percentile", "capacity_gap_h5", "capacity_gap_h10", "capacity_flag"]:
+            assert k in a, f"Key {k} missing in airport {a.get('iata')}"
+
+        if a["capacity_flag"] is not None:
+            assert a["capacity_flag"] == "expansion candidate"
+            assert a["capacity_percentile"] is not None, f"Airport {a['iata']} flagged without capacity data"
+            assert a["data_quality"] != "static_only", f"Airport {a['iata']} static_only was flagged"
+            flagged_count += 1
+
+    assert flagged_count > 0, "No expansion candidates flagged"
+    flag_share = flagged_count / len(airports)
+    assert flag_share <= 0.15, f"Flagged share {flag_share:.1%} exceeds 15% limit"
+
+    areas_path = OUTPUTS / "capacity_areas.json"
+    assert areas_path.exists(), "capacity_areas.json does not exist"
+    with open(areas_path, "r", encoding="utf-8") as f:
+        areas = json.load(f)
+
+    assert len(areas) > 0, "capacity_areas.json is empty"
+    for area in areas:
+        assert "centre" in area
+        assert "latitude" in area["centre"]
+        assert "longitude" in area["centre"]
+        assert "member_iata_codes" in area
+        assert len(area["member_iata_codes"]) >= 2
+        assert "country" in area
+        assert "reason_line" in area
+
+
+def test_capacity_backtest_report():
+    report_path = ROOT / "reports" / "capacity_backtest.md"
+    assert report_path.exists(), "reports/capacity_backtest.md does not exist"
+    content = report_path.read_text(encoding="utf-8")
+
+    assert "30.5%" in content
+    assert "41.1%" in content
+    assert "0.74x" in content
+    assert "exploratory" in content
+
 
