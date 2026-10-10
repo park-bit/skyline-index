@@ -55,7 +55,11 @@ function initMap() {
 
   routeLayerGroup = L.layerGroup().addTo(map);
   candidateRouteLayerGroup = L.layerGroup().addTo(map);
+
+  map.on("zoomend", updateMarkerStyles);
 }
+
+let selectedHaloMarker = null;
 
 function getAirportScore(airport, horizon) {
   if (horizon === "present") return airport.importance_present;
@@ -79,7 +83,11 @@ function getAirportColor(airport, horizon) {
 
 function getAirportRadius(airport, horizon) {
   const score = getAirportScore(airport, horizon);
-  return Math.max(4.0, Math.min(18.0, (score / 100.0) * 14.0 + 4.0));
+  const currentZoom = map ? map.getZoom() : 3;
+  const zoomBonus = Math.max(0, currentZoom - 3) * 1.0;
+  // Radius about 2 to 3 px for low importance (score 0-20), up to about 7 px for top hubs at default zoom (zoom 3)
+  const baseRadius = 2.0 + (score / 100.0) * 5.0;
+  return Math.min(14.0, baseRadius + zoomBonus);
 }
 
 function getMarkerStyle(airport, color, useQualityStyling) {
@@ -90,8 +98,8 @@ function getMarkerStyle(airport, color, useQualityStyling) {
       fillColor: color,
       color: "#ffffff",
       weight: 1.0,
-      opacity: 0.9,
-      fillOpacity: 0.85,
+      opacity: 0.85,
+      fillOpacity: 0.65,
     };
   }
 
@@ -99,28 +107,49 @@ function getMarkerStyle(airport, color, useQualityStyling) {
     return {
       fillColor: color,
       color: "#ffffff",
-      weight: 1.5,
-      opacity: 0.95,
-      fillOpacity: 0.85,
+      weight: 1.0,
+      opacity: 0.9,
+      fillOpacity: 0.65,
     };
   } else if (dq === "reconstructed") {
     return {
       fillColor: color,
       color: "#e8edf4",
-      weight: 1.2,
-      opacity: 0.85,
-      fillOpacity: 0.40,
+      weight: 1.0,
+      opacity: 0.8,
+      fillOpacity: 0.45,
     };
   } else {
-    // static_only: hollow ring
+    // static_only: hollow / minimal fill
     return {
       fillColor: color,
       color: color,
-      weight: 2.2,
-      opacity: 0.9,
-      fillOpacity: 0.05,
+      weight: 1.0,
+      opacity: 0.85,
+      fillOpacity: 0.1,
     };
   }
+}
+
+function updateSelectedHalo(ap) {
+  if (selectedHaloMarker) {
+    map.removeLayer(selectedHaloMarker);
+    selectedHaloMarker = null;
+  }
+  if (!ap || ap.latitude == null || ap.longitude == null) return;
+
+  const radius = getAirportRadius(ap, currentHorizon);
+  const color = getAirportColor(ap, currentHorizon);
+
+  selectedHaloMarker = L.circleMarker([ap.latitude, ap.longitude], {
+    radius: radius + 4,
+    fillColor: color,
+    fillOpacity: 0.15,
+    color: color,
+    weight: 1.5,
+    opacity: 0.9,
+    interactive: false,
+  }).addTo(map);
 }
 
 function getVisibleAirports() {
@@ -200,6 +229,8 @@ function renderMarkers() {
     : true;
 
   const visible = getVisibleAirports();
+  // Draw small markers on top of large ones (sort by radius descending before adding)
+  visible.sort((a, b) => getAirportRadius(b, currentHorizon) - getAirportRadius(a, currentHorizon));
 
   visible.forEach((ap) => {
     const radius = getAirportRadius(ap, currentHorizon);
@@ -225,6 +256,10 @@ function renderMarkers() {
     airportMarkers.push(marker);
   });
 
+  if (selectedAirport) {
+    updateSelectedHalo(selectedAirport);
+  }
+
   updateStatistics();
 }
 
@@ -247,6 +282,10 @@ function updateMarkerStyles() {
     m.setTooltipContent(`<b>${ap.iata}</b> : ${ap.city || ap.name} (${scoreVal}) [${dq}]`);
   });
 
+  if (selectedAirport) {
+    updateSelectedHalo(selectedAirport);
+  }
+
   updateStatistics();
 }
 
@@ -254,6 +293,7 @@ function selectAirport(ap) {
   selectedAirport = ap;
   renderAirportCard(ap);
   drawAirportRoutes(ap);
+  updateSelectedHalo(ap);
 
   const summary = document.getElementById("selected-summary");
   if (summary) summary.style.display = "none";
@@ -330,8 +370,8 @@ function renderTrendSvg(ap) {
   const h5Coverage = ap.forecast_h5 && ap.forecast_h5.coverage_pct != null ? ap.forecast_h5.coverage_pct : 80;
   const h10Coverage = ap.forecast_h10 && ap.forecast_h10.coverage_pct != null ? ap.forecast_h10.coverage_pct : 32.3;
 
-  const h5Label = h5Coverage < 70 ? "Rough range" : (ap.forecast_h5 && ap.forecast_h5.band_label ? ap.forecast_h5.band_label : "Calibrated interval");
-  const h10Label = h10Coverage < 70 ? "Indicative only" : (ap.forecast_h10 && ap.forecast_h10.band_label ? ap.forecast_h10.band_label : "Calibrated interval");
+  const h5Label = h5Coverage < 70 ? "rough range" : (ap.forecast_h5 && ap.forecast_h5.band_label ? ap.forecast_h5.band_label.toLowerCase() : "calibrated interval");
+  const h10Label = h10Coverage < 70 ? "indicative only" : (ap.forecast_h10 && ap.forecast_h10.band_label ? ap.forecast_h10.band_label.toLowerCase() : "calibrated interval");
 
   return `
     <div class="trend">
@@ -532,6 +572,10 @@ function renderAirportCard(ap) {
     closeBtn.addEventListener("click", () => {
       card.style.display = "none";
       routeLayerGroup.clearLayers();
+      if (selectedHaloMarker) {
+        map.removeLayer(selectedHaloMarker);
+        selectedHaloMarker = null;
+      }
       const summary = document.getElementById("selected-summary");
       if (summary) {
         summary.style.display = "block";
@@ -812,13 +856,13 @@ function setupEventListeners() {
       const horizonNote = document.getElementById("horizon-heading-note");
       const bottomHorizon = document.getElementById("map-bottom-horizon-label");
       if (currentHorizon === "present") {
-        if (horizonNote) horizonNote.textContent = "Current view: size is present score, colour is the predicted 5 year trend.";
+        if (horizonNote) horizonNote.textContent = "Present score and 5-year trend";
         if (bottomHorizon) bottomHorizon.textContent = "Current baseline";
       } else if (currentHorizon === "h5") {
-        if (horizonNote) horizonNote.textContent = "+5 Years view: size is 2030 score, colour is the predicted 5 year trend.";
+        if (horizonNote) horizonNote.textContent = "+5 Years view: 2030 score";
         if (bottomHorizon) bottomHorizon.textContent = "5-year scenario";
       } else if (currentHorizon === "h10") {
-        if (horizonNote) horizonNote.textContent = "+10 Years view: size is 2035 score, colour is the predicted 10 year trend.";
+        if (horizonNote) horizonNote.textContent = "+10 Years view: 2035 score";
         if (bottomHorizon) bottomHorizon.textContent = "10-year scenario";
       }
 
