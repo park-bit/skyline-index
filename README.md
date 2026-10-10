@@ -110,6 +110,25 @@ Validation on 2014 route splits with distance and endpoint size matched negative
 
 The radar exports the top 250 unserved airline route candidates, along with filtered views for investors and tourism boards. All entries represent statistical model candidates rather than confirmed commercial demand.
 
+## Capacity Watch
+
+Capacity Watch evaluates physical airfield bottlenecks by comparing forecast traffic importance against an airport capacity percentile derived from runway count and longest runway length (from OurAirports runway data).
+
+Airports in observed and reconstructed data quality groups with present importance of 30 or higher whose pressure gap (forecast importance level minus capacity percentile) ranks in the top 10 percent of their group are flagged as expansion candidates. Unobserved static airports are excluded.
+
+Regional clusters within 150 km containing at least 2 expansion candidates and lacking any long runway facility (2,500 m or longer with capacity above the 80th percentile) are flagged as new-capacity areas in `data/outputs/capacity_areas.json` (13 identified areas).
+
+Historical backtest results (origin year 2013 to target year 2018):
+- Flagged expansion candidates: 351 airports
+- Eligible airports: 3,495 airports
+- 5-year growth hit rate for flagged candidates: 30.5 percent
+- Random baseline hit rate: 41.1 percent
+- Persistence baseline hit rate: 41.1 percent
+- Empirical lift: 0.74x (labeled as exploratory)
+
+Operational limits:
+Airports under acute capacity pressure in 2013 were already operating near runway throughput limits, frequently experiencing growth deceleration or mean reversion unless capital infrastructure projects were completed. Capacity is a runway proxy, model signal, not planning advice.
+
 ## Running the Project
 
 All training, evaluation, reconstruction, and forecasting steps execute inside `training_notebook.ipynb`. Parquet inputs are tracked in `data/processed/`, allowing execution from a fresh repository clone without downloading raw source archives.
