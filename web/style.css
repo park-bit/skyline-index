@@ -243,6 +243,73 @@ body {
   background: transparent;
   border: 2px solid var(--text-main);
 }
+.shape-observed { background-color: var(--text-main); }
+.shape-recon {
+  background-color: rgba(240, 246, 252, 0.4);
+  border: 1.5px solid var(--text-main);
+}
+.shape-static {
+  background: transparent;
+  border: 2px solid var(--text-main);
+}
+
+.toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-color);
+  transition: .3s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--color-hub);
+}
+
+input:checked + .slider:before {
+  transform: translateX(16px);
+}
+
+.toggle-text {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
 
 .legend-note {
   font-size: 0.72rem;
@@ -407,6 +474,48 @@ body {
   background-color: rgba(210, 153, 34, 0.2);
   color: var(--color-stable);
   border: 1px solid var(--color-stable);
+}
+
+.badge-quality-observed {
+  background-color: rgba(46, 160, 67, 0.2);
+  color: var(--color-emerging);
+  border: 1px solid var(--color-emerging);
+}
+
+.badge-quality-reconstructed {
+  background-color: rgba(56, 139, 253, 0.2);
+  color: var(--color-hub);
+  border: 1px solid var(--color-hub);
+}
+
+.badge-quality-static {
+  background-color: rgba(139, 148, 158, 0.2);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.estimation-box {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.estimation-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.estimation-text {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-main);
 }
 
 .metric-grid {

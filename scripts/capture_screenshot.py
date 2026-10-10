@@ -34,6 +34,11 @@ def main():
             time.sleep(2.0)
             page.evaluate("selectAirport(airportsData.find(a => a.iata === 'ATL'))")
             time.sleep(1.0)
+            docs_path = ROOT / "docs" / "map.png"
+            docs_path.parent.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(docs_path))
+            print(f"Screenshot saved to {docs_path}")
+
             out_path = ROOT / "reports" / "figures" / "map_screenshot.png"
             out_path.parent.mkdir(parents=True, exist_ok=True)
             page.screenshot(path=str(out_path))

@@ -38,6 +38,7 @@ function initMap() {
     minZoom: 2,
     maxZoom: 12,
     worldCopyJump: true,
+    preferCanvas: true,
   });
 
   L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
@@ -67,17 +68,63 @@ function getAirportRadius(airport, horizon) {
   return Math.max(3.5, Math.min(18.0, (score / 100.0) * 14.0 + 3.5));
 }
 
+function getMarkerStyle(ap, color, useQualityStyling) {
+  const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
+
+  if (!useQualityStyling) {
+    return {
+      fillColor: color,
+      color: "#ffffff",
+      weight: 1.0,
+      opacity: 0.9,
+      fillOpacity: 0.8,
+    };
+  }
+
+  if (dq === "observed") {
+    return {
+      fillColor: color,
+      color: "#ffffff",
+      weight: 1.0,
+      opacity: 0.95,
+      fillOpacity: 0.85,
+    };
+  } else if (dq === "reconstructed") {
+    return {
+      fillColor: color,
+      color: "#f0f6fc",
+      weight: 1.2,
+      opacity: 0.85,
+      fillOpacity: 0.40,
+    };
+  } else {
+    // static_only: hollow
+    return {
+      fillColor: color,
+      color: color,
+      weight: 2.0,
+      opacity: 0.9,
+      fillOpacity: 0.05,
+    };
+  }
+}
+
 function renderMarkers() {
-  // Clear existing markers
   airportMarkers.forEach((m) => map.removeLayer(m));
   airportMarkers = [];
 
-  const filterConf = document.getElementById("filter-confidence").value;
-  const filterCls = document.getElementById("filter-class").value;
+  const filterConf = document.getElementById("filter-confidence") ? document.getElementById("filter-confidence").value : "all";
+  const filterCls = document.getElementById("filter-class") ? document.getElementById("filter-class").value : "all";
+  const filterQual = document.getElementById("filter-quality") ? document.getElementById("filter-quality").value : "all";
+  const useQualityStyling = document.getElementById("toggle-quality-styling") ? document.getElementById("toggle-quality-styling").checked : true;
   const searchQ = document.getElementById("search-input").value.trim().toLowerCase();
 
   airportsData.forEach((ap) => {
     if (ap.latitude == null || ap.longitude == null) return;
+
+    // Quality filter
+    const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
+    if (filterQual !== "all" && dq !== filterQual) return;
 
     // Confidence filter
     if (filterConf === "high" && ap.importance_confidence !== "high") return;
@@ -103,20 +150,16 @@ function renderMarkers() {
 
     const radius = getAirportRadius(ap, currentHorizon);
     const color = getAirportColor(ap, currentHorizon);
-    const isHighConf = ap.importance_confidence === "high";
+    const styleOpts = getMarkerStyle(ap, color, useQualityStyling);
 
     const marker = L.circleMarker([ap.latitude, ap.longitude], {
       radius: radius,
-      fillColor: color,
-      color: isHighConf ? color : "#ffffff",
-      weight: isHighConf ? 1.0 : 2.0,
-      opacity: 0.9,
-      fillOpacity: isHighConf ? 0.8 : 0.1,
+      ...styleOpts,
     });
 
     marker.airportData = ap;
     marker.on("click", () => selectAirport(ap));
-    marker.bindTooltip(`<b>${ap.iata}</b> - ${ap.city || ap.name} (${ap.importance_present.toFixed(1)})`, {
+    marker.bindTooltip(`<b>${ap.iata}</b> - ${ap.city || ap.name} (${ap.importance_present.toFixed(1)}) [${dq}]`, {
       direction: "top",
       offset: [0, -radius],
     });
@@ -127,18 +170,16 @@ function renderMarkers() {
 }
 
 function updateMarkerStyles() {
+  const useQualityStyling = document.getElementById("toggle-quality-styling") ? document.getElementById("toggle-quality-styling").checked : true;
+
   airportMarkers.forEach((m) => {
     const ap = m.airportData;
     const radius = getAirportRadius(ap, currentHorizon);
     const color = getAirportColor(ap, currentHorizon);
-    const isHighConf = ap.importance_confidence === "high";
+    const styleOpts = getMarkerStyle(ap, color, useQualityStyling);
 
     m.setRadius(radius);
-    m.setStyle({
-      fillColor: color,
-      color: isHighConf ? color : "#ffffff",
-      fillOpacity: isHighConf ? 0.8 : 0.1,
-    });
+    m.setStyle(styleOpts);
   });
 }
 
@@ -217,14 +258,31 @@ function renderDrawer(ap) {
   const activeForecast = currentHorizon === "h10" ? h10 : h5;
   const bandText = `${activeForecast.band_low.toFixed(1)} to ${activeForecast.band_high.toFixed(1)}`;
 
+  const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
+  let howEstimated = "";
+  let badgeQualityCls = "badge-quality-static";
+  let badgeQualityText = "Static Only";
+
+  if (dq === "observed") {
+    howEstimated = "Observed official passenger statistics from civil aviation authorities.";
+    badgeQualityCls = "badge-quality-observed";
+    badgeQualityText = "Observed";
+  } else if (dq === "reconstructed") {
+    const rLo = ap.reconstruction_interval ? ap.reconstruction_interval[0] : (cur - 2.0).toFixed(1);
+    const rHi = ap.reconstruction_interval ? ap.reconstruction_interval[1] : (cur + 2.0).toFixed(1);
+    howEstimated = `Reconstructed probabilistically from national totals with interval [${rLo}, ${rHi}].`;
+    badgeQualityCls = "badge-quality-reconstructed";
+    badgeQualityText = "Reconstructed";
+  } else {
+    howEstimated = "Static physical capacity and network topology only (no historical traffic observations).";
+    badgeQualityCls = "badge-quality-static";
+    badgeQualityText = "Static Only";
+  }
+
   const isHighConf = ap.importance_confidence === "high";
   const confBadge = isHighConf
     ? '<span class="badge badge-confidence-high">High Confidence</span>'
     : '<span class="badge badge-confidence-low">Low Confidence</span>';
-
-  const relNote = isHighConf
-    ? "Reliability: High (observed traffic history with FAA/Eurostat/OpenSky and complete network topology)."
-    : "Reliability: Low (scored from static network topology and regional catchment only).";
 
   const posDrivers = (activeForecast.positive_drivers || [])
     .map((d) => `<li class="driver-item positive">${d}</li>`)
@@ -239,11 +297,17 @@ function renderDrawer(ap) {
     <div class="card-header">
       <div class="badge-row">
         <span class="card-iata" id="selected-iata">${ap.iata}</span>
+        <span class="badge ${badgeQualityCls}">${badgeQualityText}</span>
         ${confBadge}
         <span class="badge badge-class">${activeForecast.class.replace("_", " ")}</span>
       </div>
       <div class="card-name" id="selected-name">${ap.name}</div>
       <div class="card-location">${ap.city ? ap.city + ", " : ""}${ap.country}</div>
+    </div>
+
+    <div class="estimation-box">
+      <div class="estimation-label">How This Was Estimated</div>
+      <div class="estimation-text">${howEstimated}</div>
     </div>
 
     <div class="metric-grid">
@@ -265,8 +329,9 @@ function renderDrawer(ap) {
     </div>
 
     <div class="band-info">
-      <div class="band-title">Uncertainty Band (${currentHorizon === "h10" ? "+10Y" : "+5Y"})</div>
-      <div>Estimated percentile range: <b>${bandText}</b></div>
+      <div class="band-title">Uncertainty Intervals (${currentHorizon === "h10" ? "+10Y" : "+5Y"})</div>
+      ${ap.reconstruction_interval ? `<div>Reconstruction Interval: <b>[${ap.reconstruction_interval[0]}, ${ap.reconstruction_interval[1]}]</b></div>` : ""}
+      <div>Calibrated Predictive Band: <b>${bandText}</b></div>
     </div>
 
     <div class="sparkline-box">
@@ -283,7 +348,7 @@ function renderDrawer(ap) {
     </div>
 
     <div class="reliability-note">
-      ${relNote}
+      Reliability: ${ap.reliability || howEstimated}
     </div>
 
     <div class="routes-list">
@@ -444,6 +509,10 @@ function setupEventListeners() {
   // Filters and search
   document.getElementById("filter-confidence").addEventListener("change", renderMarkers);
   document.getElementById("filter-class").addEventListener("change", renderMarkers);
+  const qualFilter = document.getElementById("filter-quality");
+  if (qualFilter) qualFilter.addEventListener("change", renderMarkers);
+  const qualToggle = document.getElementById("toggle-quality-styling");
+  if (qualToggle) qualToggle.addEventListener("change", renderMarkers);
   document.getElementById("search-input").addEventListener("input", renderMarkers);
   document.getElementById("btn-clear-search").addEventListener("click", () => {
     document.getElementById("search-input").value = "";
@@ -467,8 +536,8 @@ async function startApp() {
   try {
     statusEl.textContent = "Loading forecasts and network data...";
     const [forecasts, opportunities] = await Promise.all([
-      fetchJsonWithFallback(["../data/outputs/forecasts.json", "/data/outputs/forecasts.json", "data/outputs/forecasts.json", "data/forecasts.json"]),
-      fetchJsonWithFallback(["../data/outputs/opportunities.json", "/data/outputs/opportunities.json", "data/outputs/opportunities.json", "data/opportunities.json"]),
+      fetchJsonWithFallback(["./forecasts.json", "forecasts.json", "../data/outputs/forecasts.json", "/data/outputs/forecasts.json", "data/outputs/forecasts.json"]),
+      fetchJsonWithFallback(["./opportunities.json", "opportunities.json", "../data/outputs/opportunities.json", "/data/outputs/opportunities.json", "data/outputs/opportunities.json"]),
     ]);
 
     airportsData = forecasts.airports || [];
