@@ -110,6 +110,10 @@ Validation on 2014 route splits with distance and endpoint size matched negative
 
 The radar exports the top 250 unserved airline route candidates, along with filtered views for investors and tourism boards. All entries represent statistical model candidates rather than confirmed commercial demand.
 
+## Tried and not shipped
+
+Capacity Watch evaluated a runway-based expansion flag comparing forecast traffic growth against airfield capacity percentiles from runway count and longest runway length. In historical backtesting from origin year 2013 to 2018, flagged expansion candidates achieved a 30.5% hit rate for positive growth compared to 41.1% for random selection among eligible airports, representing 0.74x lift. Because severe capacity pressure reflects existing physical bottlenecks rather than forward expansion momentum, this feature was not shipped to production forecasts. Code and evaluation artifacts remain available on branch feature/capacity-watch.
+
 ## Running the Project
 
 All training, evaluation, reconstruction, and forecasting steps execute inside `training_notebook.ipynb`. Parquet inputs are tracked in `data/processed/`, allowing execution from a fresh repository clone without downloading raw source archives.
