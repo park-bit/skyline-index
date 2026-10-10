@@ -76,7 +76,7 @@ I evaluate three supervised models:
 2. Ridge Regression with logarithmic volume transformations and standard scaling.
 3. Equal-weight Ensemble averaging LightGBM and Ridge predictions.
 
-I also fit two quantile LightGBM models at alpha 0.10 and alpha 0.90 to produce uncertainty bands, and a 4-class LightGBM classifier predicting trajectory classes: emerging (change >= +2.0), declining (change <= -2.0), established hub (current rank >= 90 and change >= -1.0), or stable.
+I also fit two quantile LightGBM models at alpha 0.10 and alpha 0.90 to produce uncertainty bands, and a 4-class LightGBM classifier predicting trajectory classes: emerging (change >= +2.0 relative to group median), declining (change <= -2.0 relative to group median), established hub (current rank >= 90 and relative change >= -1.0), or stable.
 
 ### Temporal Validation Folds
 
@@ -86,31 +86,35 @@ Results from reports/evaluation.md:
 
 | Horizon | Fold | Test Year | Model | Test N | Risers P | Risers R | Fallers P | Fallers R | MAE Change | Spearman Level | Calibrated Coverage |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 1 | 2018 | persistence | 4,893 | 0.094 | 0.094 | 0.094 | 0.094 | 4.175 | 0.9780 | - |
-| 5 | 1 | 2018 | linear_trend | 4,893 | 0.169 | 0.169 | 0.098 | 0.098 | 4.299 | 0.9764 | - |
-| 5 | 1 | 2018 | ridge | 4,893 | 0.118 | 0.118 | 0.098 | 0.098 | 5.314 | 0.9727 | - |
-| 5 | 1 | 2018 | lightgbm | 4,893 | 0.102 | 0.102 | 0.169 | 0.169 | 4.078 | 0.9755 | - |
-| 5 | 1 | 2018 | ensemble | 4,893 | 0.120 | 0.120 | 0.131 | 0.131 | 4.527 | 0.9752 | 0.697 |
-| 5 | 2 | 2019 | persistence | 4,753 | 0.109 | 0.109 | 0.088 | 0.088 | 3.893 | 0.9862 | - |
-| 5 | 2 | 2019 | linear_trend | 4,753 | 0.109 | 0.109 | 0.111 | 0.111 | 4.950 | 0.9819 | - |
-| 5 | 2 | 2019 | ridge | 4,753 | 0.158 | 0.158 | 0.149 | 0.149 | 4.947 | 0.9829 | - |
-| 5 | 2 | 2019 | lightgbm | 4,753 | 0.143 | 0.143 | 0.248 | 0.248 | 3.537 | 0.9841 | - |
-| 5 | 2 | 2019 | ensemble | 4,753 | 0.147 | 0.147 | 0.210 | 0.210 | 4.034 | 0.9847 | 0.840 |
-| 5 | 3 (COVID) | 2020 | persistence | 4,754 | 0.107 | 0.107 | 0.097 | 0.097 | 4.329 | 0.9795 | - |
-| 5 | 3 (COVID) | 2020 | lightgbm | 4,754 | 0.254 | 0.254 | 0.256 | 0.256 | 3.875 | 0.9790 | - |
-| 5 | 3 (COVID) | 2020 | ensemble | 4,754 | 0.164 | 0.164 | 0.197 | 0.197 | 4.234 | 0.9785 | 0.860 |
-| 10 | 1 | 2013-2015 | persistence | 14,384 | 0.104 | 0.104 | 0.089 | 0.089 | 4.608 | 0.9645 | - |
-| 10 | 1 | 2013-2015 | lightgbm | 14,384 | 0.242 | 0.242 | 0.133 | 0.133 | 8.056 | 0.9548 | - |
-| 10 | 1 | 2013-2015 | ensemble | 14,384 | 0.221 | 0.221 | 0.155 | 0.155 | 8.125 | 0.9541 | 0.462 |
-| 10 | 1 | 2013-2015 | damped (gamma 0.9) | 14,384 | 0.221 | 0.221 | 0.155 | 0.155 | 7.629 | 0.9568 | - |
+| 5 | 1 | 2018 | persistence | 1,479 | 0.088 | 0.088 | 0.054 | 0.054 | 4.538 | 0.9721 | - |
+| 5 | 1 | 2018 | linear_trend | 1,479 | 0.155 | 0.155 | 0.088 | 0.088 | 4.948 | 0.9643 | - |
+| 5 | 1 | 2018 | ridge | 1,479 | 0.061 | 0.061 | 0.169 | 0.169 | 4.940 | 0.9699 | - |
+| 5 | 1 | 2018 | lightgbm | 1,479 | 0.108 | 0.108 | 0.155 | 0.155 | 4.319 | 0.9727 | - |
+| 5 | 1 | 2018 | ensemble | 1,479 | 0.074 | 0.074 | 0.176 | 0.176 | 4.542 | 0.9719 | 0.590 |
+| 5 | 2 | 2019 | persistence | 1,416 | 0.106 | 0.106 | 0.077 | 0.077 | 3.481 | 0.9851 | - |
+| 5 | 2 | 2019 | linear_trend | 1,416 | 0.155 | 0.155 | 0.077 | 0.077 | 7.033 | 0.9732 | - |
+| 5 | 2 | 2019 | ridge | 1,416 | 0.261 | 0.261 | 0.218 | 0.218 | 3.326 | 0.9848 | - |
+| 5 | 2 | 2019 | lightgbm | 1,416 | 0.394 | 0.394 | 0.261 | 0.261 | 2.824 | 0.9839 | - |
+| 5 | 2 | 2019 | ensemble | 1,416 | 0.401 | 0.401 | 0.239 | 0.239 | 2.952 | 0.9850 | 0.946 |
+| 5 | 3 (COVID) | 2020 | persistence | 1,322 | 0.098 | 0.098 | 0.060 | 0.060 | 3.871 | 0.9810 | - |
+| 5 | 3 (COVID) | 2020 | lightgbm | 1,322 | 0.195 | 0.195 | 0.406 | 0.406 | 3.899 | 0.9809 | - |
+| 5 | 3 (COVID) | 2020 | ensemble | 1,322 | 0.218 | 0.218 | 0.391 | 0.391 | 3.867 | 0.9829 | 0.932 |
+| 10 | 1 | 2013-2015 | persistence | 4,123 | 0.097 | 0.097 | 0.075 | 0.075 | 5.282 | 0.9576 | - |
+| 10 | 1 | 2013-2015 | lightgbm | 4,123 | 0.063 | 0.063 | 0.090 | 0.090 | 11.044 | 0.9357 | - |
+| 10 | 1 | 2013-2015 | ensemble | 4,123 | 0.065 | 0.065 | 0.099 | 0.099 | 13.904 | 0.8858 | 0.542 |
+| 10 | 1 | 2013-2015 | damped (gamma 0.7) | 4,123 | 0.065 | 0.065 | 0.099 | 0.099 | 10.768 | 0.9202 | - |
 
 Findings:
 - Precision equals recall for movers because both predicted and actual sets evaluate fixed top 10 percent quantiles.
-- Riser precision is close to random (0.10) at horizon 5, reaching 0.102 to 0.120 on Fold 1 and 0.143 to 0.147 on Fold 2.
-- LightGBM beats persistence on change MAE by a small margin (4.078 versus 4.175 on Fold 1, and 3.537 versus 3.893 on Fold 2).
-- The model does better on fallers than risers, achieving 0.169 on Fold 1 and 0.248 on Fold 2 (versus 0.094 and 0.088 for persistence).
-- At Horizon 10, supervised models lose to persistence on change MAE (persistence achieves 4.608, while LightGBM yields 8.056 and the damped ensemble yields 7.629). Over ten years, multi-year noise mean-reverts, and predicting zero change achieves lower average error than supervised extrapolation. We ship the damped model (damping factor 0.9 chosen on calibration slice) to provide directional signals, but report both.
-- The 10-year calibrated band achieves 46.2% coverage, well below the 70% threshold. It is labeled as a rough range in the map and documentation.
+- Riser precision is close to random (0.10) at horizon 5 on Fold 1 (0.074 to 0.108), reaching 0.394 to 0.401 on Fold 2.
+- LightGBM beats persistence on change MAE (4.319 versus 4.538 on Fold 1, and 2.824 versus 3.481 on Fold 2).
+- The model does better on fallers than risers, achieving 0.155 on Fold 1 and 0.261 on Fold 2 (versus 0.054 and 0.077 for persistence).
+- At Horizon 10, supervised models lose to persistence on change MAE (persistence achieves 5.282, while LightGBM yields 11.044 and the damped ensemble yields 10.768). Over ten years, multi-year noise mean-reverts, and predicting zero change achieves lower average error than supervised extrapolation. We ship the damped model (damping factor 0.7 chosen on calibration slice) to provide directional signals, but report both.
+- The 10-year calibrated band achieves 54.2% coverage, well below the 70% threshold. It is labeled as a rough range in the map and documentation.
+
+### Trajectory Classification Breakdown
+
+Defining trajectory classes relative to data quality group medians balances classes across tiers. Training label shares: declining 0.196 to 0.310, emerging 0.229 to 0.374, established hub 0.036 to 0.151, stable 0.266 to 0.453. In forward predictions, no class exceeds 50% overall (emerging 0.486, stable 0.244, declining 0.162, established hub 0.108). The classifier achieves macro F1 scores of 0.542 on Fold 1 and 0.643 on Fold 2.
 
 ### Region Transfer Experiment
 
@@ -123,9 +127,9 @@ From reports/evaluation.md, holding out Europe and evaluating on 590 European ai
 | fine_tuned_regions | EU | 590 | 4.600 | 0.9794 | 0.153 | 0.102 |
 | observed_benchmark | EU | 590 | 4.913 | 0.9759 | 0.000 | 0.085 |
 
-Performance across data quality tiers shows that observed airports have change MAE 3.615, reconstructed airports have MAE 4.481, and static-only airports have MAE 4.907.
+Performance across observed airports on headline folds shows change MAE 3.787, Spearman 0.9800, risers precision 0.231, and fallers precision 0.269.
 
-From reports/ablation.md, the 5-year change MAE is 4.302 with all 46 features, 4.348 without network features, 4.362 without macro features, 5.056 with traffic features only, and 4.349 without reconstructed traffic.
+From reports/ablation.md, the 5-year change MAE is 3.887 with all 46 features, 3.914 without network features, 3.607 without macro features, 3.630 with traffic features only, and 3.887 without reconstructed traffic.
 
 ## Opportunity Radar
 

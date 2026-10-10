@@ -391,33 +391,6 @@ def main():
         eval_text.append(str(cm))
         eval_text.append("```")
         eval_text.append("")
-    (reports_dir / "evaluation.md").write_text("\n".join(eval_text), encoding="utf-8")
-
-    # Write reports/ablation.md
-    abl_text = [
-        "# Feature Ablation Study",
-        "",
-        "I evaluated five feature subsets across headline 5 year folds (folds 1 and 2) on comparable core airport rows.",
-        "",
-        "| Feature Set | Features | MAE Change | Spearman Level | Risers Precision | Risers Recall |",
-        "|---|---|---|---|---|---|",
-    ]
-    for _, r in ablation_df.iterrows():
-        abl_text.append(
-            f"| {r['feature_set']} | {r['num_features']} | {r['mae_change']} | "
-            f"{r['spearman_level']} | {r['risers_precision']} | {r['risers_recall']} |"
-        )
-    abl_text.extend([
-        "",
-        "## Findings",
-        "",
-        "The complete feature set produces the best balance of rank ordering and mover identification.",
-        "Removing network topology increases change error because degree and hub connections anchor route capacity.",
-        "Removing macro features lowers riser precision because GDP and population growth drive long term expansion.",
-        "Removing probabilistic traffic reconstruction degrades performance on airports outside historical reporting areas, confirming the value of modeled traffic.",
-    ])
-    (reports_dir / "ablation.md").write_text("\n".join(abl_text), encoding="utf-8")
-
     # Train production models on all available comparable core data
     prod_tr = df[df["comparable_target_h5"] & ~df["is_covid_target_h5"] & (df["importance_confidence"] == "high")].copy()
     models_h5 = train_models(prod_tr, prod_tr["target_change_h5"], ALL_FEATURES, seed=42)
@@ -445,6 +418,78 @@ def main():
     save_forecasts_json(forecasts)
     print("Forecasts exported to data/outputs/forecasts.json")
     print(f"Total airports with forecasts: {len(forecasts['airports'])}")
+
+    # Class distribution analysis
+    comp_tr = df[df["comparable_target_h5"] & ~df["is_covid_target_h5"]]
+    tr_ct = pd.crosstab(comp_tr["data_quality"], comp_tr["target_class_h5"], normalize="index")
+
+    pred_dqs = [a["data_quality"] for a in forecasts["airports"]]
+    pred_clss = [a["forecast_h5"]["class"] for a in forecasts["airports"]]
+    pred_df = pd.DataFrame({"data_quality": pred_dqs, "class": pred_clss})
+    pred_ct = pd.crosstab(pred_df["data_quality"], pred_df["class"], normalize="index")
+
+    eval_text.extend([
+        "",
+        "## Trajectory Classification Breakdown",
+        "",
+        "I defined trajectory classes on change relative to the median change of the same data quality group to prevent skew from percentile rank drift as reconstructed airports enter the reference population.",
+        "",
+        "### Training Label Shares by Data Quality",
+        "",
+        "| Data Quality | Declining | Emerging | Established Hub | Stable |",
+        "|---|---|---|---|---|",
+    ])
+    for dq_val in ["observed", "reconstructed", "static_only"]:
+        if dq_val in tr_ct.index:
+            row = tr_ct.loc[dq_val]
+            eval_text.append(f"| {dq_val} | {row.get('declining', 0.0):.3f} | {row.get('emerging', 0.0):.3f} | {row.get('established_hub', 0.0):.3f} | {row.get('stable', 0.0):.3f} |")
+
+    eval_text.extend([
+        "",
+        "### Predicted Class Shares by Data Quality",
+        "",
+        "| Data Quality | Declining | Emerging | Established Hub | Stable |",
+        "|---|---|---|---|---|",
+    ])
+    for dq_val in ["observed", "reconstructed", "static_only"]:
+        if dq_val in pred_ct.index:
+            row = pred_ct.loc[dq_val]
+            eval_text.append(f"| {dq_val} | {row.get('declining', 0.0):.3f} | {row.get('emerging', 0.0):.3f} | {row.get('established_hub', 0.0):.3f} | {row.get('stable', 0.0):.3f} |")
+
+    f1_f1 = headline_df[(headline_df["fold"] == 1) & (headline_df["model"] == "ensemble")]["macro_f1"].values[0]
+    f1_f2 = headline_df[(headline_df["fold"] == 2) & (headline_df["model"] == "ensemble")]["macro_f1"].values[0]
+    eval_text.extend([
+        "",
+        f"The multiclass classifier achieves macro F1 scores of {f1_f1:.3f} on Fold 1 and {f1_f2:.3f} on Fold 2 across the four trajectory classes.",
+        "",
+    ])
+
+    (reports_dir / "evaluation.md").write_text("\n".join(eval_text), encoding="utf-8")
+
+    # Write reports/ablation.md
+    abl_text = [
+        "# Feature Ablation Study",
+        "",
+        "I evaluated five feature subsets across headline 5 year folds (folds 1 and 2) on comparable core airport rows.",
+        "",
+        "| Feature Set | Features | MAE Change | Spearman Level | Risers Precision | Risers Recall |",
+        "|---|---|---|---|---|---|",
+    ]
+    for _, r in ablation_df.iterrows():
+        abl_text.append(
+            f"| {r['feature_set']} | {r['num_features']} | {r['mae_change']} | "
+            f"{r['spearman_level']} | {r['risers_precision']} | {r['risers_recall']} |"
+        )
+    abl_text.extend([
+        "",
+        "## Findings",
+        "",
+        "The complete feature set produces the best balance of rank ordering and mover identification.",
+        "Removing network topology increases change error because degree and hub connections anchor route capacity.",
+        "Removing macro features lowers riser precision because GDP and population growth drive long term expansion.",
+        "Removing probabilistic traffic reconstruction degrades performance on airports outside historical reporting areas, confirming the value of modeled traffic.",
+    ])
+    (reports_dir / "ablation.md").write_text("\n".join(abl_text), encoding="utf-8")
 
 
 if __name__ == "__main__":

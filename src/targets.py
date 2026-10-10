@@ -12,15 +12,17 @@ from src.features import build_point_in_time_features
 from src.importance import compute_importance_index, get_core_airports
 
 
-def classify_trajectory(cur, chg):
+def classify_trajectory(cur, chg, dq_median=0.0):
     if pd.isna(cur) or pd.isna(chg):
         return None
 
-    if cur >= ESTABLISHED_HUB_PERCENTILE and chg >= -1.0:
+    rel_chg = chg - (dq_median if pd.notna(dq_median) else 0.0)
+
+    if cur >= ESTABLISHED_HUB_PERCENTILE and rel_chg >= -1.0:
         return "established_hub"
-    elif chg >= TRAJECTORY_CHANGE_UP:
+    elif rel_chg >= TRAJECTORY_CHANGE_UP:
         return "emerging"
-    elif chg <= TRAJECTORY_CHANGE_DOWN:
+    elif rel_chg <= TRAJECTORY_CHANGE_DOWN:
         return "declining"
     else:
         return "stable"
@@ -74,11 +76,18 @@ def compute_targets(df, horizons=FORECAST_HORIZONS):
         res[comp_col] = is_comparable
         res[covid_col] = target_year.isin(COVID_EXCLUDE_TARGET_YEARS)
 
+        # Compute median change per data_quality group on non-covid comparable rows
+        comp_mask = is_comparable & ~res[covid_col]
+        med_by_dq = {}
+        if "data_quality" in res.columns and comp_mask.any():
+            med_by_dq = res.loc[comp_mask].groupby("data_quality")[chg_col].median().to_dict()
+
         # Classes are assigned only on comparable observations
         classes = []
-        for cur, chg, comp in zip(res["importance"], res[chg_col], is_comparable):
+        dq_vals = res["data_quality"].values if "data_quality" in res.columns else ["observed"] * len(res)
+        for cur, chg, dq, comp in zip(res["importance"], res[chg_col], dq_vals, is_comparable):
             if comp:
-                classes.append(classify_trajectory(cur, chg))
+                classes.append(classify_trajectory(cur, chg, med_by_dq.get(dq, 0.0)))
             else:
                 classes.append(None)
         res[cls_col] = classes
