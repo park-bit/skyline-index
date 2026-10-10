@@ -3,131 +3,216 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Skyline Index - Global Aviation Intelligence Map</title>
+  <title>skyline-index - Global Aviation Intelligence Map</title>
+  <meta name="description" content="Explore global airport opportunity and forecast network dynamics with skyline-index interactive intelligence.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%233dd9c5'/></svg>">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="dashboard">
+  <!-- Top Bar -->
   <header class="app-header">
     <div class="brand">
-      <h1 id="app-title">Global Aviation Intelligence Map</h1>
-      <span class="brand-subtitle">Forecasting airport importance across structural network graphs</span>
-    </div>
-
-    <div class="horizon-wrapper">
-      <div class="horizon-toggle" id="horizon-controls" role="group" aria-label="Forecast horizon">
-        <button type="button" class="horizon-btn active" id="btn-horizon-present" data-horizon="present">Current (2025)</button>
-        <button type="button" class="horizon-btn" id="btn-horizon-h5" data-horizon="h5">+5 Years (2030)</button>
-        <button type="button" class="horizon-btn" id="btn-horizon-h10" data-horizon="h10">+10 Years (2035)</button>
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
       </div>
-      <div class="horizon-note" id="horizon-note">Current view: size is today's score, colour is the predicted 5 year trend.</div>
+      <div>
+        <div class="brand-name">skyline-index</div>
+        <div class="brand-subtitle">Global Aviation Intelligence</div>
+      </div>
     </div>
 
-    <div class="nav-tabs" role="tablist">
-      <button type="button" class="nav-tab active" id="tab-nav-map" role="tab" aria-selected="true">Network Map</button>
-      <button type="button" class="nav-tab" id="tab-nav-radar" role="tab" aria-selected="false">Opportunity Radar</button>
-    </div>
+    <nav class="top-nav" aria-label="Views">
+      <button type="button" class="nav-button active" id="tab-nav-map" aria-pressed="true">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+          <line x1="8" y1="2" x2="8" y2="18"/>
+          <line x1="16" y1="6" x2="16" y2="22"/>
+        </svg>
+        Map
+      </button>
+      <button type="button" class="nav-button" id="tab-nav-radar" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/>
+          <path d="M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0"/>
+          <path d="M12 3a9 9 0 0 1 9 9"/>
+          <path d="M12 12l5.5 -5.5"/>
+        </svg>
+        Opportunity Radar
+      </button>
+    </nav>
   </header>
 
-  <div class="main-layout">
-    <!-- Left Filter / Control Sidebar -->
-    <aside class="control-sidebar" id="control-sidebar">
+  <div class="map-stage">
+    <!-- Map Canvas Container -->
+    <div id="map" class="map-canvas"></div>
+    <div class="map-vignette" aria-hidden="true"></div>
+
+    <div class="map-heading">
+      <h1 id="app-title">Global Aviation Intelligence Map</h1>
+      <p id="horizon-heading-note">A global view of airport network importance and forecast shifts.</p>
+    </div>
+
+    <!-- Mobile Filters Button -->
+    <button type="button" class="mobile-filters" id="btn-mobile-filters">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+      Filters <span id="mobile-filter-count">(0)</span>
+    </button>
+
+    <!-- Left Floating Panel -->
+    <aside class="left-panel glass" id="left-panel" aria-label="Map filters">
+      <button type="button" class="close-filters" id="btn-close-filters" aria-label="Close filters">&times;</button>
+
       <div class="search-box">
-        <label for="search-input" class="sr-only">Search airport</label>
-        <input type="text" id="search-input" placeholder="Search IATA, city or airport..." autocomplete="off">
-        <button type="button" id="btn-clear-search" class="clear-btn" aria-label="Clear search">&times;</button>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Search IATA, city or airport..." aria-label="Search airports or cities" autocomplete="off">
+        <button type="button" id="btn-clear-search" class="clear-btn" aria-label="Clear search" style="display:none;">&times;</button>
+        <kbd id="search-kbd">&#9003;</kbd>
+      </div>
+      <div class="search-results" id="search-results" style="display:none;"></div>
+
+      <div class="panel-block">
+        <div class="panel-label">TIME HORIZON</div>
+        <div class="horizon-control" role="group" aria-label="Time horizon">
+          <button type="button" class="horizon-option selected active" id="btn-horizon-present" data-horizon="present">Current</button>
+          <button type="button" class="horizon-option" id="btn-horizon-h5" data-horizon="h5">+5 years</button>
+          <button type="button" class="horizon-option" id="btn-horizon-h10" data-horizon="h10">+10 years</button>
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label for="filter-quality">Data Quality</label>
-        <select id="filter-quality">
-          <option value="all">All Data Qualities</option>
-          <option value="observed">Observed Traffic</option>
-          <option value="reconstructed">Reconstructed Traffic</option>
-          <option value="static_only">Static Only</option>
-        </select>
+      <div class="panel-block">
+        <div class="filter-heading">
+          <h3>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/></svg>
+            Filters
+          </h3>
+          <button type="button" class="reset-button" id="btn-reset-filters">Reset all</button>
+        </div>
+
+        <div class="panel-label">AIRPORT CLASS</div>
+        <div class="class-filters" id="class-filters-list">
+          <label class="class-filter">
+            <input type="checkbox" value="established_hub" checked>
+            <i class="class-dot hub"></i>
+            <span>Established Hub</span>
+            <span class="count" id="count-hub">0</span>
+          </label>
+          <label class="class-filter">
+            <input type="checkbox" value="emerging" checked>
+            <i class="class-dot emerging"></i>
+            <span>Emerging</span>
+            <span class="count" id="count-emerging">0</span>
+          </label>
+          <label class="class-filter">
+            <input type="checkbox" value="stable" checked>
+            <i class="class-dot stable"></i>
+            <span>Stable</span>
+            <span class="count" id="count-stable">0</span>
+          </label>
+          <label class="class-filter">
+            <input type="checkbox" value="declining" checked>
+            <i class="class-dot declining"></i>
+            <span>Declining</span>
+            <span class="count" id="count-declining">0</span>
+          </label>
+        </div>
+
+        <div class="filter-select">
+          <label for="filter-quality">DATA QUALITY</label>
+          <select id="filter-quality">
+            <option value="all">All data quality</option>
+            <option value="observed">Observed</option>
+            <option value="reconstructed">Reconstructed</option>
+            <option value="static_only">Static only</option>
+          </select>
+        </div>
+
+        <div class="filter-select">
+          <label for="filter-confidence">CONFIDENCE</label>
+          <select id="filter-confidence">
+            <option value="all">All confidence levels</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+
+        <div class="toggle-group" style="margin-top: 14px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-quality-styling" checked>
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-text">Data quality marker styling</span>
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label for="filter-confidence">Confidence</label>
-        <select id="filter-confidence">
-          <option value="all">All Airports</option>
-          <option value="high">High Confidence (Observed Traffic)</option>
-          <option value="medium">Medium Confidence (Reconstructed &le; 12.0 pt Width)</option>
-          <option value="low">Low Confidence (Wide Spread / Static Only)</option>
-        </select>
+      <div class="legend">
+        <h3>OPPORTUNITY SCORE</h3>
+        <div class="legend-bar"></div>
+        <div class="legend-scores">
+          <span>0 (Low)</span>
+          <span>50 (Moderate)</span>
+          <span>100 (High)</span>
+        </div>
+        <div class="legend-note" id="legend-airports-in-view">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span id="legend-view-count">0 airports in view</span>
+        </div>
+        <div class="legend-note">
+          Solid: Observed | Outline: Reconstructed | Ring: Static only
+        </div>
       </div>
 
-      <div class="filter-group">
-        <label for="filter-class">Trajectory Class</label>
-        <select id="filter-class">
-          <option value="all">All Classes</option>
-          <option value="emerging">Emerging</option>
-          <option value="established_hub">Established Hub</option>
-          <option value="stable">Stable</option>
-          <option value="declining">Declining</option>
-        </select>
-      </div>
-
-      <div class="toggle-group">
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggle-quality-styling" checked>
-          <span class="slider"></span>
-        </label>
-        <span class="toggle-text">Data Quality Styling</span>
-      </div>
-
-      <div class="legend-panel">
-        <div class="legend-title">Trajectory Class</div>
-        <div class="legend-item"><span class="legend-color color-hub"></span> Established Hub (forecast score 90 or above)</div>
-        <div class="legend-item"><span class="legend-color color-emerging"></span> Emerging (score &lt; 90, top 20% change in tier, &ge; +2 pts and &ge; 0.5 &times; band half-width)</div>
-        <div class="legend-item"><span class="legend-color color-stable"></span> Stable (the rest)</div>
-        <div class="legend-item"><span class="legend-color color-declining"></span> Declining (score &lt; 90, bottom 20% change in tier, &le; -2 pts and &le; -0.5 &times; band half-width)</div>
-
-        <div class="legend-title" style="margin-top: 8px;">Confidence Tier</div>
-        <div class="legend-item"><span class="badge badge-confidence-high" style="padding: 1px 6px; font-size: 10px;">High</span> Observed Official Statistics</div>
-        <div class="legend-item"><span class="badge badge-confidence-medium" style="padding: 1px 6px; font-size: 10px;">Medium</span> Reconstructed (Width &le; 12.0)</div>
-        <div class="legend-item"><span class="badge badge-confidence-low" style="padding: 1px 6px; font-size: 10px;">Low</span> Reconstructed Wide / Static Only</div>
-
-        <div class="legend-title" style="margin-top: 8px;">Data Quality</div>
-        <div class="legend-item"><span class="legend-shape shape-observed"></span> Solid: Observed (Official Statistics)</div>
-        <div class="legend-item"><span class="legend-shape shape-recon"></span> Outline: Reconstructed (National Totals)</div>
-        <div class="legend-item"><span class="legend-shape shape-static"></span> Hollow: Static Only (Capacity/Network)</div>
-        <div class="legend-note">Marker radius scales with importance percentile score.</div>
-      </div>
-
-      <div class="about-card" id="about-card">
-        <div class="about-title">About the Index</div>
-        <p class="about-text" id="about-text">
+      <div class="panel-block" id="about-card" style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px;">
+        <div class="panel-label">ABOUT THE INDEX</div>
+        <p class="about-text" id="about-text" style="font-size: 12px; line-height: 1.5; color: var(--muted-foreground);">
           The Skyline Index evaluates global airport importance across route network centrality, annual traffic throughput, and regional market catchment.
-          Forecasts model 5 and 10 year importance changes using machine learning trained on historical panel shifts and forward economic projections.
-          At horizon 10, persistence (predicting zero change) wins on test MAE (5.282 versus 10.768 for the damped model) due to decadal mean reversion; we ship the damped model (damping factor 0.7) to supply directional signals alongside baseline persistence benchmarks. Horizon 10 uncertainty bands achieve 32.3 percent coverage and are labelled as indicative only.
-          The Opportunity Radar predicts promising unserved city pairs by combining network topology with forecast airport momentum.
         </p>
       </div>
     </aside>
 
-    <!-- Map Viewport -->
-    <main class="map-container" id="map-view">
-      <div id="map"></div>
-      <div id="map-status" class="map-status-overlay">Loading aviation network...</div>
-    </main>
-
-    <!-- Airport Details Drawer -->
-    <aside class="detail-drawer" id="airport-drawer" aria-hidden="true">
-      <button type="button" class="drawer-close-btn" id="drawer-close-btn" aria-label="Close details">&times;</button>
-      <div class="drawer-content" id="drawer-content">
-        <div class="drawer-placeholder">Click any airport marker on the map to view predictions and drivers.</div>
-      </div>
+    <!-- Right Slide-over Airport Card -->
+    <aside class="airport-card glass" id="airport-card" aria-label="Airport card" style="display:none;">
+      <!-- Populated via JS -->
     </aside>
+    <div class="selected-summary" id="selected-summary" style="display:none;">
+      <button type="button" class="btn-summary" id="btn-open-card">
+        <span id="summary-iata">SIN</span> : View card
+      </button>
+    </div>
 
-    <!-- Opportunity Radar Panel (Swapped with Map or Overlay) -->
-    <section class="radar-panel hidden" id="radar-panel" role="tabpanel">
+    <!-- Bottom Stat Strip -->
+    <div class="map-statistics" id="map-statistics">
+      <div>
+        <strong id="stat-airports-count">0</strong>
+        <span>Airports tracked</span>
+      </div>
+      <div>
+        <strong id="stat-emerging-count" class="positive-text">0</strong>
+        <span>Emerging opportunities</span>
+      </div>
+      <div>
+        <strong id="stat-hubs-count" class="primary-text">0</strong>
+        <span>Established hubs</span>
+      </div>
+    </div>
+
+    <!-- Opportunity Radar Panel -->
+    <section class="radar-panel glass" id="radar-panel" role="tabpanel" style="display:none;">
       <div class="radar-header">
         <div class="radar-title-group">
           <h2>Opportunity Radar</h2>
           <p class="radar-disclaimer" id="radar-disclaimer">
-            Candidate routes and lists are generated from a gravity model and link prediction, not confirmed demand. The underlying network topology uses OpenFlights 2014 and OpenSky 2019-2022 route data.
+            Candidate routes and lists are generated from a gravity model and link prediction, not confirmed demand. Model candidate, not confirmed demand. The underlying network topology uses OpenFlights 2014 and OpenSky 2019-2022 route data.
           </p>
         </div>
         <div class="radar-tabs" role="tablist">
@@ -136,11 +221,37 @@
           <button type="button" class="radar-tab-btn" id="btn-radar-tourism" data-view="tourism">Tourism Destinations</button>
         </div>
       </div>
-
-      <div class="radar-results" id="radar-results-list">
-        <!-- Rendered via JS -->
-      </div>
+      <div class="radar-results" id="radar-results-list"></div>
     </section>
+
+    <!-- Compare Drawer Overlay -->
+    <div class="compare-overlay" id="compare-overlay" style="display:none;">
+      <section class="compare-drawer" role="dialog" aria-modal="true" aria-labelledby="compare-title">
+        <div class="compare-header">
+          <div>
+            <h2 id="compare-title">Airport comparison</h2>
+            <p>Two airports. Side by side trajectory and horizon comparison.</p>
+          </div>
+          <button type="button" class="close-btn" id="btn-close-compare" aria-label="Close comparison">&times;</button>
+        </div>
+        <div class="compare-columns" id="compare-columns">
+          <!-- Populated via JS -->
+        </div>
+        <p class="compare-disclaimer" id="compare-disclaimer">
+          Forecasts model 5 and 10 year importance changes using machine learning. Horizon 10 bands achieve 32.3 percent coverage and are labelled indicative only.
+        </p>
+      </section>
+    </div>
+
+    <!-- Map bottom footer -->
+    <div class="map-bottom">
+      <span>Skyline Index : Global Aviation Intelligence</span>
+      <span id="map-bottom-horizon-label">Current baseline</span>
+      <button type="button" class="compare-launch" id="btn-open-compare">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><path d="M5 9v12"/><circle cx="19" cy="18" r="3"/><path d="M19 15V3"/></svg>
+        Compare airports
+      </button>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
