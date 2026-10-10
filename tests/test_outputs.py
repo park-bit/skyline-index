@@ -122,3 +122,86 @@ def test_browser_smoke_test_with_playwright():
     # Verify no serious console or page runtime errors occurred
     severe_errors = [e for e in console_errors if "favicon" not in e.lower()]
     assert len(severe_errors) == 0, f"Encountered console errors: {severe_errors}"
+
+
+def test_reports_contain_no_unsupported_numbers_or_ranges():
+    import re
+
+    reports_dir = ROOT / "reports"
+    report_files = [
+        "evaluation.md",
+        "ablation.md",
+        "reconstruction_traffic.md",
+        "reconstruction_network.md",
+        "baselines.md",
+        "folds.md",
+    ]
+
+    for fname in report_files:
+        fpath = reports_dir / fname
+        if not fpath.exists():
+            continue
+        lines = fpath.read_text(encoding="utf-8").splitlines()
+
+        table_numbers = set()
+        for l in lines:
+            if l.strip().startswith("|") and not l.strip().startswith("|---"):
+                for m in re.finditer(r"[-+]?\d+(?:\.\d+)?%?", l):
+                    v_str = m.group(0).rstrip("%")
+                    try:
+                        table_numbers.add(float(v_str))
+                    except ValueError:
+                        pass
+            elif l.strip().startswith("- ") or l.strip().startswith("Damped ") or "ratio is" in l or "median of" in l:
+                for m in re.finditer(r"[-+]?\d+(?:\.\d+)?%?", l):
+                    v_str = m.group(0).rstrip("%")
+                    try:
+                        table_numbers.add(float(v_str))
+                    except ValueError:
+                        pass
+
+        for l in lines:
+            stripped = l.strip()
+            if stripped.startswith("|") or stripped.startswith("#") or stripped.startswith("```"):
+                continue
+
+            for ratio_match in re.finditer(r"(\d+(?:\.\d+)?)\s*x(?:\s+lift)?\b", stripped, re.IGNORECASE):
+                ratio_val = float(ratio_match.group(1))
+                derivable = False
+                for a in table_numbers:
+                    for b in table_numbers:
+                        if b > 0 and abs((a / b) - ratio_val) / ratio_val < 0.10:
+                            derivable = True
+                            break
+                    if derivable:
+                        break
+                assert derivable, (
+                    f"Report {fname} contains ratio '{ratio_match.group(0)}' in prose '{l}' "
+                    f"that is not derivable from table values."
+                )
+
+            for range_match in re.finditer(
+                r"(?:between\s+)?(\d+(?:\.\d+)?%?)\s+(?:to|and)\s+(\d+(?:\.\d+)?%?)",
+                stripped,
+                re.IGNORECASE,
+            ):
+                s1, s2 = range_match.group(1), range_match.group(2)
+                v1_str, v2_str = s1.rstrip("%"), s2.rstrip("%")
+                try:
+                    v1, v2 = float(v1_str), float(v2_str)
+                except ValueError:
+                    continue
+
+                if v1 >= 1900 and v2 >= 1900 and "." not in s1 and "." not in s2:
+                    continue
+                if "." not in s1 and "." not in s2 and "%" not in s1 and "%" not in s2:
+                    if v1 < 10 and v2 < 10:
+                        continue
+
+                v1_in = any(abs(v1 - t) < 1e-3 or abs(v1 - t * 100) < 1e-3 for t in table_numbers)
+                v2_in = any(abs(v2 - t) < 1e-3 or abs(v2 - t * 100) < 1e-3 for t in table_numbers)
+                assert v1_in and v2_in, (
+                    f"Report {fname} contains range '{range_match.group(0)}' in prose '{l}' "
+                    f"that is not derivable from table values."
+                )
+

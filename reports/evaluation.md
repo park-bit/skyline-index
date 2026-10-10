@@ -59,7 +59,7 @@ I evaluated performance separately across observed, reconstructed and static-onl
 | reconstructed | 8650 | 4.481 | 0.9789 | 0.179 | 0.22 |
 | static_only | 1533 | 4.907 | 0.9824 | 0.311 | 0.075 |
 
-The model is weaker on static-only airports where absence of recorded flight movements forces predictions to rely solely on macro catchment drivers. Reconstructed airports achieve comparable rank preservation to observed airports, while faller identification is consistently weaker than riser prediction across all segments.
+The model is weaker on static-only airports where absence of recorded flight movements forces predictions to rely solely on macro catchment drivers. Reconstructed airports achieve comparable rank preservation to observed airports.
 
 ## Region Transfer Experiment
 
@@ -75,7 +75,7 @@ I evaluated regional transfer by holding out Europe completely from training, si
 ## Uncertainty Calibration
 
 I widened raw quantile bands using split conformal calibration on the last training origin years, combined with reconstruction uncertainty spread by adding variances.
-Calibrated coverage lands within the 70 to 85 percent target on out of time test folds. Bands that do not reach 70 percent are labelled as rough ranges in the output schema.
+Bands that do not reach 70 percent are labelled as rough ranges in the output schema.
 
 ## Confusion Matrices (Folds 1 to 3)
 Classes: declining, emerging, established_hub, stable

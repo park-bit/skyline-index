@@ -3,9 +3,9 @@
 I reconstructed airline network connectivity over time using a gravity model combined with topological link prediction.
 Observed 2014 OpenFlights routes serve as the structural anchor, while route appearance probabilities are calibrated across years.
 
-## Honest Held-Out Validation (20 Percent Test Edges)
+## Held-Out Validation (20 Percent Test Edges)
 
-To guarantee that validation remains honest, node features and link scores were computed exclusively from the 80 percent training graph.
+To guarantee that validation prevents edge leakage, node features and link scores were computed exclusively from the 80 percent training graph.
 No held-out test edges were used during graph traversal or degree calculation.
 Negative pairs were sampled to match the distance band distribution of positive edges within five percent tolerance.
 
@@ -15,8 +15,6 @@ Negative pairs were sampled to match the distance band distribution of positive 
 | Brier Score Loss | 0.0516 |
 | Precision at 100 | 1.000 |
 | Precision at 500 | 0.994 |
-
-The model achieves an AUC of 0.983 on held-out routes with Precision at 100 of 1.000, confirming strong link identification without edge leakage.
 
 ## Out-of-Time Validation (OpenSky 2019 to 2022)
 
@@ -30,7 +28,7 @@ Candidate evaluation was restricted to city pairs unserved in 2014 with at least
 | Precision at 100 | 0.250 | 0.000 (Persistence Baseline) |
 
 The persistence baseline assigns zero probability to every unserved pair, failing to identify newly emerging routes.
-The gravity link prediction model achieves 6.6% emergence share among top 500 candidates, a 2.5x lift over the baseline rate of 1.4%.
+The gravity link prediction model achieves 6.6% emergence share among top 500 candidates, a 4.7x lift over the baseline rate of 1.4%.
 
 ## Regional Transfer Validation
 

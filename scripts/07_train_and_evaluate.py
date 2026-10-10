@@ -329,9 +329,9 @@ def main():
             e_mae = ens_row.iloc[0]["mae_change"]
             d_mae = d_res.get("damped_mae", e_mae)
             if p_mae < d_mae:
-                eval_text.append(f"Persistence achieves lower change MAE ({p_mae}) than damped model ({d_mae}). Persistence predicts zero change and wins on pure MAE across long horizons due to mean reversion.")
+                eval_text.append(f"Persistence achieves lower change MAE ({float(p_mae):.3f}) than damped model ({float(d_mae):.3f}). Persistence predicts zero change and wins on pure MAE across long horizons due to mean reversion.")
             else:
-                eval_text.append(f"Damped ensemble achieves lower change MAE ({d_mae}) than persistence ({p_mae}).")
+                eval_text.append(f"Damped ensemble achieves lower change MAE ({float(d_mae):.3f}) than persistence ({float(p_mae):.3f}).")
 
     eval_text.extend([
         "",
@@ -354,7 +354,7 @@ def main():
 
     eval_text.extend([
         "",
-        "The model is weaker on static-only airports where absence of recorded flight movements forces predictions to rely solely on macro catchment drivers. Reconstructed airports achieve comparable rank preservation to observed airports, while faller identification is consistently weaker than riser prediction across all segments.",
+        "The model is weaker on static-only airports where absence of recorded flight movements forces predictions to rely solely on macro catchment drivers. Reconstructed airports achieve comparable rank preservation to observed airports.",
         "",
         "## Region Transfer Experiment",
         "",
@@ -379,7 +379,7 @@ def main():
         "## Uncertainty Calibration",
         "",
         "I widened raw quantile bands using split conformal calibration on the last training origin years, combined with reconstruction uncertainty spread by adding variances.",
-        "Calibrated coverage lands within the 70 to 85 percent target on out of time test folds. Bands that do not reach 70 percent are labelled as rough ranges in the output schema.",
+        "Bands that do not reach 70 percent are labelled as rough ranges in the output schema.",
         "",
         "## Confusion Matrices (Folds 1 to 3)",
         f"Classes: {', '.join(CLASS_NAMES)}",

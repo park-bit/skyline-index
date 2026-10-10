@@ -165,9 +165,6 @@ def main():
 
     rep_lines.extend([
         "",
-        "On major European networks (France, Germany, Spain, Italy, UK), the model achieves Spearman rank correlations between 0.707 and 0.909, with top 20 hub overlaps between 85 and 95 percent.",
-        "In the United States, the model achieves Spearman 0.659 and 85 percent top 20 overlap, though log MAE is higher due to hundreds of small general aviation and rural facilities.",
-        "",
         "## Leave-One-Region-Out and Baseline Comparison",
         "",
         "I evaluated cross-regional transfer between Europe and the United States, comparing the model against an equal split and a city population split baseline.",
@@ -188,12 +185,9 @@ def main():
         f"| Equal Split Baseline | {us_de_eq['log_mae']:.3f} | {us_de_eq['spearman']:.3f} | {us_de_eq['top20_overlap']:.3f} | {us_de_eq['within_2x']:.3f} | {us_de_eq['coverage']:.3f} |",
         f"| City Population Split | {us_de_pop['log_mae']:.3f} | {us_de_pop['spearman']:.3f} | {us_de_pop['top20_overlap']:.3f} | {us_de_pop['within_2x']:.3f} | {us_de_pop['coverage']:.3f} |",
         "",
-        "The model substantially outperforms both baselines. On Germany, the model achieves Spearman 0.807 versus 0.331 for population split and 0.000 for equal split.",
-        "",
         "## Uncertainty and Conformal Coverage",
         "",
         "I constructed lower and upper uncertainty bounds using split conformal prediction on log validation residuals.",
-        "For major European nations, the nominal 80 percent interval achieves empirical coverage between 70.1 and 93.4 percent, sitting within ten percentage points of the target nominal rate.",
         "Within-country airport ranks remain mostly stable over time because spatial catchment and runway infrastructure change slowly, while year-to-year volume variation is driven by national passenger totals.",
         "",
     ])

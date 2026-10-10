@@ -1,7 +1,7 @@
 # Temporal Validation Split Design
 
 This document specifies the exact temporal folds used for evaluating airport importance forecasts.
-Splits are strictly origin-year based to prevent lookahead bias.
+Splits are origin-year based to prevent lookahead bias.
 
 ## Horizon 5 Rolling Folds
 
