@@ -20,22 +20,13 @@ def get_core_airports(panel=None, min_traffic_years=2):
         if panel is None:
             panel = pd.read_parquet(PROCESSED / "airport_year_panel.parquet")
 
-    has_traffic = (
-        panel["faa_enplanements"].notna()
-        | panel["eurostat_passengers"].notna()
-        | panel["opensky_flights"].notna()
-    )
-    traffic_years = panel[has_traffic].groupby("iata")["year"].nunique()
+    p = panel.copy()
+    p.loc[p["country_code"] != "US", "faa_enplanements"] = np.nan
+    has_obs = p["faa_enplanements"].notna() | p["eurostat_passengers"].notna()
+    obs_iatas = set(p[has_obs]["iata"].unique())
+    sched_iatas = set(p[p["scheduled_service"].fillna(False) == True]["iata"].unique())
 
-    has_net = panel["of_routes_total"].notna() & (panel["of_routes_total"] > 0)
-    net_iatas = set(panel[has_net]["iata"].unique())
-
-    has_mkt = (
-        panel["nearest_large_city_pop"].notna() | panel["catchment_pop_100km"].notna()
-    ) & (panel["wb_gdp_usd"].notna() | panel["imf_gdp_per_capita_usd"].notna())
-    mkt_iatas = set(panel[has_mkt]["iata"].unique())
-
-    core_set = sorted(set(traffic_years[traffic_years >= min_traffic_years].index) & net_iatas & mkt_iatas)
+    core_set = sorted(obs_iatas | sched_iatas)
 
     if len(core_set) > 0 and len(panel) > 50000:
         PROCESSED.mkdir(parents=True, exist_ok=True)
@@ -45,25 +36,14 @@ def get_core_airports(panel=None, min_traffic_years=2):
 
 
 def as_of_carry_forward(df, val_col, key_col, max_age=3):
-    keys = df[[key_col, "year", val_col]].drop_duplicates()
-    lookup = []
-    for k, group in keys.groupby(key_col):
-        group = group.sort_values("year")
-        last_val = np.nan
-        last_yr = -9999
-        for yr, v in zip(group["year"], group[val_col]):
-            if pd.notna(v):
-                last_val = v
-                last_yr = yr
-                lookup.append((k, yr, v))
-            elif (yr - last_yr) <= max_age:
-                lookup.append((k, yr, last_val))
-            else:
-                lookup.append((k, yr, np.nan))
-
-    lookup_df = pd.DataFrame(lookup, columns=[key_col, "year", val_col + "_as_of"])
-    merged = df[[key_col, "year"]].merge(lookup_df, on=[key_col, "year"], how="left")
-    return merged[val_col + "_as_of"].values
+    keys = df[[key_col, "year", val_col]].drop_duplicates().sort_values([key_col, "year"]).copy()
+    keys["val_ffill"] = keys.groupby(key_col)[val_col].ffill()
+    keys["year_valid"] = keys["year"].where(keys[val_col].notna())
+    keys["last_yr"] = keys.groupby(key_col)["year_valid"].ffill()
+    keys["age"] = keys["year"] - keys["last_yr"]
+    keys["val_as_of"] = keys["val_ffill"].where(keys["age"] <= max_age, np.nan)
+    merged = df[[key_col, "year"]].merge(keys[[key_col, "year", "val_as_of"]], on=[key_col, "year"], how="left")
+    return merged["val_as_of"].values
 
 
 def compute_network_component(panel, core_airports=None):
@@ -72,17 +52,17 @@ def compute_network_component(panel, core_airports=None):
     core_set = set(core_airports)
 
     net = pd.DataFrame(index=panel.index)
-    has_net = panel["of_routes_total"].notna() & (panel["of_routes_total"] > 0)
+    has_net = panel["of_routes_total"].fillna(0) > 0
 
     core_mask = panel["iata"].isin(core_set) & has_net
     core_slice = panel[core_mask]
 
     for col in NETWORK_SUBWEIGHTS:
-        if col in panel.columns:
-            # Using OpenFlights 2014 snapshot values from core airports keeps the denominator fixed
-            ref_vals = np.sort(core_slice[core_slice["year"] == core_slice["year"].min()][col].dropna().values)
+        src_col = "exp_" + col.replace("of_", "") if ("exp_" + col.replace("of_", "")) in panel.columns else col
+        if src_col in panel.columns:
+            ref_vals = np.sort(core_slice[core_slice["year"] == core_slice["year"].min()][src_col].dropna().values)
             if len(ref_vals) > 0:
-                vals = panel[col].fillna(-1e9).values
+                vals = panel[src_col].fillna(-1e9).values
                 pct = np.searchsorted(ref_vals, vals, side="right") / len(ref_vals) * 100.0
                 net[col + "_pct"] = np.where(has_net, pct, np.nan)
             else:
@@ -106,11 +86,8 @@ def compute_market_component(panel, core_airports=None):
         panel["imf_gdp_per_capita_usd"] * panel["imf_population_millions"]
     )
     mkt["country_gdp"] = country_gdp
-
     gdp_pcap = panel["wb_gdp_per_capita"].fillna(panel["imf_gdp_per_capita_usd"])
     mkt["gdp_per_capita"] = gdp_pcap
-
-    # World Bank tourism reports with publication lags so trailing 3-year carry-forward is applied
     mkt["tourism"] = as_of_carry_forward(panel, "wb_tourism_arrivals", "country_code", max_age=3)
 
     pct_cols = {}
@@ -140,19 +117,24 @@ def compute_traffic_component(panel, core_airports=None):
         core_airports = get_core_airports(panel)
     core_set = set(core_airports)
 
-    psgr = panel["eurostat_passengers"].fillna(
-        panel["faa_enplanements"].where(panel["country_code"] == "US") * 2.0
-    )
-    # OpenSky flights only count in observed years or as-of carry forward up to 3 years
+    # Use reconstructed traffic table when available
+    psgr = panel.get("traffic_recon", None)
+    if psgr is None:
+        tr_cache = PROCESSED / "traffic_reconstructed.parquet"
+        if tr_cache.exists():
+            tr_df = pd.read_parquet(tr_cache)
+            p_m = panel[["iata", "year"]].merge(tr_df[["iata", "year", "traffic_recon"]], on=["iata", "year"], how="left")
+            psgr = p_m["traffic_recon"]
+        else:
+            p_us = panel["country_code"] == "US"
+            psgr = panel["eurostat_passengers"].fillna(panel["faa_enplanements"].where(p_us) * 2.0)
+
     mvmt = as_of_carry_forward(panel, "opensky_flights", "iata", max_age=3)
 
     traf_series = pd.Series(np.nan, index=panel.index)
     for yr, group in panel.groupby("year"):
         core_group = group[group["iata"].isin(core_set)]
-        core_psgr = core_group["eurostat_passengers"].fillna(
-            core_group["faa_enplanements"].where(core_group["country_code"] == "US") * 2.0
-        )
-        ref_psgr = np.sort(core_psgr.dropna().values)
+        ref_psgr = np.sort(psgr.loc[core_group.index].dropna().values)
         ref_mvmt = np.sort(pd.Series(mvmt, index=panel.index).loc[core_group.index].dropna().values)
 
         p_vals = psgr.loc[group.index].fillna(-1e9).values
@@ -174,27 +156,49 @@ def compute_traffic_component(panel, core_airports=None):
     return traf_series
 
 
-def compute_importance_index(panel, weights=(WEIGHT_NETWORK, WEIGHT_TRAFFIC, WEIGHT_MARKET), core_airports=None):
+def compute_importance_index(panel, weights=(WEIGHT_NETWORK, WEIGHT_TRAFFIC, WEIGHT_MARKET), core_airports=None, n_mc=50, seed=42):
     w_net, w_traf, w_mkt = weights
     if core_airports is None:
         core_airports = get_core_airports(panel)
     core_set = set(core_airports)
 
-    net_score = compute_network_component(panel, core_airports=core_airports)
-    traf_score = compute_traffic_component(panel, core_airports=core_airports)
-    mkt_score = compute_market_component(panel, core_airports=core_airports)
+    # Attach reconstructed tables if missing
+    p = panel.copy()
+    if "traffic_recon" not in p.columns:
+        tr_cache = PROCESSED / "traffic_reconstructed.parquet"
+        if tr_cache.exists():
+            tr_df = pd.read_parquet(tr_cache)
+            p = p.merge(tr_df[["iata", "year", "traffic_recon", "traffic_source"]], on=["iata", "year"], how="left")
 
-    is_core = panel["iata"].isin(core_set)
-    has_traffic = is_core & traf_score.notna()
+    if "exp_routes_total" not in p.columns:
+        net_cache = PROCESSED / "network_reconstructed.parquet"
+        if net_cache.exists():
+            net_df = pd.read_parquet(net_cache)
+            p = p.merge(net_df[["iata", "year", "exp_routes_total", "exp_top50_hub_links", "exp_countries_reached", "exp_pagerank", "std_pagerank"]], on=["iata", "year"], how="left")
+
+    # Determine data_quality
+    has_obs_traf = (
+        (p["eurostat_passengers"].notna() & (p["eurostat_passengers"] > 0))
+        | ((p["country_code"] == "US") & p["faa_enplanements"].notna() & (p["faa_enplanements"] > 0))
+    )
+    is_obs = has_obs_traf | (p.get("traffic_source", "") == "observed")
+    has_recon_traf = p.get("traffic_recon", pd.Series(np.nan, index=p.index)).notna() & (p.get("traffic_recon", 0) > 0)
+    data_quality = np.where(is_obs, "observed", np.where(has_recon_traf, "reconstructed", "static_only"))
+
+    net_score = compute_network_component(p, core_airports=core_airports)
+    traf_score = compute_traffic_component(p, core_airports=core_airports)
+    mkt_score = compute_market_component(p, core_airports=core_airports)
+
+    has_traffic = traf_score.notna() & (data_quality != "static_only")
+    has_obs_traffic = (data_quality == "observed") & traf_score.notna()
 
     present = [
         net_score.notna().astype(int),
-        has_traffic.astype(int),
-        pd.Series(mkt_score, index=panel.index).notna().astype(int),
+        has_obs_traffic.astype(int),
+        pd.Series(mkt_score, index=p.index).notna().astype(int),
     ]
     components_used = sum(present)
-
-    mkt_series = pd.Series(mkt_score, index=panel.index)
+    mkt_series = pd.Series(mkt_score, index=p.index)
 
     static_w = (net_score.notna().astype(float) * w_net) + (mkt_series.notna().astype(float) * w_mkt)
     static_val = (net_score.fillna(0.0) * w_net) + (mkt_series.fillna(0.0) * w_mkt)
@@ -207,12 +211,17 @@ def compute_importance_index(panel, weights=(WEIGHT_NETWORK, WEIGHT_TRAFFIC, WEI
     raw_score = np.where(has_traffic, full_raw, static_raw)
     raw_score = np.where(components_used > 0, raw_score, np.nan)
 
-    res = panel.copy()
+    res = p.copy()
     res["importance_raw"] = raw_score
     res["components_used"] = components_used
+    res["data_quality"] = data_quality
 
-    # Evaluating raw scores against the fixed core population keeps percentile ranks comparable across time
-    imp = pd.Series(np.nan, index=panel.index)
+    imp = pd.Series(np.nan, index=p.index)
+    imp_lo = pd.Series(np.nan, index=p.index)
+    imp_hi = pd.Series(np.nan, index=p.index)
+
+    rng = np.random.RandomState(seed)
+
     for yr, group in res.groupby("year"):
         core_group = group[group["iata"].isin(core_set)]
         ref_raw = np.sort(core_group["importance_raw"].dropna().values)
@@ -222,8 +231,38 @@ def compute_importance_index(panel, weights=(WEIGHT_NETWORK, WEIGHT_TRAFFIC, WEI
             pct = np.where(group["importance_raw"].isna(), np.nan, pct)
             imp.loc[group.index] = pct
 
+            # Monte Carlo spread for reconstructed rows
+            is_recon = group["data_quality"] == "reconstructed"
+            recon_idx = group[is_recon].index
+
+            if len(recon_idx) > 0 and n_mc > 0:
+                recon_raw = vals[is_recon.values]
+                mc_draws = np.zeros((n_mc, len(recon_raw)))
+                for m in range(n_mc):
+                    pert = rng.normal(0.0, 3.5, size=len(recon_raw))
+                    draw_raw = np.clip(recon_raw + pert, 0.0, 100.0)
+                    mc_draws[m, :] = np.searchsorted(ref_raw, draw_raw, side="right") / len(ref_raw) * 100.0
+
+                lo_vals = np.clip(np.percentile(mc_draws, 10, axis=0), 0.0, pct[is_recon.values])
+                hi_vals = np.clip(np.percentile(mc_draws, 90, axis=0), pct[is_recon.values], 100.0)
+
+                imp_lo.loc[recon_idx] = lo_vals
+                imp_hi.loc[recon_idx] = hi_vals
+
+            # For observed rows, interval matches point value
+            obs_idx = group[group["data_quality"] == "observed"].index
+            imp_lo.loc[obs_idx] = pct[group["data_quality"] == "observed"]
+            imp_hi.loc[obs_idx] = pct[group["data_quality"] == "observed"]
+
+            # For static_only rows, narrow baseline spread
+            static_idx = group[group["data_quality"] == "static_only"].index
+            imp_lo.loc[static_idx] = np.maximum(0.0, pct[group["data_quality"] == "static_only"] - 2.0)
+            imp_hi.loc[static_idx] = np.minimum(100.0, pct[group["data_quality"] == "static_only"] + 2.0)
+
     res["importance"] = imp
-    res["importance_confidence"] = np.where(is_core, "high", "low")
+    res["importance_lo"] = imp_lo
+    res["importance_hi"] = imp_hi
+    res["importance_confidence"] = np.where(res["iata"].isin(core_set), "high", "low")
     return res
 
 
@@ -233,7 +272,7 @@ def run_sensitivity_analysis(panel, n_trials=25, seed=42, core_airports=None):
         core_airports = get_core_airports(panel)
 
     base_w = (WEIGHT_NETWORK, WEIGHT_TRAFFIC, WEIGHT_MARKET)
-    base_panel = compute_importance_index(panel, weights=base_w, core_airports=core_airports)
+    base_panel = compute_importance_index(panel, weights=base_w, core_airports=core_airports, n_mc=0)
 
     valid_mask = base_panel["components_used"] >= 2
     base_valid = base_panel[valid_mask]
@@ -244,7 +283,7 @@ def run_sensitivity_analysis(panel, n_trials=25, seed=42, core_airports=None):
         w = np.clip(np.array(base_w) + pert, 0.02, 0.90)
         w = tuple(w / w.sum())
 
-        trial_panel = compute_importance_index(panel, weights=w, core_airports=core_airports)
+        trial_panel = compute_importance_index(panel, weights=w, core_airports=core_airports, n_mc=0)
         trial_valid = trial_panel[valid_mask]
 
         year_corrs = []

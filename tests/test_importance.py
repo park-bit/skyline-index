@@ -125,3 +125,16 @@ def test_percentile_reference_set_identical_across_years(model_table):
     for yr, group in model_table.groupby("year"):
         core_yr = set(group[group["importance_confidence"] == "high"]["iata"])
         assert core_yr == ref_set, f"Core reference population mismatch in year {yr}"
+
+
+def test_importance_intervals_contain_point_value(model_table):
+    scored = model_table[model_table["components_used"] >= 1]
+    valid = scored[scored["importance_lo"].notna() & scored["importance_hi"].notna()]
+    assert not valid.empty, "no airports with intervals found"
+    assert (valid["importance_lo"] <= valid["importance"] + 1e-5).all(), "importance_lo exceeds point value"
+    assert (valid["importance"] <= valid["importance_hi"] + 1e-5).all(), "point value exceeds importance_hi"
+
+
+def test_no_airport_gets_importance_from_zero_inputs(model_table):
+    zero_inputs = model_table[model_table["components_used"] == 0]
+    assert zero_inputs["importance_raw"].isna().all(), "airport with 0 inputs got importance_raw"

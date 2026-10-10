@@ -41,7 +41,7 @@ def compute_targets(df, horizons=FORECAST_HORIZONS):
         res["nearest_large_city_pop"].notna() | res["catchment_pop_100km"].notna()
     ) & (res["wb_gdp_usd"].notna() | res["imf_gdp_per_capita_usd"].notna())
 
-    comp_sig = (
+    comp_sig = res["data_quality"] if "data_quality" in res.columns else (
         has_net.astype(int).astype(str)
         + "_"
         + has_traf.astype(int).astype(str)
@@ -64,8 +64,9 @@ def compute_targets(df, horizons=FORECAST_HORIZONS):
         res[lvl_col] = target_lvl
         res[chg_col] = target_lvl - res["importance"]
 
+        match_sig = (res["component_signature"] == target_sig)
         is_comparable = (
-            (res["component_signature"] == target_sig)
+            match_sig
             & target_lvl.notna()
             & res["importance"].notna()
             & (target_year <= 2025)

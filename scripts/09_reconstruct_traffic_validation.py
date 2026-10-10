@@ -56,7 +56,7 @@ def main():
     c_totals = obs.groupby(["country_code", "year"])["obs_passengers"].transform("sum")
     obs["country_total"] = c_totals
     obs["share"] = obs["obs_passengers"] / c_totals
-    obs["log_share"] = np.log(np.clip(obs["share"], 1e-6, 1.0))
+    obs["log_traffic"] = np.log(obs["obs_passengers"])
     obs["is_europe"] = obs["continent"] == "EU"
 
     x_all = extract_features(obs)
@@ -73,7 +73,7 @@ def main():
             continue
 
         model = LGBMRegressor(n_estimators=100, max_depth=5, num_leaves=31, random_state=42, verbose=-1)
-        model.fit(x_all.loc[train.index], train["log_share"])
+        model.fit(x_all.loc[train.index], train["log_traffic"])
 
         test["score"] = np.exp(model.predict(x_all.loc[test.index]))
         test["pred_traffic"] = (test["score"] / test["score"].sum()) * test["country_total"]
@@ -89,7 +89,7 @@ def main():
     us_19 = obs[(obs["country_code"] == "US") & (obs["year"] == 2019)].copy()
 
     m_eu = LGBMRegressor(n_estimators=100, max_depth=5, num_leaves=31, random_state=42, verbose=-1)
-    m_eu.fit(x_all.loc[train_eu.index], train_eu["log_share"])
+    m_eu.fit(x_all.loc[train_eu.index], train_eu["log_traffic"])
     us_19["m_score"] = np.exp(m_eu.predict(x_all.loc[us_19.index]))
     us_19["pred_m"] = (us_19["m_score"] / us_19["m_score"].sum()) * us_19["country_total"]
     us_19["pred_eq"] = us_19["country_total"] / len(us_19)
@@ -105,7 +105,7 @@ def main():
     de_19 = obs[(obs["country_code"] == "DE") & (obs["year"] == 2019)].copy()
 
     m_us = LGBMRegressor(n_estimators=100, max_depth=5, num_leaves=31, random_state=42, verbose=-1)
-    m_us.fit(x_all.loc[train_us.index], train_us["log_share"])
+    m_us.fit(x_all.loc[train_us.index], train_us["log_traffic"])
     de_19["m_score"] = np.exp(m_us.predict(x_all.loc[de_19.index]))
     de_19["pred_m"] = (de_19["m_score"] / de_19["m_score"].sum()) * de_19["country_total"]
     de_19["pred_eq"] = de_19["country_total"] / len(de_19)

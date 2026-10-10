@@ -20,17 +20,18 @@ FEATURE_COLS = [
 
 def extract_features(df):
     f = pd.DataFrame(index=df.index)
-    f["log_city_pop"] = np.log1p(df["nearest_large_city_pop"].fillna(0))
+    f["log_city_pop"] = np.log1p(df[["nearest_large_city_pop", "catchment_pop_100km"]].max(axis=1).fillna(0))
     f["log_catchment_pop"] = np.log1p(df["catchment_pop_100km"].fillna(0))
     f["log_runway"] = np.log1p(df["max_runway_ft"].fillna(3000))
     f["is_large"] = (df["airport_type"] == "large_airport").astype(float)
     f["is_medium"] = (df["airport_type"] == "medium_airport").astype(float)
     f["is_small"] = (df["airport_type"] == "small_airport").astype(float)
     f["scheduled"] = df["scheduled_service"].fillna(False).astype(float)
-    f["log_opensky_flights"] = np.log1p(df["opensky_flights"].fillna(0))
-    f["opensky_dest"] = df["opensky_destinations"].fillna(0).astype(float)
+    from src.importance import as_of_carry_forward
+    os_f = pd.Series(as_of_carry_forward(df, "opensky_flights", "iata", max_age=3), index=df.index).fillna(0)
+    eff_flights = np.where(os_f > 0, os_f, df["of_routes_total"].fillna(0) * 120.0)
+    f["log_flights"] = np.log1p(eff_flights)
     f["log_routes"] = np.log1p(df["of_routes_total"].fillna(0))
-    f["log_dist_city"] = np.log1p(df["nearest_large_city_km"].fillna(50))
     f["log_gdp_pc"] = np.log1p(df["imf_gdp_per_capita_usd"].fillna(10000))
     return f
 
@@ -52,6 +53,8 @@ def calibrate_anchor_scale(panel):
     ).reset_index()
     grp = grp[grp["wb_passengers"].notna() & (grp["wb_passengers"] > 1e4)]
     grp["ratio"] = grp["airport_sum"] / grp["wb_passengers"]
+    # Keep only countries where observed airports represent complete national coverage
+    grp = grp[grp["ratio"] >= 0.5]
 
     country_ratios = grp.groupby("country_code")["ratio"].median().to_dict()
     global_median = float(grp["ratio"].median()) if len(grp) > 0 else 2.15
@@ -74,7 +77,7 @@ def build_traffic_share_model(panel, seed=42):
     train_rows["log_share"] = np.log(np.clip(train_rows["share"], 1e-6, 1.0))
 
     x_feat = extract_features(train_rows)
-    y_target = train_rows["log_share"]
+    y_target = np.log(train_rows["obs_passengers"])
 
     # Calibration slice: reserve 20 percent of training countries for conformal bounds
     countries = train_rows["country_code"].unique()
@@ -120,10 +123,11 @@ def reconstruct_airport_traffic(panel, model=None, calib_q=None, anchor_ratios=N
     raw_scores = np.exp(model.predict(x_feat))
     p["model_raw_score"] = raw_scores
 
-    # Anchored country total
-    # Use observed country ratio when available, otherwise calibrated global scale
+    # Anchored country total using as-of carry forward up to 3 years
+    from src.importance import as_of_carry_forward
+    wb_as_of = as_of_carry_forward(p, "wb_air_passengers", "country_code", max_age=3)
     scale_factor = p["country_code"].map(anchor_ratios).fillna(global_median)
-    anchored_country_total = p["wb_air_passengers"].fillna(0) * scale_factor
+    anchored_country_total = pd.Series(wb_as_of, index=p.index).fillna(0) * scale_factor
 
     # Only allocate share to commercial, scheduled, or route-active airports
     is_allocable = (

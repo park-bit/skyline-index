@@ -7,7 +7,7 @@ then anchors the sum to World Bank national air passenger totals calibrated by e
 ## National Anchor Calibration
 
 World Bank air passengers measure registered carrier boardings worldwide, whereas airport sums measure arrivals and departures across all domestic and international flights.
-Across observed countries and years, the empirical ratio between airport throughput and World Bank passengers has a global median of 2.41.
+Across observed countries and years, the empirical ratio between airport throughput and World Bank passengers has a global median of 2.47.
 For the United States, the empirical median ratio is 1.98.
 For Germany, the median ratio is 1.78. For France, it is 2.48.
 I use observed country ratios when available, and the global median for unobserved countries.
@@ -30,12 +30,12 @@ In this benchmark, I hide an entire country from training rows, predict airport 
 
 | Country | Airports | Log MAE | Spearman | Top 20 Overlap | Within 2x Share | 80% Conformal Coverage |
 |---|---|---|---|---|---|---|
-| US | 645 | 2.044 | 0.659 | 0.850 | 0.271 | 0.498 |
-| DE | 23 | 0.879 | 0.707 | 0.950 | 0.478 | 0.957 |
-| FR | 39 | 0.591 | 0.909 | 0.900 | 0.692 | 0.949 |
-| GB | 42 | 1.334 | 0.887 | 0.850 | 0.310 | 0.690 |
-| ES | 34 | 0.818 | 0.909 | 0.900 | 0.471 | 0.882 |
-| IT | 34 | 0.627 | 0.865 | 0.950 | 0.647 | 0.971 |
+| US | 645 | 1.206 | 0.854 | 0.850 | 0.350 | 0.715 |
+| DE | 23 | 0.751 | 0.807 | 0.950 | 0.652 | 0.957 |
+| FR | 39 | 0.590 | 0.885 | 0.850 | 0.615 | 0.974 |
+| GB | 42 | 0.769 | 0.935 | 0.850 | 0.619 | 0.857 |
+| ES | 34 | 0.618 | 0.936 | 0.850 | 0.647 | 1.000 |
+| IT | 34 | 0.610 | 0.874 | 0.900 | 0.706 | 0.941 |
 
 On major European networks (France, Germany, Spain, Italy, UK), the model achieves Spearman rank correlations between 0.707 and 0.909, with top 20 hub overlaps between 85 and 95 percent.
 In the United States, the model achieves Spearman 0.659 and 85 percent top 20 overlap, though log MAE is higher due to hundreds of small general aviation and rural facilities.
@@ -48,7 +48,7 @@ I evaluated cross-regional transfer between Europe and the United States, compar
 
 | Method | Log MAE | Spearman | Top 20 Overlap | Within 2x Share | Interval Coverage |
 |---|---|---|---|---|---|
-| Gradient Boosting Model | 1.815 | 0.733 | 0.750 | 0.287 | 0.532 |
+| Gradient Boosting Model | 1.224 | 0.851 | 0.850 | 0.360 | 0.712 |
 | Equal Split Baseline | 4.002 | 0.000 | 0.000 | 0.082 | 0.202 |
 | City Population Split | 2.356 | 0.424 | 0.150 | 0.219 | 0.513 |
 
@@ -56,7 +56,7 @@ I evaluated cross-regional transfer between Europe and the United States, compar
 
 | Method | Log MAE | Spearman | Top 20 Overlap | Within 2x Share | Interval Coverage |
 |---|---|---|---|---|---|
-| Gradient Boosting Model | 0.972 | 0.807 | 0.950 | 0.565 | 0.870 |
+| Gradient Boosting Model | 0.926 | 0.781 | 0.950 | 0.609 | 0.870 |
 | Equal Split Baseline | 1.766 | 0.000 | 0.950 | 0.217 | 0.478 |
 | City Population Split | 1.554 | 0.331 | 0.950 | 0.304 | 0.522 |
 

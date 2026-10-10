@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
 from src.airports import haversine_km
+from src.config import PROCESSED
 from src.network import load_route_snapshot
 
 DISTANCE_BANDS = [(0, 1000), (1000, 2500), (2500, 5000), (5000, 25000)]
@@ -141,22 +142,39 @@ def reconstruct_network_features(panel, ap_table=None, route_file=None, n_mc=30,
         if u != v:
             base_g.add_edge(u, v)
 
-    # Base degrees and connections
     deg_dict = dict(base_g.degree())
     top50 = sorted(deg_dict.keys(), key=lambda k: deg_dict[k], reverse=True)[:50]
     top50_set = set(top50)
 
-    # Compute sampled PageRank distributions
     mean_pr, std_pr = build_sampled_pageranks(base_g, [], [], n_mc=n_mc, seed=seed)
+
+    pairs_file = PROCESSED / "opensky_route_pairs.parquet"
+    os_edges = set()
+    if pairs_file.exists():
+        os_pairs = pd.read_parquet(pairs_file)
+        for _, r in os_pairs[os_pairs["flights"] >= 10].iterrows():
+            u, v = r["source"], r["dest"]
+            if u != v and u in valid_iata and v in valid_iata:
+                os_edges.add((u, v) if u < v else (v, u))
+
+    recent_g = base_g.copy()
+    recent_g.add_edges_from(os_edges)
+    recent_mean_pr, recent_std_pr = build_sampled_pageranks(recent_g, [], [], n_mc=n_mc, seed=seed)
+    recent_top50 = set(sorted(dict(recent_g.degree()).keys(), key=lambda k: dict(recent_g.degree())[k], reverse=True)[:50])
 
     country_map = panel.set_index("iata")["country_code"].to_dict()
 
     records = []
     for yr, group in panel.groupby("year"):
+        active_g = recent_g if yr >= 2019 else base_g
+        active_pr_mean = recent_mean_pr if yr >= 2019 else mean_pr
+        active_pr_std = recent_std_pr if yr >= 2019 else std_pr
+        active_top50 = recent_top50 if yr >= 2019 else top50_set
+
         for iata in group["iata"]:
-            nbrs = set(base_g.neighbors(iata)) if base_g.has_node(iata) else set()
+            nbrs = set(active_g.neighbors(iata)) if active_g.has_node(iata) else set()
             deg = len(nbrs)
-            t50_cnt = len(nbrs & top50_set)
+            t50_cnt = len(nbrs & active_top50)
             countries = len({country_map.get(n) for n in nbrs if n in country_map})
 
             records.append({
@@ -165,8 +183,8 @@ def reconstruct_network_features(panel, ap_table=None, route_file=None, n_mc=30,
                 "exp_routes_total": float(deg),
                 "exp_top50_hub_links": float(t50_cnt),
                 "exp_countries_reached": float(countries),
-                "exp_pagerank": mean_pr.get(iata, 0.0),
-                "std_pagerank": std_pr.get(iata, 0.0),
+                "exp_pagerank": active_pr_mean.get(iata, 0.0),
+                "std_pagerank": active_pr_std.get(iata, 0.0),
             })
 
     return pd.DataFrame(records)
