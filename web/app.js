@@ -413,6 +413,7 @@ function renderAirportCard(ap) {
   const activeForecast = currentHorizon === "h10" ? h10 : (currentHorizon === "h5" ? h5 : h5);
   const activeScore = getAirportScore(ap, currentHorizon);
   const activeClass = getAirportClass(ap, currentHorizon);
+  const classDisplay = activeClass.replace("_", " ");
 
   // Score ring circumference
   const radius = 38;
@@ -448,9 +449,10 @@ function renderAirportCard(ap) {
   // Direct routes list summary
   const directRoutesText = routeCount > 0 ? ap.routes.slice(0, 15).join(", ") + (routeCount > 15 ? ` +${routeCount - 15} more` : "") : "None recorded in topology snapshot";
 
-  const classDisplay = activeClass.replace("_", " ");
+  const cardBody = document.getElementById("airport-card-body");
+  const target = cardBody || card;
 
-  card.innerHTML = `
+  const cardHtml = `
     <div class="detail-top">
       <span class="eyebrow">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.3c.4-.2.6-.6.5-1.1z"/></svg>
@@ -566,6 +568,7 @@ function renderAirportCard(ap) {
       </div>
     </div>
   `;
+  target.innerHTML = cardHtml;
 
   // Attach card event handlers
   const closeBtn = document.getElementById("btn-close-card");
@@ -1014,6 +1017,225 @@ function setupEventListeners() {
     closeFiltersBtn.addEventListener("click", () => {
       leftPanel.classList.remove("filters-open");
     });
+  }
+
+  initTransparencySettings();
+  initDraggablePanels();
+}
+
+function initTransparencySettings() {
+  const slider = document.getElementById("slider-transparency");
+  const label = document.getElementById("transparency-val");
+  const toggleBtn = document.getElementById("btn-settings-toggle");
+  const popover = document.getElementById("settings-popover");
+  const closeBtn = document.getElementById("btn-close-settings");
+
+  let saved = "45";
+  try {
+    saved = localStorage.getItem("skyline_panel_opacity") || "45";
+  } catch (e) {}
+
+  const applyOpacity = (valStr) => {
+    const num = Math.min(90, Math.max(30, parseInt(valStr, 10) || 45));
+    const opacity = (num / 100).toFixed(2);
+    document.documentElement.style.setProperty("--panel-opacity", opacity);
+    document.documentElement.style.setProperty("--panel-fill", `rgba(18, 23, 30, ${opacity})`);
+    if (slider) slider.value = num;
+    if (label) label.textContent = `${num}%`;
+    try {
+      localStorage.setItem("skyline_panel_opacity", num.toString());
+    } catch (e) {}
+  };
+
+  applyOpacity(saved);
+
+  if (slider) {
+    slider.addEventListener("input", (e) => {
+      applyOpacity(e.target.value);
+    });
+  }
+
+  if (toggleBtn && popover) {
+    toggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isHidden = popover.style.display === "none";
+      popover.style.display = isHidden ? "flex" : "none";
+    });
+  }
+
+  if (closeBtn && popover) {
+    closeBtn.addEventListener("click", () => {
+      popover.style.display = "none";
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (popover && popover.style.display !== "none") {
+      if (!popover.contains(e.target) && (!toggleBtn || !toggleBtn.contains(e.target))) {
+        popover.style.display = "none";
+      }
+    }
+  });
+}
+
+const DRAGGABLE_CONFIGS = [
+  { panelId: "left-panel", gripId: "grip-left-panel", key: "skyline_pos_left_panel" },
+  { panelId: "airport-card", gripId: "grip-airport-card", key: "skyline_pos_airport_card" },
+  { panelId: "map-statistics", gripId: "grip-map-statistics", key: "skyline_pos_map_statistics" },
+  { panelId: "assistant-bar", gripId: "grip-assistant-bar", key: "skyline_pos_assistant_bar" },
+  { panelId: "assistant-reply-panel", gripId: "grip-reply-panel", key: "skyline_pos_reply_panel" },
+];
+
+function getParentOffset(panel) {
+  if (!panel.offsetParent) return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+  const r = panel.offsetParent.getBoundingClientRect();
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
+}
+
+function applyClampedPosition(panel, pos) {
+  if (!pos || window.innerWidth < 700) return;
+  const parent = getParentOffset(panel);
+  const width = panel.offsetWidth || 320;
+  const height = panel.offsetHeight || 180;
+
+  const minX = 8;
+  const maxX = Math.max(minX, parent.width - width - 8);
+  const minY = 8;
+  const maxY = Math.max(minY, parent.height - height - 8);
+
+  const clampX = Math.max(minX, Math.min(maxX, pos.left));
+  const clampY = Math.max(minY, Math.min(maxY, pos.top));
+
+  panel.style.left = `${clampX}px`;
+  panel.style.top = `${clampY}px`;
+  panel.style.right = "auto";
+  panel.style.bottom = "auto";
+  panel.style.transform = "none";
+  panel.classList.add("is-dragged");
+}
+
+function resetPanelPos(panel, key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {}
+  panel.style.left = "";
+  panel.style.top = "";
+  panel.style.right = "";
+  panel.style.bottom = "";
+  panel.style.transform = "";
+  panel.classList.remove("is-dragged");
+}
+
+function resetAllLayoutPositions() {
+  DRAGGABLE_CONFIGS.forEach(({ panelId, key }) => {
+    const panel = document.getElementById(panelId);
+    if (panel) resetPanelPos(panel, key);
+  });
+}
+
+function initDraggablePanels() {
+  DRAGGABLE_CONFIGS.forEach(({ panelId, gripId, key }) => {
+    const panel = document.getElementById(panelId);
+    const grip = document.getElementById(gripId);
+    if (!panel || !grip) return;
+
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.left === "number" && typeof parsed.top === "number") {
+          applyClampedPosition(panel, parsed);
+        }
+      }
+    } catch (e) {}
+
+    grip.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      resetPanelPos(panel, key);
+    });
+
+    grip.addEventListener("pointerdown", (e) => {
+      if (window.innerWidth < 700) return;
+      if (e.button !== 0) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        grip.setPointerCapture(e.pointerId);
+      } catch (err) {}
+
+      const rect = panel.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+      let moved = false;
+
+      const map = window.map;
+      if (map && map.dragging && map.dragging.enabled()) {
+        map.dragging.disable();
+      }
+
+      const onPointerMove = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        moved = true;
+
+        const parent = getParentOffset(panel);
+        const pWidth = panel.offsetWidth || rect.width;
+        const pHeight = panel.offsetHeight || rect.height;
+
+        const minX = 8;
+        const maxX = Math.max(minX, parent.width - pWidth - 8);
+        const minY = 8;
+        const maxY = Math.max(minY, parent.height - pHeight - 8);
+
+        const newLeft = ev.clientX - parent.left - offsetX;
+        const newTop = ev.clientY - parent.top - offsetY;
+
+        const clampX = Math.max(minX, Math.min(maxX, newLeft));
+        const clampY = Math.max(minY, Math.min(maxY, newTop));
+
+        panel.style.left = `${clampX}px`;
+        panel.style.top = `${clampY}px`;
+        panel.style.right = "auto";
+        panel.style.bottom = "auto";
+        panel.style.transform = "none";
+        panel.classList.add("is-dragged");
+      };
+
+      const onPointerUp = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        grip.removeEventListener("pointermove", onPointerMove);
+        grip.removeEventListener("pointerup", onPointerUp);
+        grip.removeEventListener("pointercancel", onPointerUp);
+
+        try {
+          grip.releasePointerCapture(ev.pointerId);
+        } catch (err) {}
+
+        if (map && map.dragging) {
+          map.dragging.enable();
+        }
+
+        if (moved) {
+          const leftVal = parseFloat(panel.style.left) || 0;
+          const topVal = parseFloat(panel.style.top) || 0;
+          try {
+            localStorage.setItem(key, JSON.stringify({ left: leftVal, top: topVal }));
+          } catch (err) {}
+        }
+      };
+
+      grip.addEventListener("pointermove", onPointerMove);
+      grip.addEventListener("pointerup", onPointerUp);
+      grip.addEventListener("pointercancel", onPointerUp);
+    });
+  });
+
+  const btnResetLayout = document.getElementById("btn-reset-layout");
+  if (btnResetLayout) {
+    btnResetLayout.addEventListener("click", resetAllLayoutPositions);
   }
 }
 

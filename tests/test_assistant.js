@@ -4,7 +4,7 @@ const path = require("path");
 const assert = require("assert");
 
 const assistant = require("../web/assistant.js");
-const { parseAssistantCommand, fuzzyMatchAirport, formatAirportSummary } = assistant;
+const { parseAssistantCommand, fuzzyMatchAirport, formatAirportSummary, pickVoice } = assistant;
 
 // Load forecasts data
 const forecastsPath = path.join(__dirname, "../web/forecasts.json");
@@ -187,4 +187,77 @@ tests.forEach((t) => {
   }
 });
 
-console.log(`\nAssistant test suite: ${passed}/${tests.length} tests passed.`);
+// Voice picking test suite
+const voiceTests = [
+  {
+    name: "18. Voice pick: en-GB female present",
+    run: () => {
+      const list = [
+        { name: "George", lang: "en-GB" },
+        { name: "Libby", lang: "en-GB" },
+        { name: "Samantha", lang: "en-US" },
+      ];
+      const picked = pickVoice(list);
+      assert.ok(picked);
+      assert.strictEqual(picked.name, "Libby");
+    },
+  },
+  {
+    name: "19. Voice pick: en-GB female matching pattern",
+    run: () => {
+      const list = [
+        { name: "Oliver", lang: "en-GB" },
+        { name: "Google UK English Female", lang: "en-GB" },
+        { name: "Microsoft Susan", lang: "en-GB" },
+      ];
+      const picked = pickVoice(list);
+      assert.ok(picked);
+      assert.strictEqual(picked.name, "Google UK English Female");
+    },
+  },
+  {
+    name: "20. Voice pick: only en-US present",
+    run: () => {
+      const list = [
+        { name: "Daniel", lang: "en-US" },
+        { name: "Samantha", lang: "en-US" },
+      ];
+      const picked = pickVoice(list);
+      assert.ok(picked);
+      assert.strictEqual(picked.name, "Samantha");
+    },
+  },
+  {
+    name: "21. Voice pick: empty voice list",
+    run: () => {
+      assert.strictEqual(pickVoice([]), null);
+      assert.strictEqual(pickVoice(null), null);
+    },
+  },
+  {
+    name: "22. Voice pick: saved voice choice respected",
+    run: () => {
+      const list = [
+        { name: "Libby", lang: "en-GB", voiceURI: "uri-libby" },
+        { name: "Samantha", lang: "en-US", voiceURI: "uri-samantha" },
+      ];
+      const picked = pickVoice(list, "uri-samantha");
+      assert.ok(picked);
+      assert.strictEqual(picked.name, "Samantha");
+    },
+  },
+];
+
+voiceTests.forEach((vt) => {
+  try {
+    vt.run();
+    passed++;
+    console.log(`PASS: ${vt.name}`);
+  } catch (err) {
+    console.error(`FAIL: ${vt.name}:`, err.message);
+    process.exitCode = 1;
+  }
+});
+
+const totalCount = tests.length + voiceTests.length;
+console.log(`\nAssistant test suite: ${passed}/${totalCount} tests passed.`);

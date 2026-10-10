@@ -421,16 +421,121 @@ function cancelSpeech() {
   setSpeakingState(false);
 }
 
-function getPreferredEnglishVoice() {
-  if (!window.speechSynthesis) return null;
-  const voices = window.speechSynthesis.getVoices();
+function isExcludedVoice(v) {
+  const name = v && v.name ? v.name : "";
+  if (/female/i.test(name)) return false;
+  return /male$|george|ryan|daniel|oliver/i.test(name);
+}
+
+function pickVoice(voices, savedVoiceURI = null) {
   if (!voices || voices.length === 0) return null;
 
-  const english = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
-  if (english.length === 0) return voices[0];
+  if (savedVoiceURI) {
+    const saved = voices.find(
+      (v) => (v.voiceURI === savedVoiceURI || v.name === savedVoiceURI) && !isExcludedVoice(v)
+    );
+    if (saved) return saved;
+  }
 
-  const preferred = english.find((v) => /google|natural|microsoft/i.test(v.name));
-  return preferred || english[0];
+  const validVoices = voices.filter((v) => !isExcludedVoice(v));
+  if (validVoices.length === 0) return voices[0] || null;
+
+  const femalePattern = /sonia|libby|maisie|hazel|susan|serena|kate|stephanie|google uk english female|female/i;
+
+  // 1. lang en-GB and name matching femalePattern
+  const gbFemale = validVoices.find((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    return lang.startsWith("en-gb") && femalePattern.test(v.name || "");
+  });
+  if (gbFemale) return gbFemale;
+
+  // 2. then any en-GB voice
+  const gbAny = validVoices.find((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    return lang.startsWith("en-gb");
+  });
+  if (gbAny) return gbAny;
+
+  // 3. then any English voice
+  const enAny = validVoices.find((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    return lang.startsWith("en");
+  });
+  if (enAny) return enAny;
+
+  return validVoices[0] || voices[0] || null;
+}
+
+function getSelectedVoice() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices() || [];
+  if (voices.length === 0) return null;
+
+  let savedVoiceURI = null;
+  try {
+    savedVoiceURI = localStorage.getItem("skyline_assistant_voice");
+  } catch (e) {}
+
+  return pickVoice(voices, savedVoiceURI);
+}
+
+function populateVoicePickers() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  const voices = window.speechSynthesis.getVoices() || [];
+  if (voices.length === 0) return;
+
+  const englishVoices = voices.filter((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    return lang.startsWith("en");
+  });
+
+  const voiceList = englishVoices.length > 0 ? englishVoices : voices;
+  const selectedVoice = getSelectedVoice();
+  const selectedId = selectedVoice ? (selectedVoice.voiceURI || selectedVoice.name) : "";
+
+  const hasGbVoice = voices.some((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    return lang.startsWith("en-gb");
+  });
+
+  const selects = [
+    document.getElementById("assistant-voice-select"),
+    document.getElementById("settings-voice-select"),
+    document.getElementById("assistant-reply-voice-select"),
+  ].filter(Boolean);
+
+  selects.forEach((sel) => {
+    sel.innerHTML = "";
+    voiceList.forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v.voiceURI || v.name;
+      opt.textContent = `${v.name} (${v.lang})`;
+      if (opt.value === selectedId) {
+        opt.selected = true;
+      }
+      sel.appendChild(opt);
+    });
+
+    sel.onchange = (e) => {
+      const val = e.target.value;
+      try {
+        localStorage.setItem("skyline_assistant_voice", val);
+      } catch (err) {}
+      selects.forEach((other) => {
+        if (other !== e.target) other.value = val;
+      });
+    };
+  });
+
+  const fallbackNotices = [
+    document.getElementById("voice-fallback-note"),
+    document.getElementById("settings-voice-fallback"),
+    document.getElementById("reply-voice-fallback"),
+  ].filter(Boolean);
+
+  fallbackNotices.forEach((note) => {
+    note.style.display = hasGbVoice ? "none" : "block";
+  });
 }
 
 function speakSpeech(text) {
@@ -439,8 +544,9 @@ function speakSpeech(text) {
 
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 1.0;
+  utterance.pitch = 1.05;
 
-  const voice = getPreferredEnglishVoice();
+  const voice = getSelectedVoice();
   if (voice) utterance.voice = voice;
 
   utterance.onstart = () => setSpeakingState(true);
@@ -739,10 +845,22 @@ function initAssistant() {
   });
 
   // Pre-load synthesis voices if available
-  if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {
-    window.speechSynthesis.onvoiceschanged = () => {
-      getPreferredEnglishVoice();
-    };
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    populateVoicePickers();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = populateVoicePickers;
+    }
+    window.speechSynthesis.addEventListener("voiceschanged", populateVoicePickers);
+  }
+
+  // Assistant settings toggle inside reply panel
+  const assistantSettingsToggle = document.getElementById("btn-assistant-settings-toggle");
+  const assistantSettingsView = document.getElementById("assistant-settings-view");
+  if (assistantSettingsToggle && assistantSettingsView) {
+    assistantSettingsToggle.addEventListener("click", () => {
+      const isHidden = assistantSettingsView.style.display === "none";
+      assistantSettingsView.style.display = isHidden ? "block" : "none";
+    });
   }
 }
 
@@ -761,5 +879,6 @@ if (typeof module !== "undefined" && module.exports) {
     fuzzyMatchAirport,
     formatAirportSummary,
     parseAssistantCommand,
+    pickVoice,
   };
 }

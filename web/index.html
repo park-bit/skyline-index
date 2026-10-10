@@ -39,6 +39,41 @@
         Opportunity Radar
       </button>
     </nav>
+
+    <div class="header-settings">
+      <button type="button" class="settings-toggle-btn" id="btn-settings-toggle" aria-label="Settings" title="Display and voice settings">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+
+      <div class="settings-popover glass" id="settings-popover" style="display:none;" role="dialog" aria-label="Settings popover">
+        <div class="settings-popover-header">
+          <span>Settings</span>
+          <button type="button" class="settings-close-btn" id="btn-close-settings" aria-label="Close settings">&times;</button>
+        </div>
+        <div class="settings-group">
+          <div class="settings-row-label">
+            <label for="slider-transparency">Transparency</label>
+            <span id="transparency-val" class="settings-val-chip">45%</span>
+          </div>
+          <input type="range" id="slider-transparency" min="30" max="90" value="45" step="1" aria-label="Panel transparency">
+        </div>
+        <div class="settings-group">
+          <label for="settings-voice-select">Voice</label>
+          <select id="settings-voice-select" class="settings-select" aria-label="Assistant voice"></select>
+          <div class="voice-fallback-msg" id="settings-voice-fallback" style="display:none;">British voice not available on this device</div>
+        </div>
+        <div class="settings-group">
+          <button type="button" class="reset-layout-btn" id="btn-reset-layout">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            Reset layout
+          </button>
+        </div>
+      </div>
+    </div>
+
     <h1 id="app-title" class="sr-only">Global Aviation Intelligence Map</h1>
   </header>
 
@@ -70,6 +105,7 @@
 
     <!-- Left Floating Panel -->
     <aside class="left-panel glass" id="left-panel" aria-label="Map filters">
+      <div class="panel-grip-handle" id="grip-left-panel" aria-label="Drag left panel" title="Drag to move, double click to reset"></div>
       <button type="button" class="close-filters" id="btn-close-filters" aria-label="Close filters">&times;</button>
 
       <div class="search-box">
@@ -186,7 +222,8 @@
 
     <!-- Right Slide-over Airport Card -->
     <aside class="airport-card glass" id="airport-card" aria-label="Airport card" style="display:none;">
-      <!-- Populated via JS -->
+      <div class="panel-grip-handle" id="grip-airport-card" aria-label="Drag airport card" title="Drag to move, double click to reset"></div>
+      <div id="airport-card-body"></div>
     </aside>
     <div class="selected-summary" id="selected-summary" style="display:none;">
       <button type="button" class="btn-summary" id="btn-open-card">
@@ -196,17 +233,20 @@
 
     <!-- Bottom Stat Strip -->
     <div class="map-statistics" id="map-statistics">
-      <div>
-        <strong id="stat-airports-count">0</strong>
-        <span>Airports tracked</span>
-      </div>
-      <div>
-        <strong id="stat-emerging-count" class="positive-text">0</strong>
-        <span>Emerging opportunities</span>
-      </div>
-      <div>
-        <strong id="stat-hubs-count" class="primary-text">0</strong>
-        <span>Established hubs</span>
+      <div class="panel-grip-handle" id="grip-map-statistics" aria-label="Drag statistics strip" title="Drag to move, double click to reset"></div>
+      <div class="map-statistics-content">
+        <div>
+          <strong id="stat-airports-count">0</strong>
+          <span>Airports tracked</span>
+        </div>
+        <div>
+          <strong id="stat-emerging-count" class="positive-text">0</strong>
+          <span>Emerging opportunities</span>
+        </div>
+        <div>
+          <strong id="stat-hubs-count" class="primary-text">0</strong>
+          <span>Established hubs</span>
+        </div>
       </div>
     </div>
 
@@ -259,17 +299,31 @@
     <!-- Skyline Assistant Command Bar and Reply Panel -->
     <div class="assistant-container" id="assistant-container">
       <div class="assistant-reply-panel glass" id="assistant-reply-panel" style="display:none;" role="region" aria-label="Skyline assistant history">
+        <div class="panel-grip-handle" id="grip-reply-panel" aria-label="Drag reply panel" title="Drag to move, double click to reset"></div>
         <div class="reply-panel-header">
           <span class="reply-panel-title">
             <span class="assistant-status-dot"></span>
             Skyline Assistant
           </span>
-          <button type="button" class="reply-panel-close" id="btn-close-reply-panel" aria-label="Close assistant panel">&times;</button>
+          <div class="reply-panel-actions">
+            <button type="button" class="assistant-settings-toggle" id="btn-assistant-settings-toggle" aria-label="Voice settings" title="Voice settings">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+            <button type="button" class="reply-panel-close" id="btn-close-reply-panel" aria-label="Close assistant panel">&times;</button>
+          </div>
+        </div>
+        <div class="assistant-settings-view" id="assistant-settings-view" style="display:none;">
+          <div class="assistant-voice-field">
+            <label for="assistant-voice-select">Voice</label>
+            <select id="assistant-voice-select" class="assistant-voice-select" aria-label="Voice selection"></select>
+            <div class="voice-fallback-msg" id="reply-voice-fallback" style="display:none;">British voice not available on this device</div>
+          </div>
         </div>
         <div class="reply-panel-body" id="assistant-history-list"></div>
       </div>
 
       <div class="assistant-bar glass" id="assistant-bar">
+        <div class="panel-grip-handle grip-inline" id="grip-assistant-bar" aria-label="Drag assistant bar" title="Drag to move, double click to reset"></div>
         <button type="button" class="assistant-orb" id="btn-assistant-orb" aria-label="Skyline voice assistant" title="Voice assistant orb">
           <div class="orb-core"></div>
           <div class="orb-ring"></div>
