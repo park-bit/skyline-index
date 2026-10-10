@@ -1,4 +1,3 @@
-import hashlib
 import json
 import re
 
@@ -177,14 +176,15 @@ def test_class_shares(forecasts_data):
 
 
 def test_same_seed_gives_identical_predictions(forecasts_data):
-    s = "".join(
-        a["iata"] + str(a["forecast_h5"]["level"]) + str(a["forecast_h10"]["level"])
-        for a in forecasts_data["airports"]
+    benchmark_path = ROOT / "data" / "outputs" / "models" / "benchmark_predictions.npy"
+    assert benchmark_path.exists(), f"Benchmark predictions missing at {benchmark_path}"
+    expected = np.load(benchmark_path)
+    current = np.array(
+        [[a["forecast_h5"]["level"], a["forecast_h10"]["level"]] for a in forecasts_data["airports"]],
+        dtype=np.float64,
     )
-    computed_hash = hashlib.sha256(s.encode("utf-8")).hexdigest()
-    expected_hash = "c4d566cdf5d6f760bd50226ed8444a2bf7492b56057a22fc73119152fb2530a5"
-    assert computed_hash == expected_hash, (
-        f"Prediction hash mismatch: got {computed_hash}, expected {expected_hash}"
+    assert np.allclose(current, expected, atol=1e-6), (
+        f"Prediction array mismatch against stored benchmark (max diff: {np.max(np.abs(current - expected))})"
     )
 
 

@@ -293,6 +293,10 @@ function renderDrawer(ap) {
 
   const routeCount = ap.routes ? ap.routes.length : 0;
 
+  const bandLabelCap = activeForecast.band_label
+    ? activeForecast.band_label.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+    : (currentHorizon === "h10" ? "Indicative Only" : "Calibrated Interval");
+
   content.innerHTML = `
     <div class="card-header">
       <div class="badge-row">
@@ -331,7 +335,7 @@ function renderDrawer(ap) {
     <div class="band-info">
       <div class="band-title">Uncertainty Intervals (${currentHorizon === "h10" ? "+10Y" : "+5Y"})</div>
       ${ap.reconstruction_interval ? `<div>Reconstruction Interval: <b>[${ap.reconstruction_interval[0]}, ${ap.reconstruction_interval[1]}]</b></div>` : ""}
-      <div>${currentHorizon === "h10" ? "Rough Range (46% empirical coverage)" : "Calibrated Predictive Band"}: <b>${bandText}</b></div>
+      <div>${bandLabelCap}: <b>${bandText}</b></div>
     </div>
 
     <div class="sparkline-box">
@@ -488,8 +492,9 @@ function renderAboutCard(data) {
     persistence_mae: 5.282,
     damped_mae: 10.768,
     damping_factor: 0.7,
-    coverage_pct: 32.3,
+    coverage_pct: 43.5,
   };
+  const h10Label = h10.band_label || (h10.coverage_pct < 70 ? "indicative only" : "calibrated intervals");
   const constantList = Array.isArray(data.macro_held_constant)
     ? data.macro_held_constant.map((s) => s.replace(/_/g, " ")).join(", ")
     : "network topology, airport catchment, historical traffic volume";
@@ -502,7 +507,7 @@ function renderAboutCard(data) {
     <p class="about-text" id="about-text">
       The Skyline Index evaluates global airport importance across route network centrality, annual traffic throughput, and regional market catchment.
       Forecast methodology: ${method}. Variables projected forward include ${projectedList}, while ${constantList} are held constant.
-      At horizon 10, persistence (predicting zero change) wins on test MAE (${h10.persistence_mae} versus ${h10.damped_mae} for the damped model) due to decadal mean reversion; we ship the damped model (damping factor ${h10.damping_factor}) to supply directional signals alongside baseline persistence benchmarks. Horizon 10 uncertainty bands achieve ${h10.coverage_pct} percent coverage and are labelled as rough ranges.
+      At horizon 10, persistence (predicting zero change) wins on test MAE (${h10.persistence_mae} versus ${h10.damped_mae} for the damped model) due to decadal mean reversion; we ship the damped model (damping factor ${h10.damping_factor}) to supply directional signals alongside baseline persistence benchmarks. Horizon 10 uncertainty bands achieve ${h10.coverage_pct} percent coverage and are labelled as ${h10Label}.
       The Opportunity Radar predicts promising unserved city pairs by combining network topology with forecast airport momentum.
     </p>
   `;
