@@ -157,6 +157,8 @@ python -m http.server 8000
 
 Open `http://localhost:8000/web/index.html` in a web browser.
 
+Optional later: ElevenLabs via a serverless proxy, not included.
+
 Live deployment: https://skyline-index-web.vercel.app/
 
 ## Limitations

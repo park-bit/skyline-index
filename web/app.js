@@ -57,6 +57,7 @@ function initMap() {
   candidateRouteLayerGroup = L.layerGroup().addTo(map);
 
   map.on("zoomend", updateMarkerStyles);
+  window.map = map;
 }
 
 let selectedHaloMarker = null;
@@ -607,6 +608,12 @@ function closeCompareDrawer() {
   if (overlay) overlay.style.display = "none";
 }
 
+window.openCompareDrawer = openCompareDrawer;
+window.setCompareAirports = function(a, b) {
+  compareAirportA = a;
+  compareAirportB = b;
+};
+
 function renderCompareDrawer() {
   const container = document.getElementById("compare-columns");
   if (!container) return;
@@ -822,6 +829,7 @@ function switchTab(tab) {
     renderRadar();
   }
 }
+window.switchTab = switchTab;
 
 function renderAboutCard(data) {
   const aboutText = document.getElementById("about-text");

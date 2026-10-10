@@ -252,9 +252,64 @@
         Compare airports
       </button>
     </div>
+
+    <!-- Skyline Assistant Command Bar and Reply Panel -->
+    <div class="assistant-container" id="assistant-container">
+      <div class="assistant-reply-panel glass" id="assistant-reply-panel" style="display:none;" role="region" aria-label="Skyline assistant history">
+        <div class="reply-panel-header">
+          <span class="reply-panel-title">
+            <span class="assistant-status-dot"></span>
+            Skyline Assistant
+          </span>
+          <button type="button" class="reply-panel-close" id="btn-close-reply-panel" aria-label="Close assistant panel">&times;</button>
+        </div>
+        <div class="reply-panel-body" id="assistant-history-list"></div>
+      </div>
+
+      <div class="assistant-bar glass" id="assistant-bar">
+        <button type="button" class="assistant-orb" id="btn-assistant-orb" aria-label="Skyline voice assistant" title="Voice assistant orb">
+          <div class="orb-core"></div>
+          <div class="orb-ring"></div>
+        </button>
+
+        <form class="assistant-input-form" id="assistant-form" action="javascript:void(0);">
+          <input type="text" id="assistant-input" class="assistant-input" placeholder="Ask Skyline: show Hyderabad" aria-label="Ask Skyline: show Hyderabad" autocomplete="off" />
+        </form>
+
+        <div class="assistant-waveform" id="assistant-waveform" aria-hidden="true" style="display:none;">
+          <span class="bar bar-1"></span>
+          <span class="bar bar-2"></span>
+          <span class="bar bar-3"></span>
+          <span class="bar bar-4"></span>
+        </div>
+
+        <div class="assistant-actions">
+          <button type="button" class="assistant-action-btn" id="btn-assistant-mic" aria-label="Voice input" title="Voice input">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+          <button type="button" class="assistant-action-btn" id="btn-assistant-speaker" aria-label="Toggle voice output" title="Toggle voice output">
+            <svg id="speaker-icon-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <line x1="23" y1="9" x2="17" y2="15"/>
+              <line x1="17" y1="9" x2="23" y2="15"/>
+            </svg>
+            <svg id="speaker-icon-on" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
+  <script src="assistant.js"></script>
 </body>
 </html>

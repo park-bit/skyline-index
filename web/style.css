@@ -1087,20 +1087,19 @@ input:checked + .slider:before {
 /* Bottom Stat Strip */
 .map-statistics {
   position: absolute;
-  bottom: 54px;
-  left: 336px;
-  right: 398px;
+  bottom: 106px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   z-index: 5;
-  padding: 12px 0;
+  padding: 8px 18px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow);
-}
-
-.map-statistics.without-card {
-  right: 80px;
+  width: auto;
+  min-width: 440px;
+  justify-content: space-between;
 }
 
 .map-statistics > div {
@@ -1539,4 +1538,276 @@ input:checked + .slider:before {
   .compare-drawer {
     padding: 18px 16px;
   }
+  .assistant-container {
+    width: auto;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    bottom: 44px;
+  }
+  .assistant-bar {
+    height: 44px;
+    padding: 0 8px 0 5px;
+  }
+  .assistant-input {
+    font-size: 12px;
+  }
+  .assistant-input::placeholder {
+    font-size: 12px;
+  }
 }
+
+/* Skyline Assistant Floating Command Bar and Reply Panel */
+.assistant-container {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: 500px;
+  max-width: calc(100% - 24px);
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.assistant-reply-panel {
+  pointer-events: auto;
+  margin-bottom: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(19, 31, 46, 0.96);
+  box-shadow: var(--shadow);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.reply-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(64, 81, 106, 0.35);
+}
+
+.reply-panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.assistant-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+}
+
+.reply-panel-close {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted-foreground);
+  padding: 0 4px;
+  transition: color 0.15s ease;
+}
+
+.reply-panel-close:hover {
+  color: var(--foreground);
+}
+
+.reply-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reply-exchange {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12.5px;
+}
+
+.reply-query {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+
+.reply-query::before {
+  content: "Ask: ";
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.reply-answer {
+  color: var(--foreground);
+  line-height: 1.45;
+  white-space: pre-line;
+  background: rgba(29, 43, 61, 0.45);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--primary);
+}
+
+.assistant-bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 10px 0 6px;
+  border-radius: 28px;
+  background: rgba(19, 31, 46, 0.94);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(3, 8, 17, 0.55);
+}
+
+.assistant-orb {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: radial-gradient(circle at 35% 35%, #5eead4, #14b8a6 55%, #0f766e 85%, #042f2e);
+  box-shadow: 0 0 12px rgba(61, 217, 197, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.assistant-orb:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 16px rgba(61, 217, 197, 0.55);
+}
+
+.assistant-orb .orb-core {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  opacity: 0.6;
+  filter: blur(1px);
+}
+
+.assistant-orb .orb-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid rgba(61, 217, 197, 0.4);
+}
+
+.assistant-orb.listening {
+  animation: orb-pulse 1.3s infinite ease-in-out;
+}
+
+@keyframes orb-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(61, 217, 197, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 12px rgba(61, 217, 197, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(61, 217, 197, 0);
+  }
+}
+
+.assistant-input-form {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.assistant-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--foreground);
+  font-size: 13px;
+  padding: 4px 6px;
+}
+
+.assistant-input::placeholder {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.assistant-waveform {
+  display: flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 20px;
+  padding: 0 4px;
+}
+
+.assistant-waveform .bar {
+  width: 2.5px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 2px;
+  animation: waveform-bounce 0.8s infinite ease-in-out;
+}
+
+.assistant-waveform .bar-1 { animation-delay: 0s; }
+.assistant-waveform .bar-2 { animation-delay: 0.2s; }
+.assistant-waveform .bar-3 { animation-delay: 0.4s; }
+.assistant-waveform .bar-4 { animation-delay: 0.1s; }
+
+@keyframes waveform-bounce {
+  0%, 100% {
+    height: 4px;
+  }
+  50% {
+    height: 18px;
+  }
+}
+
+.assistant-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.assistant-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.assistant-action-btn:hover {
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.assistant-action-btn.listening {
+  color: var(--negative);
+  background: rgba(245, 143, 140, 0.15);
+}
+
+.skyline-pulse-ring {
+  pointer-events: none;
+}
+
