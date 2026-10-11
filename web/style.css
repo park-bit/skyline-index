@@ -2616,9 +2616,9 @@ body.radar-tab-active .leaflet-control-zoom {
 }
 
 .welcome-intro-card {
-  width: 270px;
-  height: 270px;
-  background: rgba(14, 18, 24, 0.88);
+  width: 300px;
+  min-height: 310px;
+  background: rgba(14, 18, 24, 0.90);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 32px;
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.65), 0 0 40px rgba(0, 210, 255, 0.18);
@@ -2626,7 +2626,7 @@ body.radar-tab-active .leaflet-control-zoom {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 22px 18px;
   position: relative;
   text-align: center;
   cursor: pointer;
@@ -2664,11 +2664,29 @@ body.radar-tab-active .leaflet-control-zoom {
 }
 
 .welcome-visualizer-slot {
-  width: 190px;
-  height: 190px;
+  width: 170px;
+  height: 170px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 8px;
+}
+
+.welcome-intro-text {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+  padding: 0 10px;
+}
+
+.welcome-intro-sub {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .welcome-intro-hint {
@@ -2677,7 +2695,7 @@ body.radar-tab-active .leaflet-control-zoom {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-weight: 500;
-  margin-top: 6px;
+  margin-top: 8px;
   opacity: 0.85;
   animation: pulse-soft 2s infinite ease-in-out;
 }

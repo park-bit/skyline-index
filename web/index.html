@@ -405,13 +405,17 @@
       </section>
     </div>
 
-    <!-- Welcome Intro Modal (blank rounded square with Laura TTS greeting) -->
+    <!-- Welcome Intro Modal (rounded square with Laura TTS greeting) -->
     <div class="welcome-intro-backdrop" id="welcome-intro-backdrop">
       <div class="welcome-intro-card" id="welcome-intro-card" role="dialog" aria-label="Welcome greeting">
         <button type="button" class="welcome-intro-skip-btn" id="btn-welcome-skip" aria-label="Skip">&times;</button>
         <div class="welcome-visualizer-slot" id="welcome-visualizer-slot">
-          <!-- Visualizer canvas mounted here initially -->
+          <canvas id="assistant-visualizer" class="assistant-visualizer in-welcome-modal" width="320" height="320" aria-hidden="true" style="display:block;"></canvas>
         </div>
+        <div class="welcome-intro-text" id="welcome-intro-text">
+          Hey there! What do you want to search today?
+        </div>
+        <div class="welcome-intro-sub" id="welcome-intro-sub">Laura (ElevenLabs)</div>
         <div class="welcome-intro-hint" id="welcome-intro-hint" style="display:none;">
           Click anywhere to start
         </div>
@@ -514,8 +518,6 @@
         </div>
       </div>
       <div class="assistant-bar glass" id="assistant-bar">
-        <!-- Jarvis Voice Visualizer Canvas (docked on left side of chatbox) -->
-        <canvas id="assistant-visualizer" class="assistant-visualizer" width="320" height="320" aria-hidden="true" style="display:none;"></canvas>
         <div class="panel-grip-handle grip-inline" id="grip-assistant-bar" aria-label="Drag assistant bar" title="Drag to move, double click to reset"></div>
         <button type="button" class="assistant-orb" id="btn-assistant-orb" aria-label="Skyline voice assistant" title="Voice assistant orb">
           <div class="orb-core"></div>

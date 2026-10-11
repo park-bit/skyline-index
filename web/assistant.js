@@ -1207,11 +1207,9 @@ function initVisualizer() {
     }
 
     const isIdle = !isSpeaking && !isListening;
-    let dynamicLevel = audioLevel;
-    if (isIdle) {
-      const breath = Math.sin(now * 0.001 * Math.PI) * 0.05;
-      dynamicLevel = 0.04 + breath;
-    } else if (isListening && dynamicLevel < 0.22) {
+    const breath = isIdle ? Math.sin(now * 0.001 * Math.PI) * 0.05 : 0;
+    let dynamicLevel = isIdle ? 0.04 + breath : audioLevel;
+    if (isListening && dynamicLevel < 0.22) {
       dynamicLevel = 0.22 + Math.sin(now * 0.006) * 0.12;
     }
 
