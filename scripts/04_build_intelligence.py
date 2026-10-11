@@ -21,7 +21,7 @@ import sys
 import tarfile
 import tempfile
 import time
-from datetime import date
+from datetime import datetime, timezone
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -135,7 +135,7 @@ def country_names_for(codes: list[str]) -> dict[str, str]:
     names = {}
     try:
         import pycountry  # type: ignore
-    except Exception:  # pragma: no cover - optional dependency
+    except Exception:  # noqa: BLE001 - optional dependency
         pycountry = None
     for c in codes:
         name = None
@@ -212,7 +212,7 @@ def aggregate_group(df: pd.DataFrame) -> dict:
     riser = df.sort_values(["change_h10", "iata"], ascending=[False, True]).iloc[0]
     faller = df.sort_values(["change_h10", "iata"], ascending=[True, True]).iloc[0]
     return {
-        "n_airports": int(len(df)),
+        "n_airports": len(df),
         "mean_importance_present": r2(df["importance_present"].mean()),
         "mean_level_h5": r2(df["level_h5"].mean()),
         "mean_level_h10": r2(df["level_h10"].mean()),
@@ -387,7 +387,7 @@ def network_block(G: nx.Graph, weight: str | None, top_bc: list, node_level: pd.
         "n_edges": int(G.number_of_edges()),
         "avg_degree": r4(deg.mean()),
         "density": r4(2.0 * e_sum / (n * (n - 1))),
-        "n_components": int(len(comps)),
+        "n_components": len(comps),
         "giant_component_share": r4(max(len(c) for c in comps) / n),
         "avg_clustering": r4(clus),
         "top_betweenness": top_bc,
@@ -465,7 +465,7 @@ def compute_network_and_resilience(fc: dict, ap: pd.DataFrame) -> tuple[dict, di
             lab_f = lab[np.searchsorted(kept_idx, former_idx)]
             sizes = np.bincount(lab_f)
             if u not in reach_exact:
-                m = int(len(former_idx))
+                m = len(former_idx)
                 n_disc = int(m * (m - 1) // 2 - sum(int(sz) * (int(sz) - 1) // 2 for sz in sizes))
             big = int(sizes.argmax())
             n_cut = int((lab_f != big).sum())
@@ -598,9 +598,7 @@ def scenario_block(mt: pd.DataFrame, ap: pd.DataFrame) -> dict:
         units[stem] = "pct points applied simultaneously to " + ", ".join(parts)
     scale = {}
     for f in feats:
-        if f in h10s.GROWTH_COLS or f == "opensky_growth_recent" or f in h10s.LARGE_COLS:
-            scale[f] = 0.01
-        elif f in ("of_pagerank", "of_betweenness", "of_clustering", "of_intl_share"):
+        if f in h10s.GROWTH_COLS or f == "opensky_growth_recent" or f in h10s.LARGE_COLS or f in ("of_pagerank", "of_betweenness", "of_clustering", "of_intl_share"):
             scale[f] = 0.01
         elif f.endswith("_km"):
             scale[f] = 100.0
@@ -625,7 +623,7 @@ def scenario_block(mt: pd.DataFrame, ap: pd.DataFrame) -> dict:
         # three horizons of the same driver are collinear and their individual partial effects offset.
         for stem, parts in COMPOSITES.items():
             sens[h][stem] = round(float(sum(sens[h][p] or 0.0 for p in parts)), 5)
-        sens[h]["_n_train"] = int(len(tr))
+        sens[h]["_n_train"] = len(tr)
 
     # Country shocks on the actual production h5 ensemble (non-linear): +2pp GDP growth applied to the
     # 1y/3y/5y growth features and the IMF projection for every airport of the country.
@@ -647,7 +645,7 @@ def scenario_block(mt: pd.DataFrame, ap: pd.DataFrame) -> dict:
         for c in (preferred + extra)[:5]:
             sub = rows[rows["country_code"] == c]
             shocks.append({"country": c, "shock": "gdp_growth +2pp", "mean_delta_h5": round(float(sub["delta"].mean()), 3)})
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001
         log(f"  WARNING country shocks skipped: {exc}")
 
     n5, n10 = sens[5].pop("_n_train"), sens[10].pop("_n_train")
@@ -793,7 +791,7 @@ def main() -> int:
     t = time.time()
     log("[7/7] writing intelligence.json")
     out = {
-        "generated_at": date.today().isoformat(),
+        "generated_at": datetime.now(timezone.utc).date().isoformat(),
         "as_of_year": AS_OF_YEAR,
         "country_names": names,
         "continent_names": CONTINENT_NAMES,

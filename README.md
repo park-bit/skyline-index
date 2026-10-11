@@ -53,7 +53,7 @@ Official passenger statistics are published primarily in the United States and E
 1. Traffic share model: LightGBM and Ridge models predict each airport's share of national commercial passenger volume using city population, 100 km catchment population, runway lengths, scheduled service flags, OpenSky flight counts, distance to larger hubs, and national GDP per capita. Predicted shares are normalized to sum to the World Bank national total.
 2. Traffic validation: Leave-one-country-out validation in 2019 yields log MAE of 1.206 on the United States, 0.751 on Germany, 0.590 on France, 0.769 on the United Kingdom, 0.618 on Spain, and 0.610 on Italy. In regional transfer from Europe to the United States, the model achieves log MAE of 1.224 and Spearman correlation of 0.851, outperforming population-based allocation (log MAE 2.356, Spearman 0.424).
 3. Network reconstruction: A gravity link prediction model estimates edge presence using time-varying node masses, great-circle distances, and regional flags, calibrated to match 2014 OpenFlights network density.
-4. Network validation: On a 20 percent held-out test graph, the model achieves ROC AUC of 0.983 and Brier loss of 0.0508, with precision at 100 of 1.000. In out-of-time validation on OpenSky 2019 to 2022 route appearances, the model achieves ROC AUC of 0.960 and precision at 100 of 0.420.
+4. Network validation: On a 20 percent held-out test graph, the model achieves ROC AUC of 0.981 and Brier loss of 0.0520, with precision at 100 of 0.980 and precision at 500 of 0.992. In out-of-time validation on OpenSky 2019 to 2022 route appearances, the model achieves ROC AUC of 0.962 and precision at 100 of 0.390.
 
 ## Supervised Models and Validation
 
@@ -110,9 +110,9 @@ Feature ablation yields a 5-year change MAE of 3.891 with all 46 features, 3.907
 
 The Opportunity Radar identifies unserved airport pairs using gravity modeling, Adamic-Adar common neighbor centrality, and endpoint momentum multipliers.
 
-Validation on 2014 route splits with distance and endpoint size matched negatives yields combined ROC AUC of 0.983, with precision at 100 of 1.000 and precision at 500 of 0.994. Out-of-time testing against OpenSky 2019 to 2022 route appearances yields an AUC of 0.960 and a 13.8 percent appearance share among the top 500 candidates (compared to 1.7 percent for random unserved pairs).
+Validation on route splits with distance and endpoint size matched negatives yields combined ROC AUC of 0.738 (gravity 0.644, preferential attachment 0.624, Adamic-Adar 0.740) and precision at 100 of 0.870.
 
-The radar exports the top 250 unserved airline route candidates, along with filtered views for investors and tourism boards. All entries represent statistical model candidates rather than confirmed commercial demand.
+The radar exports the top 250 unserved airline route candidates, along with filtered views for 60 investor risers and 60 tourism destinations. All entries represent statistical model candidates rather than confirmed commercial demand.
 
 ## Tried and not shipped
 

@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import sys
 import time
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 
 import lightgbm as lgb
@@ -213,9 +213,9 @@ def evaluate_fold(fold: dict, mt: pd.DataFrame) -> dict:
           f"({time.time() - t0:.1f}s)")
     return {
         **fold,
-        "n_train": int(len(proper_tr)),
+        "n_train": len(proper_tr),
         "n_calibration_heldout": int(len(tr) - len(proper_tr)),
-        "n_test": int(len(te)),
+        "n_test": len(te),
         "mean_abs_raw_pred": float(np.mean(np.abs(raw))),
         "mean_abs_actual_change": float(np.mean(np.abs(act_chg))),
         "mae_by_alpha": mae_by_alpha,
@@ -249,10 +249,12 @@ def write_report(result: dict, path: Path) -> None:
     L = ["# Horizon-10 shrinkage evaluation", "",
          f"Generated {result['generated_at']} by `scripts/05_horizon10_shrinkage.py`.", "",
          "## Why this exists", "",
-         "At the 10-year horizon the shipped ensemble (LightGBM + Ridge) loses to persistence on change MAE "
-         "(README: 5.282 for persistence vs 10.768 for the damped ensemble). Rather than hard-coding a damping "
-         "factor, this script asks: what multiplier alpha on the ensemble's predicted change minimises "
-         "out-of-sample MAE, with alpha = 0 being persistence?", "",
+         (
+             "At the 10-year horizon the shipped ensemble (LightGBM + Ridge) loses to persistence on change MAE "
+             "(README: 5.282 for persistence vs 10.768 for the damped ensemble). Rather than hard-coding a damping "
+             "factor, this script asks: what multiplier alpha on the ensemble's predicted change minimises "
+             "out-of-sample MAE, with alpha = 0 being persistence?"
+         ), "",
          "## Folds", ""]
     for f in result["folds"]:
         L.append(f"- **{f['name']}** ({f['source']}): train origins {f['train_origin_years'][0]}-{f['train_origin_years'][-1]} "
@@ -276,23 +278,35 @@ def write_report(result: dict, path: Path) -> None:
         L.append(row)
     pm, bm = result["persistence_mae"], result["best_mae"]
     L += ["", "## Conclusion", "",
-          f"- Persistence MAE (mean across folds): **{pm:.3f}**. Full ensemble (alpha = 1): "
-          f"**{result['mae_by_alpha']['1.0']:.3f}**.",
-          f"- Chosen **best_alpha = {result['best_alpha']:.2f}**, mean MAE **{bm:.3f}** "
-          f"({(bm / pm - 1) * 100:+.1f}% vs persistence).",
+          (
+              f"- Persistence MAE (mean across folds): **{pm:.3f}**. Full ensemble (alpha = 1): "
+              f"**{result['mae_by_alpha']['1.0']:.3f}**."
+          ),
+          (
+              f"- Chosen **best_alpha = {result['best_alpha']:.2f}**, mean MAE **{bm:.3f}** "
+              f"({(bm / pm - 1) * 100:+.1f}% vs persistence)."
+          ),
           f"- Selection rule: {result['note']}",
-          f"- Rank preservation: Spearman of implied levels vs realised levels is {result['spearman_by_alpha']['0.0']:.4f} "
-          f"at alpha = 0 and {result['spearman_by_alpha']['1.0']:.4f} at alpha = 1 (mean across folds); on fold 1 it "
-          f"falls monotonically with alpha, i.e. the ensemble adds no ranking information at 10 years.",
-          "", "The ensemble's raw 10-year changes are several times larger than realised changes on average "
-          "(see mean |raw| vs mean |actual| above): over a decade, airport importance percentiles mean-revert and the "
-          "model trained on 2000-2004 origins extrapolates trends that did not persist. Shrinking toward zero is "
-          "therefore the honest fix. `04_build_intelligence.py` applies best_alpha to every airport's "
-          "`forecast_h10.change` to produce `change_damped` / `level_damped`; the frontend labels this as damped.",
-          "", "Caveats: the horizon-10 fold has calendar overlap between train targets and test origins "
-          "(documented in reports/folds.md); the pseudo-fold uses only two training origins, so its absolute "
-          "MAE level is not comparable to fold 1 and only the alpha ranking is used. Test rows are the "
-          "high-confidence core population (same filter as the production training slice)."]
+          (
+              f"- Rank preservation: Spearman of implied levels vs realised levels is {result['spearman_by_alpha']['0.0']:.4f} "
+              f"at alpha = 0 and {result['spearman_by_alpha']['1.0']:.4f} at alpha = 1 (mean across folds); on fold 1 it "
+              f"falls monotonically with alpha, i.e. the ensemble adds no ranking information at 10 years."
+          ),
+          "",
+          (
+              "The ensemble's raw 10-year changes are several times larger than realised changes on average "
+              "(see mean |raw| vs mean |actual| above): over a decade, airport importance percentiles mean-revert and the "
+              "model trained on 2000-2004 origins extrapolates trends that did not persist. Shrinking toward zero is "
+              "therefore the honest fix. `04_build_intelligence.py` applies best_alpha to every airport's "
+              "`forecast_h10.change` to produce `change_damped` / `level_damped`; the frontend labels this as damped."
+          ),
+          "",
+          (
+              "Caveats: the horizon-10 fold has calendar overlap between train targets and test origins "
+              "(documented in reports/folds.md); the pseudo-fold uses only two training origins, so its absolute "
+              "MAE level is not comparable to fold 1 and only the alpha ranking is used. Test rows are the "
+              "high-confidence core population (same filter as the production training slice)."
+          )]
     path.write_text("\n".join(L) + "\n", encoding="utf-8")
 
 
@@ -314,7 +328,7 @@ def main() -> int:
         note += f" MAE averaged over {len(results)} folds ({', '.join(r['name'] for r in results)})."
 
     out = {
-        "generated_at": date.today().isoformat(),
+        "generated_at": datetime.now(timezone.utc).date().isoformat(),
         "alpha_grid": ALPHA_GRID,
         "mae_by_alpha": {k: round(v, 4) for k, v in mean_mae.items()},
         "spearman_by_alpha": {k: round(v, 4) for k, v in mean_sp.items()},

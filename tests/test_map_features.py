@@ -117,7 +117,7 @@ def test_network_shifts_toggle_draws_arcs(browser, web_server):
 
 
 def test_geodesic_arcs_split_antimeridian(browser, web_server):
-    page, errors = _open(browser, web_server)
+    page, _errors = _open(browser, web_server)
     segs = page.evaluate("geodesicSegments(35.5, 139.8, 37.6, -122.4, 32)")  # HND -> SFO crosses 180
     assert len(segs) == 2
     assert abs(abs(segs[0][-1][1]) - 180) < 1e-6

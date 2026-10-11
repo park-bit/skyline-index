@@ -5,7 +5,6 @@ Runs against the static web app served at http://localhost:8765/web/index.html
 fixture falls back to launching its own server). Map tiles are blocked in CI
 sandboxes; ERR_TUNNEL console errors are ignored.
 """
-import json
 import socket
 import subprocess
 import sys
@@ -173,7 +172,7 @@ def test_top5_africa_risers_rows(page):
 def test_route_answer_mentions_hops_or_direct(page):
     import re
     res = ask(page, "is there a direct flight DEL to SFO")
-    assert re.search(r"\b(direct|hops?)\b", res["reply"], re.I)
+    assert re.search(r"\b(direct|hops?)\b", res["reply"], re.IGNORECASE)
     assert "cp-path" in res["html"]
     assert any(a["type"] == "draw_route" for a in res["actions"])
 

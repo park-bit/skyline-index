@@ -112,3 +112,31 @@ def test_negatives_matched_on_distance_bands_in_network_report():
     assert "Negative pairs were sampled to match the distance band" in content
     assert "fifteen percent tolerance" in content or "15%" in content
     assert "Combined Model ROC AUC" in content
+
+
+def test_readme_auc_and_precision_metrics_backed_by_reports_or_outputs():
+    import re
+
+    readme_text = (ROOT / "README.md").read_text(encoding="utf-8")
+    corpus = []
+    for p in (ROOT / "reports").glob("*.md"):
+        corpus.append(p.read_text(encoding="utf-8"))
+    for p in (ROOT / "data" / "outputs").glob("*.json"):
+        corpus.append(p.read_text(encoding="utf-8"))
+    if (ROOT / "training_notebook.ipynb").exists():
+        corpus.append((ROOT / "training_notebook.ipynb").read_text(encoding="utf-8"))
+
+    combined_corpus = "\n".join(corpus)
+
+    auc_values = set(re.findall(r"(?:ROC\s+)?AUC(?:\s+(?:of|is|equals|=|:))?\s+([0-9]+\.[0-9]+)", readme_text, re.IGNORECASE))
+    prec_values = set(re.findall(r"(?:precision|Precision)(?:\s+at\s+\d+)?(?:\s+(?:of|is|equals|=|:))?\s+([0-9]+\.[0-9]+)", readme_text))
+
+    assert len(auc_values) > 0, "No AUC metrics found in README"
+    assert len(prec_values) > 0, "No precision metrics found in README"
+
+    for val in auc_values:
+        assert val in combined_corpus, f"README AUC value {val} not found in any report, output file, or notebook"
+
+    for val in prec_values:
+        assert val in combined_corpus, f"README precision value {val} not found in any report, output file, or notebook"
+
