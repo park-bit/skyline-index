@@ -131,6 +131,63 @@
     "sluggish national economy": "a sluggish national economy",
   };
 
+  const CITY_ALIASES = {
+    delhi: "DEL",
+    "new delhi": "DEL",
+    mumbai: "BOM",
+    bombay: "BOM",
+    bangalore: "BLR",
+    bengaluru: "BLR",
+    calcutta: "CCU",
+    kolkata: "CCU",
+    madras: "MAA",
+    chennai: "MAA",
+    peking: "PEK",
+    beijing: "PEK",
+    saigon: "SGN",
+    "ho chi minh": "SGN",
+    "ho chi minh city": "SGN",
+    canton: "CAN",
+    guangzhou: "CAN",
+    tokyo: "HND",
+    london: "LHR",
+    paris: "CDG",
+    "new york": "JFK",
+    nyc: "JFK",
+    chicago: "ORD",
+    "san francisco": "SFO",
+    "los angeles": "LAX",
+    dubai: "DXB",
+    singapore: "SIN",
+    frankfurt: "FRA",
+    amsterdam: "AMS",
+    seoul: "ICN",
+    bangkok: "BKK",
+    jakarta: "CGK",
+    "kuala lumpur": "KUL",
+    hyderabad: "HYD",
+    ahmedabad: "AMD",
+    cochin: "COK",
+    kochi: "COK",
+    pune: "PNQ",
+    goa: "GOI",
+    sydney: "SYD",
+    melbourne: "MEL",
+    toronto: "YYZ",
+    madrid: "MAD",
+    barcelona: "BCN",
+    rome: "FCO",
+    istanbul: "IST",
+    doha: "DOH",
+    riyadh: "RUH",
+    jeddah: "JED",
+    cairo: "CAI",
+    johannesburg: "JNB",
+    nairobi: "NBO",
+    "sao paulo": "GRU",
+    "buenos aires": "EZE",
+  };
+
   // ---------------------------------------------------------------------------
   // 2. Utilities
   // ---------------------------------------------------------------------------
@@ -245,7 +302,13 @@
     // City tokens for entity extraction: list of {text, iata, kind}
     const nameEntries = [];
     airports.forEach((a) => {
-      if (a.city) nameEntries.push({ text: a.city.toLowerCase(), ap: a, kind: "city" });
+      if (a.city) {
+        nameEntries.push({ text: a.city.toLowerCase(), ap: a, kind: "city" });
+        const cityTokens = a.city.toLowerCase().split(/[\s,/-]+/).filter((t) => t.length >= 4 && !STOPWORDS.has(t));
+        cityTokens.forEach((tk) => {
+          nameEntries.push({ text: tk, ap: a, kind: "city" });
+        });
+      }
       if (a.name) nameEntries.push({ text: a.name.toLowerCase().replace(/\s+(international\s+)?airport$/, ""), ap: a, kind: "name" });
     });
 
@@ -470,6 +533,12 @@
       for (let i = 0; i + len <= words.length; i++) {
         if (taken.slice(i, i + len).some(Boolean)) continue;
         const phrase = words.slice(i, i + len).join(" ");
+        if (CITY_ALIASES[phrase] && idx.lookup[CITY_ALIASES[phrase]]) {
+          const ap = idx.lookup[CITY_ALIASES[phrase]];
+          push(ap, "alias", lower.indexOf(phrase), 0.95);
+          for (let k = i; k < i + len; k++) taken[k] = true;
+          continue;
+        }
         if (len === 1 && (STOPWORDS.has(phrase) || phrase.length < 4 || countryWords.has(phrase))) continue;
         if (countryWords.has(phrase)) continue;
         const entries = cityMap.get(phrase);
@@ -773,11 +842,27 @@
       if (q.ents.countries.length || q.ents.regions.length) return q.ents.countries.length ? H.country_overview(q) : H.region_overview(q);
       return H.fallback(q);
     }
+    const lower = q.norm.lower;
+    const isAskingDeclining = /\bwhy\s+(is|does)\s+.*(declin|fall|drop|shrink|los)\w*/i.test(lower);
+    if (isAskingDeclining) {
+      const cls10 = classAt(ap, "h10");
+      const d10 = changeAt(ap, "h10");
+      const isDeclining = cls10 === "declining" || d10 < 0;
+      let reply;
+      if (!isDeclining) {
+        reply = `${cityOf(ap)} (${ap.iata}) is not declining. It is classified as ${CLASS_LABELS[cls10].toLowerCase()} with a 10-year change of ${signed(d10)} points (${f1(ap.importance_present)} today to ${f1(levelAt(ap, "h10"))} by 2035).`;
+      } else {
+        const { neg } = driversText(ap, "h10");
+        reply = `${cityOf(ap)} (${ap.iata}) is declining with a 10-year change of ${signed(d10)} points (${f1(ap.importance_present)} today to ${f1(levelAt(ap, "h10"))} by 2035), driven down by ${neg[0] || "downward momentum"}.`;
+      }
+      const html = airportCardHtml(q, ap, "h10");
+      return { reply, html, actions: [{ type: "select_airport", iata: ap.iata }], followups: [`How confident is the ${ap.iata} forecast?`, `Where does ${ap.iata} fly?`, `Compare ${ap.iata} with ${ap.iata === "SIN" ? "DXB" : "SIN"}`], confidence: 0.9 };
+    }
     const h = resolveHorizon(q.ents, q.ctx, "h5");
     const { pos, neg } = driversText(ap, h);
     const cls = CLASS_LABELS[classAt(ap, h)].toLowerCase();
     const d = changeAt(ap, h);
-    const reply = `${cityOf(ap)} is ${cls} with a ${signed(d)} point move by ${horizonYear(h)}, driven by ${pos.slice(0, 2).join(" and ") || "its baseline"}. The main headwind is ${neg[0] || "limited data"}.`;
+    const reply = `${cityOf(ap)} (${ap.iata}) is ${cls} with a ${signed(d)} point move by ${horizonYear(h)}, driven by ${pos.slice(0, 2).join(" and ") || "its baseline"}. The main headwind is ${neg[0] || "limited data"}.`;
     const html = airportCardHtml(q, ap, h);
     return { reply, html, actions: [{ type: "select_airport", iata: ap.iata }], followups: [`How confident is the ${ap.iata} forecast?`, `Where does ${ap.iata} fly?`, `Compare ${ap.iata} with ${ap.iata === "SIN" ? "DXB" : "SIN"}`], confidence: 0.85 };
   };
@@ -1019,6 +1104,8 @@
   };
 
   H.trajectory = (q) => {
+    const isAskingDeclining = /\bwhy\s+(is|does)\s+.*(declin|fall|drop|shrink|los)\w*/i.test(q.norm.lower);
+    if (isAskingDeclining) return H.airport_details(q);
     const idx = q.idx;
     const aps = q.ents.airports.map((e) => e.ap);
     if (aps.length >= 2) {
@@ -1249,6 +1336,56 @@
   function answerOne(text, ctx, idx) {
     const norm = normalise(text);
     if (!norm.lower) return Object.assign(H.help({ norm, ents: { airports: [], countries: [], regions: [], classes: [] }, ctx, idx }), { intent: "help" });
+
+    // Guardrail: Question names a year outside 2025, 2030, 2035
+    const yearMatches = norm.lower.match(/\b(19\d\d|20\d\d)\b/g);
+    if (yearMatches) {
+      const unsupported = yearMatches.filter((y) => y !== "2025" && y !== "2030" && y !== "2035");
+      if (unsupported.length > 0) {
+        const reply = "Forecasts are only available for 2025, 2030, and 2035.";
+        return {
+          reply,
+          html: card("Available Horizons", `<p>${esc(reply)}</p>`),
+          actions: [],
+          followups: ["Show 2025 baseline", "Show 2030 (+5y)", "Show 2035 (+10y)"],
+          confidence: 0.95,
+          intent: "unsupported_year",
+          entities: { airports: [], countries: [], regions: [], horizon: null, n: null, classes: [] },
+          ranked: [{ intent: "unsupported_year", score: 10 }],
+        };
+      }
+    }
+
+    // Guardrail: Question asks for something we do not model (passenger counts, delays, prices, fares)
+    if (/\b(passenger(\s+counts?|\s+numbers?|\s+volumes?)?|passengers|delays?|on-time|ticket\s+prices?|flight\s+prices?|prices?|airfares?|fares?|ticket\s+costs?)\b/i.test(norm.lower)) {
+      const reply = "We do not model passenger counts, flight delays, ticket prices, or airfares.";
+      return {
+        reply,
+        html: card("Unmodelled Data", `<p>${esc(reply)}</p>`),
+        actions: [],
+        followups: ["Top 10 hubs in Europe", "Fastest growing airports in Asia", "Help"],
+        confidence: 0.95,
+        intent: "unmodelled",
+        entities: { airports: [], countries: [], regions: [], horizon: null, n: null, classes: [] },
+        ranked: [{ intent: "unmodelled", score: 10 }],
+      };
+    }
+
+    // Guardrail: Question is off topic (capitals, jokes, general knowledge)
+    if (/\b(capital\s+of|tell\s+(me\s+)?a?\s*joke|jokes?\b|who\s+(is|was)\s+|president\s+of|prime\s+minister\s+of|meaning\s+of\s+life|recipe\s+for|write\s+a\s+(poem|song|story)|who\s+won\s+the\b)/i.test(norm.lower)) {
+      const reply = "The assistant only covers the aviation data.";
+      return {
+        reply,
+        html: card("Aviation Assistant", `<p>${esc(reply)}</p>`),
+        actions: [],
+        followups: ["Which Indian airports grow most by 2035?", "Is there a direct route DEL to SFO?", "What happens if DXB closes?"],
+        confidence: 0.95,
+        intent: "off_topic",
+        entities: { airports: [], countries: [], regions: [], horizon: null, n: null, classes: [] },
+        ranked: [{ intent: "off_topic", score: 10 }],
+      };
+    }
+
     const ents = extractEntities(idx, norm, ctx);
     const cls = scoreIntents(norm, ents, ctx);
     const q = { norm, ents, ctx, idx, cls };

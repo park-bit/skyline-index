@@ -373,3 +373,100 @@ def test_no_external_network_without_llm_config(page):
     # anything fetched must be a same-origin project file (e.g. intelligence.json)
     for u in log:
         assert u.endswith(".json") or "localhost" in u or "127.0.0.1" in u or not u.startswith("http"), u
+
+
+def test_city_alias_delhi_resolves_to_del(page):
+    res = ask(page, "show delhi")
+    assert res["entities"]["airports"] == ["DEL"]
+    assert "DEL" in res["reply"]
+
+
+def test_city_alias_mumbai_resolves_to_bom(page):
+    res = ask(page, "show mumbai")
+    assert res["entities"]["airports"] == ["BOM"]
+    assert "BOM" in res["reply"]
+
+
+def test_city_alias_bangalore_resolves_to_blr(page):
+    res = ask(page, "show bangalore")
+    assert res["entities"]["airports"] == ["BLR"]
+    assert "BLR" in res["reply"]
+
+
+def test_city_alias_peking_resolves_to_pek(page):
+    res = ask(page, "show peking")
+    assert res["entities"]["airports"] == ["PEK"]
+    assert "PEK" in res["reply"]
+
+
+def test_unsupported_year_2040(page):
+    res = ask(page, "forecast for 2040")
+    assert res["intent"] == "unsupported_year"
+    assert res["reply"] == "Forecasts are only available for 2025, 2030, and 2035."
+
+
+def test_unsupported_year_2028(page):
+    res = ask(page, "delhi in 2028")
+    assert res["intent"] == "unsupported_year"
+    assert res["reply"] == "Forecasts are only available for 2025, 2030, and 2035."
+
+
+def test_unsupported_year_1999(page):
+    res = ask(page, "airports in 1999")
+    assert res["intent"] == "unsupported_year"
+    assert res["reply"] == "Forecasts are only available for 2025, 2030, and 2035."
+
+
+def test_unmodelled_ticket_prices(page):
+    res = ask(page, "ticket prices to DEL")
+    assert res["intent"] == "unmodelled"
+    assert res["reply"] == "We do not model passenger counts, flight delays, ticket prices, or airfares."
+
+
+def test_unmodelled_flight_delays(page):
+    res = ask(page, "flight delays at LHR")
+    assert res["intent"] == "unmodelled"
+    assert res["reply"] == "We do not model passenger counts, flight delays, ticket prices, or airfares."
+
+
+def test_unmodelled_passenger_counts(page):
+    res = ask(page, "passenger counts for DXB")
+    assert res["intent"] == "unmodelled"
+    assert res["reply"] == "We do not model passenger counts, flight delays, ticket prices, or airfares."
+
+
+def test_unmodelled_airfares(page):
+    res = ask(page, "cheapest fares from SIN")
+    assert res["intent"] == "unmodelled"
+    assert res["reply"] == "We do not model passenger counts, flight delays, ticket prices, or airfares."
+
+
+def test_off_topic_capital_question(page):
+    res = ask(page, "what is the capital of France")
+    assert res["intent"] == "off_topic"
+    assert res["reply"] == "The assistant only covers the aviation data."
+
+
+def test_off_topic_tell_me_a_joke(page):
+    res = ask(page, "tell me a joke")
+    assert res["intent"] == "off_topic"
+    assert res["reply"] == "The assistant only covers the aviation data."
+
+
+def test_off_topic_president(page):
+    res = ask(page, "who is the president of France")
+    assert res["intent"] == "off_topic"
+    assert res["reply"] == "The assistant only covers the aviation data."
+
+
+def test_why_declining_checks_class_and_shows_trajectory(page):
+    res = ask(page, "why is SIN declining")
+    assert "not declining" in res["reply"].lower()
+    assert "SIN" in res["reply"]
+    assert "2035" in res["reply"]
+
+    res_del = ask(page, "why is delhi declining")
+    assert "not declining" in res_del["reply"].lower()
+    assert "DEL" in res_del["reply"]
+    assert "2035" in res_del["reply"]
+
