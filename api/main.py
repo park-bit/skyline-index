@@ -595,3 +595,65 @@ async def tts_endpoint(req: TTSRequest):
         raise HTTPException(status_code=502, detail=f"ElevenLabs request failed: {exc}")
 
 
+class STTRequest(BaseModel):
+    audio_base64: str
+    mime_type: str = "audio/webm"
+
+
+@app.post("/stt")
+async def stt_endpoint(req: STTRequest):
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not gemini_key:
+        raise HTTPException(status_code=503, detail="Gemini key not configured")
+
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": (
+                            "Transcribe this audio recording verbatim. "
+                            "Output ONLY the transcribed speech as plain text, nothing else. "
+                            "If silent or unintelligible, output nothing."
+                        )
+                    },
+                    {
+                        "inlineData": {
+                            "mimeType": req.mime_type,
+                            "data": req.audio_base64,
+                        }
+                    },
+                ],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.0,
+        },
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": gemini_key,
+    }
+    candidates = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    for model in candidates:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates_list = data.get("candidates") or []
+                    for cand in candidates_list:
+                        content = cand.get("content") or {}
+                        parts = content.get("parts") or []
+                        for part in parts:
+                            text = part.get("text", "").strip()
+                            if text:
+                                return {"transcript": text}
+                    return {"transcript": ""}
+        except httpx.RequestError:
+            continue
+    raise HTTPException(status_code=502, detail="Transcription service unavailable")
+
+

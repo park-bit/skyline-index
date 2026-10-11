@@ -2067,23 +2067,140 @@ function initAssistant() {
     });
   }
 
-  // SpeechRecognition setup
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    if (micBtn) {
-      micBtn.title = "Voice recognition requires Chrome or Edge";
-      micBtn.addEventListener("click", () => {
-        alert("Voice recognition is supported in Chrome, Edge, and Chromium-based browsers.");
-      });
+  // SpeechRecognition and MediaRecorder setup
+  const SpeechRecognition = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const originalPlaceholder = input ? input.placeholder : "";
+  let useMediaRecorderFallback = !SpeechRecognition;
+  let activeMediaRecorder = null;
+  let audioChunks = [];
+  let fallbackStopTimer = null;
+
+  if (typeof navigator !== "undefined" && navigator.brave && typeof navigator.brave.isBrave === "function") {
+    navigator.brave.isBrave().then((isBraveBrowser) => {
+      if (isBraveBrowser) useMediaRecorderFallback = true;
+    }).catch(() => {});
+  }
+
+  async function startRecordingFallback() {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (input) input.placeholder = "Microphone not supported in this browser";
+      setListeningState(false);
+      return;
     }
-  } else {
+    try {
+      if (input) input.placeholder = "Starting microphone...";
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      const mimeType = (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported("audio/webm;codecs=opus"))
+        ? "audio/webm;codecs=opus"
+        : ((typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported("audio/webm")) ? "audio/webm" : "audio/mp4");
+      const recorder = new MediaRecorder(stream, { mimeType });
+      activeMediaRecorder = recorder;
+
+      recorder.ondataavailable = (evt) => {
+        if (evt.data && evt.data.size > 0) audioChunks.push(evt.data);
+      };
+
+      recorder.onstop = async () => {
+        if (fallbackStopTimer) {
+          clearTimeout(fallbackStopTimer);
+          fallbackStopTimer = null;
+        }
+        stream.getTracks().forEach((t) => t.stop());
+        activeMediaRecorder = null;
+        if (audioChunks.length === 0) {
+          setListeningState(false);
+          if (input) input.placeholder = originalPlaceholder;
+          return;
+        }
+        if (input) input.placeholder = "Transcribing voice...";
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Data = (reader.result || "").split(",")[1];
+          if (!base64Data) {
+            setListeningState(false);
+            if (input) input.placeholder = originalPlaceholder;
+            return;
+          }
+          try {
+            const resp = await fetch(`${NEEDLE_URL}/stt`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                audio_base64: base64Data,
+                mime_type: mimeType.split(";")[0],
+              }),
+            });
+            if (resp.ok) {
+              const resData = await resp.json();
+              const transcript = (resData && resData.transcript) ? resData.transcript.trim() : "";
+              if (transcript && input) {
+                input.value = transcript;
+                input.focus();
+                const sendBtn = document.getElementById("btn-assistant-send");
+                if (sendBtn) {
+                  sendBtn.classList.add("highlight");
+                  setTimeout(() => sendBtn.classList.remove("highlight"), 2500);
+                }
+              }
+            }
+          } catch (err) {}
+          setListeningState(false);
+          if (input) input.placeholder = originalPlaceholder;
+        };
+        reader.readAsDataURL(audioBlob);
+      };
+
+      recorder.start();
+      setListeningState(true);
+      if (input) input.placeholder = "Listening (mic)... Tap mic or Send to finish";
+
+      if (fallbackStopTimer) clearTimeout(fallbackStopTimer);
+      fallbackStopTimer = setTimeout(() => {
+        if (activeMediaRecorder && activeMediaRecorder.state === "recording") {
+          stopRecordingFallback();
+        }
+      }, 12000);
+    } catch (err) {
+      setListeningState(false);
+      if (input) {
+        input.placeholder = "Microphone blocked. Allow mic in browser.";
+        setTimeout(() => { if (input) input.placeholder = originalPlaceholder; }, 3500);
+      }
+    }
+  }
+
+  function stopRecordingFallback() {
+    if (fallbackStopTimer) {
+      clearTimeout(fallbackStopTimer);
+      fallbackStopTimer = null;
+    }
+    if (activeMediaRecorder && activeMediaRecorder.state !== "inactive") {
+      activeMediaRecorder.stop();
+    }
+  }
+
+  let toggleRecognition = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (activeMediaRecorder && activeMediaRecorder.state === "recording") {
+      stopRecordingFallback();
+      return;
+    }
+    if (isListening) {
+      stopRecordingFallback();
+      setListeningState(false);
+    } else {
+      startRecordingFallback();
+    }
+  };
+
+  if (SpeechRecognition) {
     try {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = "en-US";
-
-      const originalPlaceholder = input ? input.placeholder : "";
 
       recognition.onstart = () => {
         setListeningState(true);
@@ -2117,12 +2234,16 @@ function initAssistant() {
       };
 
       recognition.onerror = (e) => {
+        if (e.error === "network") {
+          useMediaRecorderFallback = true;
+          try { recognition.abort(); } catch (err) {}
+          startRecordingFallback();
+          return;
+        }
         setListeningState(false);
         if (input) {
           if (e.error === "not-allowed") {
             input.placeholder = "Microphone blocked. Allow mic in browser.";
-          } else if (e.error === "network") {
-            input.placeholder = "Voice network blocked (In Brave: allow Google Speech, or use Chrome/Edge)";
           } else if (e.error === "no-speech") {
             input.placeholder = "No speech detected. Tap mic to try again.";
           }
@@ -2133,6 +2254,8 @@ function initAssistant() {
       };
 
       recognition.onend = () => {
+        if (activeMediaRecorder && activeMediaRecorder.state === "recording") return;
+        if (useMediaRecorderFallback && isListening) return;
         setListeningState(false);
         if (input && input.placeholder.startsWith("Listening")) {
           input.placeholder = originalPlaceholder;
@@ -2141,8 +2264,21 @@ function initAssistant() {
 
       recognitionInstance = recognition;
 
-      const toggleRecognition = (e) => {
+      toggleRecognition = (e) => {
         if (e && e.preventDefault) e.preventDefault();
+        if (activeMediaRecorder && activeMediaRecorder.state === "recording") {
+          stopRecordingFallback();
+          return;
+        }
+        if (useMediaRecorderFallback) {
+          if (isListening) {
+            stopRecordingFallback();
+            setListeningState(false);
+          } else {
+            startRecordingFallback();
+          }
+          return;
+        }
         if (isListening) {
           try { recognition.stop(); } catch (err) {}
           setListeningState(false);
@@ -2155,24 +2291,28 @@ function initAssistant() {
             try {
               recognition.abort();
               setTimeout(() => {
-                try { recognition.start(); } catch (e) {}
+                try { recognition.start(); } catch (e2) {}
               }, 80);
-            } catch (e) {}
+            } catch (e2) {}
           }
         }
       };
-
-      if (micBtn) micBtn.addEventListener("click", toggleRecognition);
-      if (orb) orb.addEventListener("click", toggleRecognition);
     } catch (e) {
-      if (micBtn) micBtn.style.display = "none";
+      useMediaRecorderFallback = true;
     }
   }
+
+  if (micBtn) micBtn.addEventListener("click", toggleRecognition);
+  if (orb) orb.addEventListener("click", toggleRecognition);
 
   // Form submit
   if (form) {
     form.addEventListener("submit", (e) => {
       e.preventDefault();
+      if (activeMediaRecorder && activeMediaRecorder.state === "recording") {
+        stopRecordingFallback();
+        return;
+      }
       if (!input) return;
       const val = input.value.trim();
       if (val) {
