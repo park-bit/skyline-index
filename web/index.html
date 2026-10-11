@@ -407,19 +407,14 @@
 
     <!-- Welcome Intro Modal (blank rounded square with Laura TTS greeting) -->
     <div class="welcome-intro-backdrop" id="welcome-intro-backdrop">
-      <div class="welcome-intro-card" id="welcome-intro-card">
+      <div class="welcome-intro-card" id="welcome-intro-card" role="dialog" aria-label="Welcome greeting">
         <button type="button" class="welcome-intro-skip-btn" id="btn-welcome-skip" aria-label="Skip">&times;</button>
         <div class="welcome-visualizer-slot" id="welcome-visualizer-slot">
           <!-- Visualizer canvas mounted here initially -->
         </div>
-        <div class="welcome-intro-text" id="welcome-intro-text">
-          Hey there! What do you want to search today?
+        <div class="welcome-intro-hint" id="welcome-intro-hint" style="display:none;">
+          Click anywhere to start
         </div>
-        <div class="welcome-intro-sub">Laura (ElevenLabs)</div>
-        <button type="button" class="welcome-intro-tap" id="btn-welcome-play">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-          <span>Start</span>
-        </button>
       </div>
     </div>
 

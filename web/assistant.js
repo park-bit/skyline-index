@@ -1092,12 +1092,14 @@ async function speakSpeech(text) {
 }
 
 async function startListeningWithAnalyser() {
+  startSyntheticAudioPulsing();
   if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     micMediaStream = stream;
     const { audioCtx, analyserNode } = getAudioContext();
     if (audioCtx && analyserNode) {
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
       micSourceNode = audioCtx.createMediaStreamSource(stream);
       micSourceNode.connect(analyserNode);
     }
@@ -1105,12 +1107,15 @@ async function startListeningWithAnalyser() {
 }
 
 function stopListeningAnalyser() {
+  stopSyntheticAudioPulsing();
   if (micSourceNode) {
     try { micSourceNode.disconnect(); } catch (e) {}
     micSourceNode = null;
   }
   if (micMediaStream) {
-    micMediaStream.getTracks().forEach((track) => track.stop());
+    try {
+      micMediaStream.getTracks().forEach((track) => track.stop());
+    } catch (e) {}
     micMediaStream = null;
   }
 }
@@ -1154,7 +1159,7 @@ function showVisualizer() {
 }
 
 function hideVisualizer() {
-  if (visualizerCanvas && !isSpeaking && !isAnswering) {
+  if (visualizerCanvas && !isSpeaking && !isAnswering && !isListening) {
     visualizerCanvas.style.display = "none";
   }
 }
@@ -1202,8 +1207,13 @@ function initVisualizer() {
     }
 
     const isIdle = !isSpeaking && !isListening;
-    const breath = isIdle ? Math.sin(now * 0.001 * Math.PI) * 0.05 : 0;
-    const dynamicLevel = isIdle ? 0.04 + breath : audioLevel;
+    let dynamicLevel = audioLevel;
+    if (isIdle) {
+      const breath = Math.sin(now * 0.001 * Math.PI) * 0.05;
+      dynamicLevel = 0.04 + breath;
+    } else if (isListening && dynamicLevel < 0.22) {
+      dynamicLevel = 0.22 + Math.sin(now * 0.006) * 0.12;
+    }
 
     const peakRatio = Math.min(1, Math.max(0, (dynamicLevel - 0.2) / 0.6));
     const r = Math.round(0 + peakRatio * 255);
@@ -1313,9 +1323,13 @@ function setListeningState(listening) {
     else micBtn.classList.remove("listening");
   }
   if (listening) {
+    showVisualizer();
+    if (visualizerCanvas) visualizerCanvas.classList.add("is-listening");
     startListeningWithAnalyser();
   } else {
+    if (visualizerCanvas) visualizerCanvas.classList.remove("is-listening");
     stopListeningAnalyser();
+    hideVisualizer();
   }
 }
 
@@ -2069,7 +2083,12 @@ function initAssistant() {
   // SpeechRecognition setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    if (micBtn) micBtn.style.display = "none";
+    if (micBtn) {
+      micBtn.title = "Voice recognition requires Chrome or Edge";
+      micBtn.addEventListener("click", () => {
+        alert("Voice recognition is supported in Chrome, Edge, and Chromium-based browsers.");
+      });
+    }
   } else {
     try {
       const recognition = new SpeechRecognition();
@@ -2077,14 +2096,19 @@ function initAssistant() {
       recognition.interimResults = false;
       recognition.lang = "en-US";
 
-      recognition.onstart = () => setListeningState(true);
+      recognition.onstart = () => {
+        setListeningState(true);
+      };
       recognition.onresult = (e) => {
         setListeningState(false);
-        const transcript = e.results[0][0].transcript;
-        if (transcript) {
-          if (input) {
-            input.value = transcript;
-            input.focus();
+        const transcript = e.results && e.results[0] && e.results[0][0] ? e.results[0][0].transcript : "";
+        if (transcript && input) {
+          input.value = transcript;
+          input.focus();
+          const sendBtn = document.getElementById("btn-assistant-send");
+          if (sendBtn) {
+            sendBtn.classList.add("highlight");
+            setTimeout(() => sendBtn.classList.remove("highlight"), 2500);
           }
         }
       };
@@ -2092,14 +2116,21 @@ function initAssistant() {
       recognition.onend = () => setListeningState(false);
       recognitionInstance = recognition;
 
-      const toggleRecognition = () => {
+      const toggleRecognition = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
         if (isListening) {
-          recognition.stop();
+          try { recognition.stop(); } catch (err) {}
+          setListeningState(false);
         } else {
           try {
             recognition.start();
           } catch (err) {
-            // Restart if already running
+            try {
+              recognition.abort();
+              setTimeout(() => {
+                try { recognition.start(); } catch (e) {}
+              }, 80);
+            } catch (e) {}
           }
         }
       };
@@ -2238,12 +2269,20 @@ function initWelcomeIntro() {
   const backdrop = document.getElementById("welcome-intro-backdrop");
   if (!backdrop) return;
 
+  const card = document.getElementById("welcome-intro-card");
   const slot = document.getElementById("welcome-visualizer-slot");
   const visualizer = document.getElementById("assistant-visualizer");
   const skipBtn = document.getElementById("btn-welcome-skip");
-  const playBtn = document.getElementById("btn-welcome-play");
+  const hint = document.getElementById("welcome-intro-hint");
   const assistantBar = document.getElementById("assistant-bar");
   const grip = document.getElementById("grip-assistant-bar");
+
+  // Mount visualizer inside welcome slot initially
+  if (visualizer && slot) {
+    visualizer.classList.add("in-welcome-modal");
+    visualizer.style.display = "block";
+    slot.appendChild(visualizer);
+  }
 
   // In automated test runs or headless browsers, dock immediately to avoid blocking tests
   if (typeof window !== "undefined" && window.navigator && window.navigator.webdriver) {
@@ -2256,24 +2295,22 @@ function initWelcomeIntro() {
     return;
   }
 
-  // Mount visualizer inside welcome slot initially
-  if (visualizer && slot) {
-    visualizer.classList.add("in-welcome-modal");
-    visualizer.style.display = "block";
-    slot.appendChild(visualizer);
-  }
-
   let closed = false;
-  let welcomeAudio = null;
+  let welcomeSourceNode = null;
+  let welcomeAudioFallback = null;
 
   function closeWelcome() {
     if (closed) return;
     closed = true;
-    if (welcomeAudio) {
-      try {
-        welcomeAudio.pause();
-      } catch (e) {}
+    if (welcomeSourceNode) {
+      try { welcomeSourceNode.stop(); } catch (e) {}
+      welcomeSourceNode = null;
     }
+    if (welcomeAudioFallback) {
+      try { welcomeAudioFallback.pause(); } catch (e) {}
+      welcomeAudioFallback = null;
+    }
+    stopSyntheticAudioPulsing();
     setSpeakingState(false);
 
     // Dock visualizer into assistant bar
@@ -2292,40 +2329,83 @@ function initWelcomeIntro() {
   function playWelcomeVoice() {
     if (closed) return;
     try {
-      welcomeAudio = new Audio("assets/welcome_laura.mp3");
       const { audioCtx, analyserNode } = getAudioContext();
       if (audioCtx && analyserNode) {
-        try {
-          if (audioCtx.state === "suspended") audioCtx.resume();
-          const source = audioCtx.createMediaElementSource(welcomeAudio);
-          source.connect(analyserNode);
-          analyserNode.connect(audioCtx.destination);
-        } catch (e) {}
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume().catch(() => {});
+        }
+        fetch("assets/welcome_laura.mp3")
+          .then((res) => res.arrayBuffer())
+          .then((buf) => audioCtx.decodeAudioData(buf))
+          .then((decoded) => {
+            if (closed) return;
+            welcomeSourceNode = audioCtx.createBufferSource();
+            welcomeSourceNode.buffer = decoded;
+            welcomeSourceNode.connect(analyserNode);
+            analyserNode.connect(audioCtx.destination);
+            welcomeSourceNode.onended = () => {
+              closeWelcome();
+            };
+            setSpeakingState(true);
+            welcomeSourceNode.start(0);
+            if (hint) hint.style.display = "none";
+          })
+          .catch(() => {
+            playFallbackAudio();
+          });
+      } else {
+        playFallbackAudio();
       }
-      setSpeakingState(true);
-      welcomeAudio.play().then(() => {
-        if (playBtn) playBtn.style.display = "none";
-      }).catch(() => {
-        // Autoplay policy prevented playback until gesture
-      });
-      welcomeAudio.onended = () => {
-        closeWelcome();
-      };
     } catch (e) {
-      closeWelcome();
+      playFallbackAudio();
     }
   }
 
-  if (skipBtn) skipBtn.addEventListener("click", closeWelcome);
-  if (playBtn) playBtn.addEventListener("click", playWelcomeVoice);
+  function playFallbackAudio() {
+    if (closed) return;
+    try {
+      welcomeAudioFallback = new Audio("assets/welcome_laura.mp3");
+      setSpeakingState(true);
+      startSyntheticAudioPulsing();
+      welcomeAudioFallback.play().then(() => {
+        if (hint) hint.style.display = "none";
+      }).catch(() => {
+        if (hint) hint.style.display = "block";
+      });
+      welcomeAudioFallback.onended = () => {
+        stopSyntheticAudioPulsing();
+        closeWelcome();
+      };
+    } catch (e) {
+      // Audio totally unavailable
+    }
+  }
 
-  setTimeout(() => {
-    playWelcomeVoice();
-  }, 450);
+  if (skipBtn) {
+    skipBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeWelcome();
+    });
+  }
+
+  if (card) {
+    card.addEventListener("click", () => {
+      if (!isSpeaking) {
+        playWelcomeVoice();
+      }
+    });
+  }
 
   backdrop.addEventListener("click", (e) => {
-    if (e.target === backdrop) closeWelcome();
+    if (e.target === backdrop) {
+      closeWelcome();
+    }
   });
+
+  // Start greeting shortly after page load
+  setTimeout(() => {
+    playWelcomeVoice();
+  }, 400);
 }
 
 if (typeof window !== "undefined") {
