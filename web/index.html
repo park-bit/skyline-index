@@ -451,6 +451,15 @@
               <span id="assistant-llm-status" class="assistant-llm-note">Local engine only</span>
             </div>
           </div>
+          <div class="assistant-voice-field" id="assistant-elevenlabs-field" style="margin-top:12px;">
+            <label for="assistant-elevenlabs-key">ElevenLabs API key <span class="assistant-llm-note">optional (free tier Laura TTS)</span></label>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input type="password" id="assistant-elevenlabs-key" class="assistant-voice-select" placeholder="xi-api-key" aria-label="ElevenLabs API key" autocomplete="off" style="flex:1;">
+              <button type="button" class="cp-chip" id="btn-elevenlabs-save">Save</button>
+              <button type="button" class="cp-chip" id="btn-elevenlabs-clear">Clear</button>
+            </div>
+            <span id="assistant-elevenlabs-status" class="assistant-llm-note" style="margin-top:4px;display:block;">Default: Laura (British female) with Kokoro and device fallback</span>
+          </div>
           </details>
         </div>
         <div class="reply-panel-body" id="assistant-history-list" aria-live="polite"></div>

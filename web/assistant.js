@@ -752,21 +752,21 @@ function pickVoice(voices, savedVoiceURI = null) {
   const validVoices = voices.filter((v) => !isExcludedVoice(v));
   const pool = validVoices.length > 0 ? validVoices : voices;
 
-  // 1. Modern Natural / Neural / Online female voice (e.g. Jenny Online, Aria Online, Google UK/US)
-  const naturalFemale = pool.find((v) => {
-    const lang = (v.lang || "").toLowerCase().replace("_", "-");
-    const name = v.name || "";
-    return lang.startsWith("en") && /natural|online|neural|google/i.test(name) && !MALE_VOICE_PATTERN.test(name);
-  });
-  if (naturalFemale) return naturalFemale;
-
-  // 2. en-GB female (e.g. Libby, Susan, Sonia)
+  // 1. en-GB female (e.g. Laura, Libby, Susan, Sonia, Hazel, Victoria, Google UK English Female)
   const gbFemale = pool.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     const name = v.name || "";
     return lang.startsWith("en-gb") && (FEMALE_VOICE_PATTERN.test(name) || !MALE_VOICE_PATTERN.test(name));
   });
   if (gbFemale) return gbFemale;
+
+  // 2. Modern Natural / Neural / Online female voice
+  const naturalFemale = pool.find((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    const name = v.name || "";
+    return lang.startsWith("en") && /natural|online|neural|google/i.test(name) && !MALE_VOICE_PATTERN.test(name);
+  });
+  if (naturalFemale) return naturalFemale;
 
   // 3. en-US or en-IN female (e.g. Heera, Zira, Samantha, Jenny, Ava)
   const usFemale = pool.find((v) => {
@@ -809,11 +809,72 @@ function pickVoice(voices, savedVoiceURI = null) {
   return pool[0] || null;
 }
 
+const ELEVENLABS_VOICE_ID = "FGY2WhTYpPnrIDTdsKH5"; // Laura (British female)
+let elevenlabsExhausted = false;
+
+function getElevenLabsApiKey() {
+  try {
+    return localStorage.getItem("skyline_elevenlabs_key") ||
+      sessionStorage.getItem("skyline_elevenlabs_key") ||
+      (typeof window !== "undefined" && window.ELEVENLABS_API_KEY) ||
+      "";
+  } catch (e) {
+    return "";
+  }
+}
+
+async function synthesizeWithElevenLabs(text) {
+  if (elevenlabsExhausted) throw new Error("ElevenLabs credits exhausted");
+  const apiKey = getElevenLabsApiKey();
+
+  if (apiKey) {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "xi-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: "eleven_turbo_v2_5",
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75,
+        },
+      }),
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 402 || res.status === 429) {
+        elevenlabsExhausted = true;
+      }
+      throw new Error(`ElevenLabs HTTP ${res.status}`);
+    }
+    return await res.arrayBuffer();
+  }
+
+  if (NEEDLE_URL) {
+    const res = await fetch(`${NEEDLE_URL}/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text }),
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 402 || res.status === 429) {
+        elevenlabsExhausted = true;
+      }
+      throw new Error(`ElevenLabs proxy HTTP ${res.status}`);
+    }
+    return await res.arrayBuffer();
+  }
+
+  throw new Error("No ElevenLabs configuration");
+}
+
 function getSelectedKokoroVoice() {
   try {
-    return localStorage.getItem("skyline_kokoro_voice") || "bf_emma";
+    return localStorage.getItem("skyline_kokoro_voice") || "elevenlabs_laura";
   } catch (e) {
-    return "bf_emma";
+    return "elevenlabs_laura";
   }
 }
 
@@ -847,7 +908,8 @@ function populateVoicePickers() {
   const selectedVal = getSelectedKokoroVoice();
 
   const options = [
-    { value: "bf_emma", label: "Natural AI: Emma (British female, default)" },
+    { value: "elevenlabs_laura", label: "Laura (British female, ElevenLabs, default)" },
+    { value: "bf_emma", label: "Natural AI: Emma (British female)" },
     { value: "af_heart", label: "Natural AI: Heart (American female)" },
     { value: "af_sarah", label: "Natural AI: Sarah (American female)" },
     { value: "bm_george", label: "Natural AI: George (British male)" },
@@ -972,10 +1034,36 @@ async function speakSpeech(text) {
   if (!isSpeakerEnabled() || !text) return;
 
   const chosenVoice = getSelectedKokoroVoice();
+  if ((chosenVoice === "elevenlabs_laura" || !chosenVoice) && !elevenlabsExhausted) {
+    try {
+      setSpeakingState(true);
+      const arrayBuffer = await synthesizeWithElevenLabs(text);
+      const { audioCtx, analyserNode } = getAudioContext();
+      if (!audioCtx || !analyserNode) throw new Error("AudioContext not supported");
+
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(analyserNode);
+
+      currentAudioSource = source;
+      source.onended = () => {
+        currentAudioSource = null;
+        setSpeakingState(false);
+      };
+      source.start();
+      updateVoiceFallbackLabels(false);
+      return;
+    } catch (err) {
+      elevenlabsExhausted = true;
+    }
+  }
+
   if (chosenVoice !== "device" && !kokoroFallbackToDevice) {
     try {
       setSpeakingState(true);
-      const { pcmData, sampleRate } = await synthesizeWithKokoro(text, chosenVoice);
+      const kokoroVoice = (chosenVoice === "elevenlabs_laura") ? "bf_emma" : chosenVoice;
+      const { pcmData, sampleRate } = await synthesizeWithKokoro(text, kokoroVoice);
       const { audioCtx, analyserNode } = getAudioContext();
       if (!audioCtx || !analyserNode) throw new Error("AudioContext not supported");
 
@@ -2015,6 +2103,51 @@ function initAssistant() {
     });
   }
 
+  // ElevenLabs settings
+  const elKeyInput = document.getElementById("assistant-elevenlabs-key");
+  const elSaveBtn = document.getElementById("btn-elevenlabs-save");
+  const elClearBtn = document.getElementById("btn-elevenlabs-clear");
+  const elStatus = document.getElementById("assistant-elevenlabs-status");
+
+  function updateElStatus() {
+    if (!elStatus) return;
+    const hasKey = Boolean(getElevenLabsApiKey());
+    if (elevenlabsExhausted) {
+      elStatus.textContent = "Credits exhausted or invalid key. Falling back to Kokoro AI and device voice.";
+      elStatus.style.color = "var(--accent-amber, #e5a00d)";
+    } else if (hasKey) {
+      elStatus.textContent = "Using ElevenLabs Laura (British female) with fallback.";
+      elStatus.style.color = "var(--accent-green, #10b981)";
+    } else {
+      elStatus.textContent = "Default: Laura (British female) with Kokoro and device fallback.";
+      elStatus.style.color = "";
+    }
+  }
+
+  if (elKeyInput) {
+    elKeyInput.value = getElevenLabsApiKey();
+    updateElStatus();
+  }
+  if (elSaveBtn && elKeyInput) {
+    elSaveBtn.addEventListener("click", () => {
+      try {
+        localStorage.setItem("skyline_elevenlabs_key", elKeyInput.value.trim());
+        elevenlabsExhausted = false;
+        updateElStatus();
+      } catch (e) {}
+    });
+  }
+  if (elClearBtn && elKeyInput) {
+    elClearBtn.addEventListener("click", () => {
+      try {
+        localStorage.removeItem("skyline_elevenlabs_key");
+        elKeyInput.value = "";
+        elevenlabsExhausted = false;
+        updateElStatus();
+      } catch (e) {}
+    });
+  }
+
   // Request persistent browser storage so cached TTS model is not evicted
   if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(() => {});
@@ -2031,6 +2164,9 @@ if (typeof window !== "undefined") {
   window.getAudioContext = getAudioContext;
   window.getKokoroWorker = getKokoroWorker;
   window.synthesizeWithKokoro = synthesizeWithKokoro;
+  window.synthesizeWithElevenLabs = synthesizeWithElevenLabs;
+  window.getElevenLabsApiKey = getElevenLabsApiKey;
+  window.ELEVENLABS_VOICE_ID = ELEVENLABS_VOICE_ID;
   window.speakSpeech = speakSpeech;
   window.showVisualizer = showVisualizer;
   window.hideVisualizer = hideVisualizer;
@@ -2065,6 +2201,9 @@ if (typeof module !== "undefined" && module.exports) {
     parseAssistantCommand,
     pickVoice,
     getSelectedKokoroVoice,
+    synthesizeWithElevenLabs,
+    getElevenLabsApiKey,
+    ELEVENLABS_VOICE_ID,
     getAudioContext,
     initVisualizer,
   };

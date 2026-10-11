@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -557,4 +557,41 @@ async def parse_query(req: ParseRequest, request: Request) -> ParseResponse:
         return ParseResponse(calls=gemini_calls, confidence=1.0, source="gemini")
 
     return ParseResponse(calls=[], confidence=0.0, source="none")
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., max_length=500)
+
+
+@app.post("/tts")
+async def tts_endpoint(req: TTSRequest):
+    elevenlabs_key = os.getenv("ELEVENLABS_API_KEY", "").strip()
+    if not elevenlabs_key:
+        raise HTTPException(status_code=503, detail="ElevenLabs key not configured")
+
+    voice_id = os.getenv("ELEVENLABS_VOICE_ID", "FGY2WhTYpPnrIDTdsKH5").strip()
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        "Content-Type": "application/json",
+        "xi-api-key": elevenlabs_key,
+    }
+    payload = {
+        "text": req.text,
+        "model_id": "eleven_turbo_v2_5",
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.75,
+        },
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            if resp.status_code in (401, 402, 429):
+                raise HTTPException(status_code=resp.status_code, detail="ElevenLabs credits exhausted or rate limited")
+            if resp.status_code != 200:
+                raise HTTPException(status_code=resp.status_code, detail="ElevenLabs error")
+            return Response(content=resp.content, media_type="audio/mpeg")
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"ElevenLabs request failed: {exc}")
+
 
