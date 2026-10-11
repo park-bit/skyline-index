@@ -145,7 +145,7 @@ button {
   justify-content: space-between;
   align-items: center;
   pointer-events: none;
-  z-index: 30;
+  z-index: 50;
 }
 
 .nav-pill {
@@ -1789,7 +1789,8 @@ input:checked + .slider:before {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  max-width: 960px;
+  margin: 0 auto 20px;
 }
 
 .compare-header h2 {

@@ -607,11 +607,6 @@ function getKokoroWorker() {
         pendingKokoroRequests.delete(id);
 
         if (type === "synthesize-success") {
-          const hasWebGPU = typeof navigator !== "undefined" && Boolean(navigator.gpu);
-          if (!hasWebGPU && latencyMs > 1500) {
-            kokoroFallbackToDevice = true;
-            updateVoiceFallbackLabels(true);
-          }
           pending.resolve({ pcmData, sampleRate, latencyMs });
         } else {
           pending.reject(new Error(error || "Synthesis failed"));
@@ -648,7 +643,7 @@ function synthesizeWithKokoro(text, voice) {
         pendingKokoroRequests.delete(id);
         reject(new Error("Synthesis timed out"));
       }
-    }, 1200);
+    }, 12000);
   });
 }
 
@@ -666,14 +661,13 @@ function cancelSpeech() {
   hideVisualizer();
 }
 
+const MALE_VOICE_PATTERN = /\b(george|david|mark|daniel|richard|oliver|guy|male|ravi|james|stephen|paul|sean|michael|adam|eric|liam|ryan|alex|fred)\b/i;
+const FEMALE_VOICE_PATTERN = /\b(zira|heera|jenny|aria|samantha|libby|sonia|serena|maisie|hazel|susan|kate|stephanie|ava|karen|victoria|female)\b|google.*(female|english|uk|us)/i;
+
 function isExcludedVoice(v) {
   const name = v && v.name ? v.name : "";
-  if (/female/i.test(name) && !/desktop/i.test(name)) return false;
-  return /male$|george|ryan|daniel|oliver|desktop\b/i.test(name);
+  return MALE_VOICE_PATTERN.test(name);
 }
-
-const MALE_VOICE_PATTERN = /\b(george|david|mark|daniel|richard|oliver|guy|male)\b/i;
-const FEMALE_VOICE_PATTERN = /\b(jenny|aria|samantha|libby|sonia|serena|maisie|hazel|susan|kate|stephanie|ava|karen|victoria|female)\b|google.*(female|english|uk|us)/i;
 
 function pickVoice(voices, savedVoiceURI = null) {
   if (!voices || voices.length === 0) return null;
@@ -696,7 +690,7 @@ function pickVoice(voices, savedVoiceURI = null) {
   });
   if (naturalFemale) return naturalFemale;
 
-  // 2. en-GB female
+  // 2. en-GB female (e.g. Libby, Susan, Sonia)
   const gbFemale = pool.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     const name = v.name || "";
@@ -704,7 +698,15 @@ function pickVoice(voices, savedVoiceURI = null) {
   });
   if (gbFemale) return gbFemale;
 
-  // 3. Any English female voice
+  // 3. en-US female (e.g. Zira, Samantha, Jenny, Ava)
+  const usFemale = pool.find((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    const name = v.name || "";
+    return lang.startsWith("en-us") && FEMALE_VOICE_PATTERN.test(name);
+  });
+  if (usFemale) return usFemale;
+
+  // 4. Any English female voice
   const enFemale = pool.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     const name = v.name || "";
@@ -712,7 +714,7 @@ function pickVoice(voices, savedVoiceURI = null) {
   });
   if (enFemale) return enFemale;
 
-  // 4. Any English voice not explicitly male
+  // 5. Any English voice not explicitly male
   const enNonMale = pool.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     const name = v.name || "";
@@ -720,14 +722,14 @@ function pickVoice(voices, savedVoiceURI = null) {
   });
   if (enNonMale) return enNonMale;
 
-  // 5. en-GB any
+  // 6. en-GB any
   const gbAny = pool.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     return lang.startsWith("en-gb");
   });
   if (gbAny) return gbAny;
 
-  // 6. en any
+  // 7. en any
   const enAny = pool.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     return lang.startsWith("en");

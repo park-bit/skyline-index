@@ -2,7 +2,7 @@
 let ttsInstance = null;
 let isInitializing = false;
 
-async function getOrInitTTS(device) {
+async function getOrInitTTS() {
   if (ttsInstance) return ttsInstance;
   const { KokoroTTS, env } = await import("https://cdn.jsdelivr.net/npm/kokoro-js");
   if (env) {
@@ -11,7 +11,7 @@ async function getOrInitTTS(device) {
   }
   ttsInstance = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
     dtype: "q8",
-    device: device,
+    device: "wasm",
   });
   return ttsInstance;
 }
@@ -26,11 +26,9 @@ self.onmessage = async (e) => {
     }
     try {
       isInitializing = true;
-      const hasWebGPU = typeof navigator !== "undefined" && Boolean(navigator.gpu);
-      const device = hasWebGPU ? "webgpu" : "wasm";
-      await getOrInitTTS(device);
+      await getOrInitTTS();
       isInitializing = false;
-      self.postMessage({ type: "init-success", id, device });
+      self.postMessage({ type: "init-success", id, device: "wasm" });
     } catch (err) {
       isInitializing = false;
       self.postMessage({ type: "init-error", id, error: err.message || "Failed to load Kokoro TTS" });
@@ -38,9 +36,7 @@ self.onmessage = async (e) => {
   } else if (type === "synthesize") {
     const startTime = performance.now();
     try {
-      const hasWebGPU = typeof navigator !== "undefined" && Boolean(navigator.gpu);
-      const device = hasWebGPU ? "webgpu" : "wasm";
-      const model = await getOrInitTTS(device);
+      const model = await getOrInitTTS();
 
       const selectedVoice = voice || "bf_emma";
       const audioResult = await model.generate(text, {

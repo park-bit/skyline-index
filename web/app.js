@@ -831,6 +831,7 @@ function showCandidateOnMap(item) {
 }
 
 function switchTab(tab) {
+  closeCompareDrawer();
   currentTab = tab;
   const mapNav = document.getElementById("tab-nav-map");
   const radarNav = document.getElementById("tab-nav-radar");
