@@ -159,12 +159,11 @@ function formatAirportSummary(ap) {
   };
   const classLabel = classNames[rawClass] || rawClass;
 
-  const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
+  const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "reconstructed");
   const conf = ap.importance_confidence || "medium";
 
-  const spelledIata = (ap.iata || "").split("").join(" ");
   const parts = [
-    `${cityOrName}, code ${spelledIata}. It currently scores ${curScore}, projected to reach ${h5Level} in five years and ${h10Level} in ten years as an ${classLabel.toLowerCase()} airport. Data is ${dq} with ${conf} confidence.`,
+    `${cityOrName}, ${ap.iata}. Importance ${curScore} now, ${h5Level} at plus five, ${h10Level} at plus ten. ${classLabel}. Data is ${dq} with ${conf} confidence.`,
   ];
 
   const h5Coverage = ap.forecast_h5 && ap.forecast_h5.coverage_pct != null ? ap.forecast_h5.coverage_pct : 80;
@@ -174,7 +173,46 @@ function formatAirportSummary(ap) {
   const h10Caveat = h10Coverage < 70 ? "indicative only" : (ap.forecast_h10 && ap.forecast_h10.band_label === "indicative only" ? "indicative only" : null);
 
   if (h5Caveat) {
-    parts.push(`The five year projection is a ${h5Caveat}.`);
+    parts.push(`The plus five range is ${h5Caveat}.`);
+  }
+  if (h10Caveat) {
+    parts.push(`The plus ten range is ${h10Caveat}.`);
+  }
+
+  return parts.join(" ");
+}
+
+function formatAirportSpokenSummary(ap) {
+  const cityOrName = ap.city || ap.name;
+  const curScore = Number(ap.importance_present.toFixed(1));
+  const h5Level = ap.forecast_h5 ? Number(ap.forecast_h5.level.toFixed(1)) : curScore;
+  const h10Level = ap.forecast_h10 ? Number(ap.forecast_h10.level.toFixed(1)) : curScore;
+
+  const rawClass = ap.forecast_h5 && ap.forecast_h5.class ? ap.forecast_h5.class : "stable";
+  const classNames = {
+    established_hub: "Established hub",
+    emerging: "Emerging",
+    stable: "Stable",
+    declining: "Declining",
+  };
+  const classLabel = classNames[rawClass] || rawClass;
+
+  const dq = ap.data_quality === "observed" ? "observed flight data" : "reconstructed data";
+  const conf = ap.importance_confidence || "medium";
+  const spelledIata = (ap.iata || "").split("").join(", ");
+
+  const parts = [
+    `${cityOrName}, airport code ${spelledIata}. Currently scores ${curScore}, projected to reach ${h5Level} in five years and ${h10Level} in ten years, as an ${classLabel.toLowerCase()} airport. Data quality is ${dq} with ${conf} confidence.`,
+  ];
+
+  const h5Coverage = ap.forecast_h5 && ap.forecast_h5.coverage_pct != null ? ap.forecast_h5.coverage_pct : 80;
+  const h10Coverage = ap.forecast_h10 && ap.forecast_h10.coverage_pct != null ? ap.forecast_h10.coverage_pct : 32.3;
+
+  const h5Caveat = h5Coverage < 70 ? "a rough range" : null;
+  const h10Caveat = h10Coverage < 70 ? "indicative only" : null;
+
+  if (h5Caveat) {
+    parts.push(`The five year projection is ${h5Caveat}.`);
   }
   if (h10Caveat) {
     parts.push(`The ten year projection is ${h10Caveat}.`);
@@ -385,6 +423,19 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
     };
   }
 
+  // Explanation: Emerging classification or score criteria
+  const isEmergingQuestion =
+    /\b(?:is\s+it\s+(?:still\s+)?emerging|why\s+(?:is\s+it\s+)?emerging|what\s+is\s+emerging|how\s+is\s+emerging|emerging\s+(?:rule|definition|criteria|threshold))\b/i.test(clean) ||
+    /\b(?:\d+(?:\.\d+)?\s*(?:score)?\s*(?:is\s+it|still)\s*emerging)\b/i.test(clean);
+
+  if (isEmergingQuestion) {
+    return {
+      type: "explanation",
+      text: "Emerging classification is based on predicted growth, not raw score. Airports below score 90 qualify as emerging if their projected 5-year growth is in the top 20% within their data quality group, with at least a 2.0 point gain. An airport scoring 29.4 can be emerging if its projected 5-year growth puts it in the top 20% of risers.",
+      spokenText: "Emerging classification is based on projected growth, not current score. Airports below 90 qualify as emerging if their 5-year projected growth is in the top 20 percent of their group, with at least a 2 point gain. An airport scoring 29 point 4 is emerging whenever its projected trajectory meets those growth criteria.",
+    };
+  }
+
   // Command: Top / Fastest growing / Hubs / Declining (supports conversational phrasing & regions)
   const isTopOrOpportunity =
     /\b(fastest\s+grow\w*|grow\w*\s+fastest|top|emerging|hubs?|established|busiest|biggest\s+hubs?|declining|shrinking)\b/i.test(clean);
@@ -533,12 +584,13 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
 
     const ap = matches[0];
     const summary = formatAirportSummary(ap);
+    const spoken = formatAirportSpokenSummary(ap);
     return {
       type: "show",
       airport: ap,
       multipleMatches: null,
       text: summary,
-      spokenText: summary,
+      spokenText: spoken,
     };
   }
 
@@ -781,8 +833,8 @@ function getKokoroWorker() {
 function synthesizeWithKokoro(text, voice) {
   return new Promise((resolve, reject) => {
     const worker = getKokoroWorker();
-    if (!worker) {
-      return reject(new Error("Worker unavailable"));
+    if (!worker || kokoroFallbackToDevice) {
+      return reject(new Error("Worker unavailable or fallback active"));
     }
     const id = ++kokoroRequestId;
     pendingKokoroRequests.set(id, { resolve, reject });
@@ -790,13 +842,24 @@ function synthesizeWithKokoro(text, voice) {
     setTimeout(() => {
       if (pendingKokoroRequests.has(id)) {
         pendingKokoroRequests.delete(id);
+        kokoroFallbackToDevice = true;
         reject(new Error("Synthesis timed out"));
       }
-    }, 60000);
+    }, 450);
   });
 }
 
+let activeSpeechUtterances = [];
+let speechSentenceQueue = [];
+let speechPauseTimer = null;
+
 function cancelSpeech() {
+  if (speechPauseTimer) {
+    clearTimeout(speechPauseTimer);
+    speechPauseTimer = null;
+  }
+  speechSentenceQueue = [];
+  activeSpeechUtterances = [];
   if (currentAudioSource) {
     try { currentAudioSource.stop(); } catch (e) {}
     currentAudioSource = null;
@@ -808,6 +871,64 @@ function cancelSpeech() {
   setSpeakingState(false);
   isAnswering = false;
   hideVisualizer();
+}
+
+function normalizeTextForSpeech(text) {
+  if (!text) return "";
+  let s = String(text);
+
+  // Markdown links [title](url) -> title
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  // Markdown bold, italic, inline code
+  s = s.replace(/\*\*([^*]+)\*\*/g, "$1");
+  s = s.replace(/\*([^*]+)\*/g, "$1");
+  s = s.replace(/`([^`]+)`/g, "$1");
+  // Brackets [airport] -> airport
+  s = s.replace(/\[([^\]]+)\]/g, "$1");
+  // Parentheses -> spaces with commas
+  s = s.replace(/[()]/g, ", ");
+
+  // Expand horizon notation
+  s = s.replace(/\+5(?:\s*years?)?/gi, "plus 5 years");
+  s = s.replace(/\+10(?:\s*years?)?/gi, "plus 10 years");
+
+  // Expand decimals: e.g. 29.4 -> 29 point 4
+  s = s.replace(/(\d+)\.(\d+)/g, "$1 point $2");
+
+  // Expand percentages: 80% -> 80 percent
+  s = s.replace(/%/g, " percent");
+
+  // Expand common abbreviations
+  s = s.replace(/\bvs\.?\b/gi, "versus");
+  s = s.replace(/\be\.g\.?,?\b/gi, "for example,");
+  s = s.replace(/\bi\.e\.?,?\b/gi, "that is,");
+  s = s.replace(/\bapprox\.?\b/gi, "approximately");
+
+  // Clean data quality tags
+  s = s.replace(/\bstatic_only\b/gi, "static schedule data");
+
+  // Spell out isolated uppercase 3-letter IATA codes so voice articulates each letter
+  s = s.replace(/\b([A-Z]{3})\b/g, (m) => m.split("").join(", "));
+
+  // Convert colons, semicolons, and dashes into gentle comma pauses
+  s = s.replace(/\s*[-–—]\s*/g, ", ");
+  s = s.replace(/:\s+/g, ", ");
+
+  // Collapse multiple commas and whitespace
+  s = s.replace(/,\s*,+/g, ",");
+  s = s.replace(/\s+/g, " ").trim();
+
+  return s;
+}
+
+function splitSentencesForSpeech(text) {
+  if (!text) return [];
+  const sentences = text
+    .replace(/([.!?]+)(?:\s+|$)/g, "$1|SPLIT|")
+    .split("|SPLIT|")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return sentences.length > 0 ? sentences : [text.trim()];
 }
 
 const MALE_VOICE_PATTERN = /\b(george|david|mark|daniel|richard|oliver|guy|male|ravi|james|stephen|paul|sean|michael|adam|eric|liam|ryan|alex|fred)\b/i;
@@ -847,11 +968,11 @@ function pickVoice(voices, savedVoiceURI = null) {
   });
   if (gbFemale) return gbFemale;
 
-  // 3. en-US female (e.g. Zira, Samantha, Jenny, Ava)
+  // 3. en-US or en-IN female (e.g. Heera, Zira, Samantha, Jenny, Ava)
   const usFemale = pool.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     const name = v.name || "";
-    return lang.startsWith("en-us") && FEMALE_VOICE_PATTERN.test(name);
+    return (lang.startsWith("en-us") || lang.startsWith("en-in")) && FEMALE_VOICE_PATTERN.test(name);
   });
   if (usFemale) return usFemale;
 
@@ -890,9 +1011,9 @@ function pickVoice(voices, savedVoiceURI = null) {
 
 function getSelectedKokoroVoice() {
   try {
-    return localStorage.getItem("skyline_kokoro_voice") || "af_heart";
+    return localStorage.getItem("skyline_kokoro_voice") || "bf_emma";
   } catch (e) {
-    return "af_heart";
+    return "bf_emma";
   }
 }
 
@@ -926,8 +1047,8 @@ function populateVoicePickers() {
   const selectedVal = getSelectedKokoroVoice();
 
   const options = [
-    { value: "af_heart", label: "Natural AI: Heart (American female, default)" },
-    { value: "bf_emma", label: "Natural AI: Emma (British female)" },
+    { value: "bf_emma", label: "Natural AI: Emma (British female, default)" },
+    { value: "af_heart", label: "Natural AI: Heart (American female)" },
     { value: "af_sarah", label: "Natural AI: Sarah (American female)" },
     { value: "bm_george", label: "Natural AI: George (British male)" },
     { value: "device", label: "Device voice (speechSynthesis)" },
@@ -963,39 +1084,83 @@ function populateVoicePickers() {
 
 function speakDeviceSpeech(text) {
   if (typeof window === "undefined" || !window.speechSynthesis || !isSpeakerEnabled() || !text) return;
-  const UtteranceClass = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance;
-  let utterance = null;
-  if (typeof UtteranceClass === "function") {
-    try {
-      utterance = new UtteranceClass(text);
-      utterance.rate = 0.96;
-      utterance.pitch = 1.0;
 
-      const voices = window.speechSynthesis.getVoices() || [];
-      const voice = pickVoice(voices);
+  cancelSpeech();
+
+  const cleaned = normalizeTextForSpeech(text);
+  const sentences = splitSentencesForSpeech(cleaned);
+  if (sentences.length === 0) return;
+
+  const UtteranceClass = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance;
+  if (typeof UtteranceClass !== "function") {
+    if (typeof window.speechSynthesis.speak === "function") {
+      window.speechSynthesis.speak(text);
+    }
+    return;
+  }
+
+  const voices = window.speechSynthesis.getVoices() || [];
+  const voice = pickVoice(voices);
+
+  speechSentenceQueue = [...sentences];
+  activeSpeechUtterances = [];
+
+  setSpeakingState(true);
+  startSyntheticAudioPulsing();
+
+  function playNextSentence() {
+    if (speechSentenceQueue.length === 0) {
+      stopSyntheticAudioPulsing();
+      setSpeakingState(false);
+      activeSpeechUtterances = [];
+      return;
+    }
+
+    const sentence = speechSentenceQueue.shift();
+    let utterance = null;
+    try {
+      utterance = new UtteranceClass(sentence);
+      utterance.rate = 0.92;
+      utterance.pitch = 1.0;
       if (voice) utterance.voice = voice;
 
       utterance.onstart = () => {
         setSpeakingState(true);
-        startSyntheticAudioPulsing();
       };
       utterance.onend = () => {
-        stopSyntheticAudioPulsing();
-        setSpeakingState(false);
+        if (speechSentenceQueue.length > 0) {
+          speechPauseTimer = setTimeout(playNextSentence, 80);
+        } else {
+          stopSyntheticAudioPulsing();
+          setSpeakingState(false);
+          activeSpeechUtterances = [];
+        }
       };
       utterance.onerror = () => {
-        stopSyntheticAudioPulsing();
-        setSpeakingState(false);
+        if (speechSentenceQueue.length > 0) {
+          speechPauseTimer = setTimeout(playNextSentence, 80);
+        } else {
+          stopSyntheticAudioPulsing();
+          setSpeakingState(false);
+          activeSpeechUtterances = [];
+        }
       };
     } catch (e) {
       utterance = null;
     }
+
+    if (utterance) {
+      activeSpeechUtterances.push(utterance);
+      voiceUtterance = utterance;
+      if (typeof window.speechSynthesis.speak === "function") {
+        window.speechSynthesis.speak(utterance);
+      }
+    } else {
+      playNextSentence();
+    }
   }
 
-  voiceUtterance = utterance;
-  if (typeof window.speechSynthesis.speak === "function") {
-    window.speechSynthesis.speak(utterance || text);
-  }
+  playNextSentence();
 }
 
 function setKokoroWorkerForTesting(worker) {
@@ -1007,7 +1172,7 @@ async function speakSpeech(text) {
   if (!isSpeakerEnabled() || !text) return;
 
   const chosenVoice = getSelectedKokoroVoice();
-  if (chosenVoice !== "device") {
+  if (chosenVoice !== "device" && !kokoroFallbackToDevice) {
     try {
       setSpeakingState(true);
       const { pcmData, sampleRate } = await synthesizeWithKokoro(text, chosenVoice);
@@ -1030,7 +1195,7 @@ async function speakSpeech(text) {
       updateVoiceFallbackLabels(false);
       return;
     } catch (err) {
-      console.warn("Kokoro TTS playback fell back to device:", err);
+      kokoroFallbackToDevice = true;
       updateVoiceFallbackLabels(true);
     }
   }
@@ -1622,14 +1787,8 @@ function initAssistant() {
     }
   }
 
-  // Form submit & focus pre-warm
+  // Form submit
   if (form) {
-    if (input) {
-      input.addEventListener("focus", () => {
-        const w = getKokoroWorker();
-        if (w) w.postMessage({ type: "init" });
-      });
-    }
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       if (!input) return;
@@ -1676,12 +1835,6 @@ function initAssistant() {
   // Request persistent browser storage so cached TTS model is not evicted
   if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(() => {});
-  }
-
-  // Pre-warm Kokoro TTS worker in background
-  const ttsWorker = getKokoroWorker();
-  if (ttsWorker) {
-    ttsWorker.postMessage({ type: "init" });
   }
 
   // Initialize Smart Mode
