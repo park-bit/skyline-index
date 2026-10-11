@@ -1,6 +1,6 @@
 // skyline-index - Voice and Text Assistant (Skyline)
 // Legacy Needle smart mode is OFF by default (no remote health ping). Tests inject a URL via setNeedleUrlForTesting.
-let NEEDLE_URL = "";
+let NEEDLE_URL = "https://skyline-smart-mode.onrender.com";
 
 function levenshteinDistance(s1, s2) {
   const a = s1.toLowerCase();
