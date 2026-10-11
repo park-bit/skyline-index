@@ -1,4 +1,5 @@
 // skyline-index - Voice and Text Assistant (Skyline)
+let NEEDLE_URL = ""; // Render or local API service endpoint. Empty by default.
 
 function levenshteinDistance(s1, s2) {
   const a = s1.toLowerCase();
@@ -426,8 +427,6 @@ function setSpeakerEnabled(enabled) {
   }
 }
 
-let NEEDLE_URL = "";
-
 function isSmartModeEnabled() {
   try {
     return localStorage.getItem("skyline_smart_mode") === "true";
@@ -446,6 +445,7 @@ function setSmartModeEnabled(enabled) {
 
 function setNeedleUrlForTesting(url) {
   NEEDLE_URL = url || "";
+  isFirstSmartCall = true;
   updateSmartModeVisibility();
   if (NEEDLE_URL && isSmartModeEnabled()) {
     pingSmartModeHealth();
@@ -460,30 +460,30 @@ async function pingSmartModeHealth() {
   ].filter(Boolean);
 
   statusChips.forEach((chip) => {
-    chip.textContent = "warming up";
+    chip.textContent = "Smart mode warming up";
     chip.style.display = "inline-block";
   });
 
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-  const timer = controller ? setTimeout(() => controller.abort(), 4000) : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 6000) : null;
   try {
     const res = await fetch(`${NEEDLE_URL}/health`, { signal: controller ? controller.signal : undefined });
     if (timer) clearTimeout(timer);
     if (res.ok) {
       statusChips.forEach((chip) => {
-        chip.textContent = "ready";
+        chip.textContent = "Smart mode ready";
       });
       setTimeout(() => {
         statusChips.forEach((chip) => {
-          if (chip.textContent === "ready") chip.style.display = "none";
+          if (chip.textContent === "Smart mode ready") chip.style.display = "none";
         });
-      }, 2000);
+      }, 3000);
     } else {
-      statusChips.forEach((chip) => { chip.textContent = "offline"; });
+      statusChips.forEach((chip) => { chip.textContent = "Smart mode offline"; });
     }
   } catch (e) {
     if (timer) clearTimeout(timer);
-    statusChips.forEach((chip) => { chip.textContent = "offline"; });
+    statusChips.forEach((chip) => { chip.textContent = "Smart mode offline"; });
   }
 }
 
@@ -522,10 +522,13 @@ function updateSmartModeVisibility() {
   });
 }
 
+let isFirstSmartCall = true;
+
 async function queryNeedleParse(queryText) {
   if (!NEEDLE_URL || !queryText) return null;
+  const timeoutMs = isFirstSmartCall ? 6000 : 4000;
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-  const timer = controller ? setTimeout(() => controller.abort(), 4000) : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
     const res = await fetch(`${NEEDLE_URL}/parse`, {
       method: "POST",
@@ -534,10 +537,12 @@ async function queryNeedleParse(queryText) {
       signal: controller ? controller.signal : undefined,
     });
     if (timer) clearTimeout(timer);
+    isFirstSmartCall = false;
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
     if (timer) clearTimeout(timer);
+    isFirstSmartCall = false;
     return null;
   }
 }
@@ -1174,6 +1179,14 @@ function renderReplyPanel(latestTyped = true) {
       exchangeEl.appendChild(answerEl);
     }
 
+    if (item.smartSource && item.smartSource !== "none") {
+      const badge = document.createElement("span");
+      badge.className = "reply-smart-badge";
+      badge.textContent = "Smart mode";
+      badge.title = item.smartSource;
+      exchangeEl.appendChild(badge);
+    }
+
     if (item.multipleMatches && item.multipleMatches.length > 0) {
       const choicesEl = document.createElement("div");
       choicesEl.className = "reply-choices";
@@ -1211,10 +1224,12 @@ async function executeAssistantCommand(inputStr) {
   const airports = window.airportsData || [];
   const activeHorizon = window.currentHorizon || "present";
   let result = parseAssistantCommand(text, airports, activeHorizon);
+  let smartSource = null;
 
   if (result.type === "unknown" && isSmartModeEnabled() && NEEDLE_URL) {
     const parseRes = await queryNeedleParse(text);
     if (parseRes && Array.isArray(parseRes.calls) && parseRes.calls.length > 0) {
+      smartSource = parseRes.source || "needle";
       const call = parseRes.calls[0];
       const name = call.name;
       const args = call.args || {};
@@ -1239,7 +1254,12 @@ async function executeAssistantCommand(inputStr) {
   }
 
   // Store exchange history (keep last 3)
-  conversationHistory.push({ query: text, reply: result.text, multipleMatches: result.multipleMatches });
+  conversationHistory.push({
+    query: text,
+    reply: result.text,
+    multipleMatches: result.multipleMatches,
+    smartSource: smartSource,
+  });
   if (conversationHistory.length > 3) {
     conversationHistory.shift();
   }
