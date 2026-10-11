@@ -1,3 +1,7 @@
+<p align="left">
+  <img src="web/logo.png" width="48" height="48" alt="skyline index logo" />
+</p>
+
 # Skyline Index: Global Aviation Intelligence Map
 
 Skyline Index models the global commercial aviation network and forecasts changes in airport importance over 5-year and 10-year horizons. The project produces an annual importance percentile rank from 0 to 100 for global commercial airports, trains supervised models on historical network topology and macroeconomic shifts, and presents forward forecasts on an interactive map with an unserved route Opportunity Radar.
@@ -147,7 +151,14 @@ Or run the pipeline script:
 python run_all.py
 ```
 
-## Running the Web Map Locally
+## Web Interface and Voice Assistant
+
+The client application includes:
+- Floating pill navigation bars for views, filters, and display settings.
+- Interactive Leaflet map with anti-collision panel layout and trajectory filters.
+- Voice assistant with an audio-reactive 320px wireframe icosphere and rotating rings visualizer.
+- Optional on-device HD voice via Kokoro TTS (82M ONNX Web Worker) with automatic fallback to device speech synthesis.
+- Optional Smart Mode tool-calling backend via Needle 3 foundation model.
 
 To serve the web application locally:
 
@@ -158,6 +169,18 @@ python -m http.server 8000
 Open `http://localhost:8000/web/index.html` in a web browser.
 
 Live deployment: https://skyline-index-web.vercel.app/
+
+## Smart Mode (Optional)
+
+The voice assistant includes an optional Smart Mode powered by the Needle 3 foundation tool-calling model (35 MB, Apache-2.0). When enabled, natural voice queries that exceed the built-in rule parser are routed to a FastAPI service deployed on Render.
+
+To run or deploy the API service:
+1. See instructions in `api/README.md`.
+2. Deploy as a web service on Render using `render.yaml`.
+3. Set `ALLOWED_ORIGINS` to your frontend domains.
+4. Point the client to the service by setting `NEEDLE_URL` in `web/assistant.js`.
+
+Cold start note: Free tier instances spin down after 15 minutes of inactivity. When waking, the initial request may take 40 to 50 seconds while the service starts. The interface pings `/health` and displays "warming up" during spin-up.
 
 ## Limitations
 

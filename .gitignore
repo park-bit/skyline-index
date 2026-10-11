@@ -11,6 +11,7 @@ __pycache__/
 # Raw download cache
 data/raw/
 *.part
+*.cact
 
 # Local working notes and daily reports
 PROJECT_CONTEXT.md
