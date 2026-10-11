@@ -23,3 +23,7 @@ services:
         value: "gemini-2.5-flash"
       - key: DAILY_LIMIT
         value: "500"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"

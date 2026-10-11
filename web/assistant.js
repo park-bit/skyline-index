@@ -1,5 +1,5 @@
 // skyline-index - Voice and Text Assistant (Skyline)
-let NEEDLE_URL = "";
+let NEEDLE_URL = "https://skyline-smart-mode.onrender.com";
 
 function levenshteinDistance(s1, s2) {
   const a = s1.toLowerCase();

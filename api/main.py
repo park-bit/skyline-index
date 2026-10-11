@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 from datetime import datetime, timezone
@@ -9,7 +10,12 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-# Ensure telemetry is disabled
+# Ensure single-thread operation and telemetry disabled to prevent container freeze
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["NEEDLE_TELEMETRY"] = "0"
 os.environ["DO_NOT_TRACK"] = "1"
 
@@ -363,7 +369,11 @@ def validate_gemini_calls(raw_calls: list[dict[str, Any]]) -> list[ToolCall]:
 
 
 async def call_gemini_fallback(query: str, api_key: str, model_name: str) -> list[ToolCall]:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+    candidates = [model_name]
+    for alt in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+        if alt not in candidates:
+            candidates.append(alt)
+
     payload = {
         "contents": [
             {
@@ -400,29 +410,31 @@ async def call_gemini_fallback(query: str, api_key: str, model_name: str) -> lis
         "x-goog-api-key": api_key,
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            if resp.status_code != 200:
-                return []
-            data = resp.json()
-    except (httpx.HTTPError, ValueError, KeyError, TypeError, OSError):
-        return []
+    for model in candidates:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        try:
+            async with httpx.AsyncClient(timeout=3.5) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    raw_calls: list[dict[str, Any]] = []
+                    candidates_list = data.get("candidates") or []
+                    for cand in candidates_list:
+                        content = cand.get("content") or {}
+                        parts = content.get("parts") or []
+                        for part in parts:
+                            fn_call = part.get("functionCall")
+                            if fn_call and isinstance(fn_call, dict):
+                                raw_calls.append({
+                                    "name": fn_call.get("name"),
+                                    "args": fn_call.get("args") or {},
+                                })
+                    validated = validate_gemini_calls(raw_calls)
+                    return validated
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, OSError):
+            continue
 
-    raw_calls: list[dict[str, Any]] = []
-    candidates = data.get("candidates") or []
-    for cand in candidates:
-        content = cand.get("content") or {}
-        parts = content.get("parts") or []
-        for part in parts:
-            fn_call = part.get("functionCall")
-            if fn_call and isinstance(fn_call, dict):
-                raw_calls.append({
-                    "name": fn_call.get("name"),
-                    "args": fn_call.get("args") or {},
-                })
-
-    return validate_gemini_calls(raw_calls)
+    return []
 
 
 @app.get("/health")
@@ -434,6 +446,26 @@ def health() -> dict[str, Any]:
         "gemini_fallback": bool(gemini_key),
         "model_loaded": bool(model_instance is not None),
     }
+
+
+def _run_needle_worker(query: str) -> tuple[list[ToolCall], float]:
+    if model_instance is None:
+        return [], 0.0
+    try:
+        res = model_instance.run(query=query)
+        confidence = float(res.get("confidence", 0.0))
+        raw_calls = res.get("function_calls", [])
+        if confidence >= 0.5 and raw_calls:
+            calls = []
+            for call in raw_calls:
+                name = call.get("name")
+                args = call.get("arguments", {})
+                if name:
+                    calls.append(ToolCall(name=name, args=args))
+            return calls, confidence
+    except (RuntimeError, ValueError, OSError, AttributeError, TimeoutError):
+        return [], 0.0
+    return [], 0.0
 
 
 @app.post("/parse", response_model=ParseResponse)
@@ -460,19 +492,14 @@ async def parse_query(req: ParseRequest, request: Request) -> ParseResponse:
     needle_calls: list[ToolCall] = []
     needle_confidence = 0.0
 
-    # 1. Attempt Needle first
+    # 1. Attempt Needle with strict timeout in worker thread to prevent event loop freeze
     if model_instance is not None:
         try:
-            res = model_instance.run(query=query)
-            needle_confidence = float(res.get("confidence", 0.0))
-            raw_calls = res.get("function_calls", [])
-            if needle_confidence >= 0.5 and raw_calls:
-                for call in raw_calls:
-                    name = call.get("name")
-                    args = call.get("arguments", {})
-                    if name:
-                        needle_calls.append(ToolCall(name=name, args=args))
-        except (RuntimeError, ValueError, OSError, AttributeError):
+            needle_calls, needle_confidence = await asyncio.wait_for(
+                asyncio.to_thread(_run_needle_worker, query),
+                timeout=1.5,
+            )
+        except (TimeoutError, RuntimeError, ValueError, OSError, AttributeError):
             needle_calls = []
             needle_confidence = 0.0
 
@@ -491,3 +518,4 @@ async def parse_query(req: ParseRequest, request: Request) -> ParseResponse:
         return ParseResponse(calls=gemini_calls, confidence=1.0, source="gemini")
 
     return ParseResponse(calls=[], confidence=0.0, source="none")
+
