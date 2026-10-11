@@ -39,8 +39,8 @@ function initMap() {
   mapCanvasRenderer = L.canvas({ tolerance: 12, padding: 0.25 });
 
   map = L.map("map", {
-    center: [22.0, 15.0],
-    zoom: 3,
+    center: [20.0, 0.0],
+    zoom: 2,
     minZoom: 2,
     maxZoom: 12,
     worldCopyJump: true,
@@ -1423,17 +1423,6 @@ async function startApp() {
     });
 
     renderMarkers();
-
-    // Default select Singapore (SIN) on desktop
-    if (window.innerWidth >= 700) {
-      if (airportLookup["SIN"]) {
-        selectAirport(airportLookup["SIN"]);
-      } else if (airportsData.length > 0) {
-        selectAirport(airportsData[0]);
-      }
-    } else {
-      selectedAirport = airportLookup["SIN"] || airportsData[0];
-    }
   } catch (err) {
     console.error("Error loading skyline-index data:", err);
   }
