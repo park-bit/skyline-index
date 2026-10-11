@@ -420,6 +420,16 @@ function renderAirportCard(ap) {
   card.style.display = "block";
   card.scrollTop = 0;
 
+  try {
+    const saved = localStorage.getItem("skyline_pos_airport_card");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (typeof parsed.left === "number" && typeof parsed.top === "number") {
+        applyClampedPosition(card, parsed);
+      }
+    }
+  } catch (e) {}
+
   const cur = ap.importance_present;
   const h5 = ap.forecast_h5 || { level: cur, change: 0.0, class: "stable", band_low: cur, band_high: cur, positive_drivers: [], negative_drivers: [] };
   const h10 = ap.forecast_h10 || { level: cur, change: 0.0, class: "stable", band_low: cur, band_high: cur, positive_drivers: [], negative_drivers: [] };
@@ -1111,12 +1121,12 @@ function getParentOffset(panel) {
 function applyClampedPosition(panel, pos) {
   if (!pos || window.innerWidth < 700) return;
   const parent = getParentOffset(panel);
-  const width = panel.offsetWidth || 320;
-  const height = panel.offsetHeight || 180;
+  const width = panel.offsetWidth || 350;
+  const height = panel.offsetHeight || 300;
 
   const minX = 8;
   const maxX = Math.max(minX, parent.width - width - 8);
-  const minY = 8;
+  const minY = 68;
   const maxY = Math.max(minY, parent.height - height - 8);
 
   const clampX = Math.max(minX, Math.min(maxX, pos.left));
@@ -1165,20 +1175,13 @@ function initDraggablePanels() {
       }
     } catch (e) {}
 
-    grip.addEventListener("dblclick", (e) => {
-      e.stopPropagation();
-      resetPanelPos(panel, key);
-    });
-
-    grip.addEventListener("pointerdown", (e) => {
+    const startDrag = (e) => {
       if (window.innerWidth < 700) return;
       if (e.button !== 0) return;
+      if (e.target.closest("button") || e.target.closest("input") || e.target.closest("select") || e.target.closest("a")) return;
 
       e.preventDefault();
       e.stopPropagation();
-      try {
-        grip.setPointerCapture(e.pointerId);
-      } catch (err) {}
 
       const rect = panel.getBoundingClientRect();
       const offsetX = e.clientX - rect.left;
@@ -1201,7 +1204,7 @@ function initDraggablePanels() {
 
         const minX = 8;
         const maxX = Math.max(minX, parent.width - pWidth - 8);
-        const minY = 8;
+        const minY = 68;
         const maxY = Math.max(minY, parent.height - pHeight - 8);
 
         const newLeft = ev.clientX - parent.left - offsetX;
@@ -1222,13 +1225,9 @@ function initDraggablePanels() {
         ev.preventDefault();
         ev.stopPropagation();
 
-        grip.removeEventListener("pointermove", onPointerMove);
-        grip.removeEventListener("pointerup", onPointerUp);
-        grip.removeEventListener("pointercancel", onPointerUp);
-
-        try {
-          grip.releasePointerCapture(ev.pointerId);
-        } catch (err) {}
+        document.removeEventListener("pointermove", onPointerMove);
+        document.removeEventListener("pointerup", onPointerUp);
+        document.removeEventListener("pointercancel", onPointerUp);
 
         if (map && map.dragging) {
           map.dragging.enable();
@@ -1243,10 +1242,34 @@ function initDraggablePanels() {
         }
       };
 
-      grip.addEventListener("pointermove", onPointerMove);
-      grip.addEventListener("pointerup", onPointerUp);
-      grip.addEventListener("pointercancel", onPointerUp);
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", onPointerUp);
+      document.addEventListener("pointercancel", onPointerUp);
+    };
+
+    grip.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      resetPanelPos(panel, key);
     });
+
+    grip.addEventListener("pointerdown", startDrag);
+
+    if (panelId === "airport-card") {
+      panel.addEventListener("pointerdown", (e) => {
+        const topBar = e.target.closest(".detail-top");
+        if (topBar && !e.target.closest("button")) {
+          startDrag(e);
+        }
+      });
+
+      panel.addEventListener("dblclick", (e) => {
+        const topBar = e.target.closest(".detail-top");
+        if (topBar && !e.target.closest("button")) {
+          e.stopPropagation();
+          resetPanelPos(panel, key);
+        }
+      });
+    }
   });
 
   const btnResetLayout = document.getElementById("btn-reset-layout");
