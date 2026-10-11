@@ -430,9 +430,11 @@ function setSpeakerEnabled(enabled) {
 
 function isSmartModeEnabled() {
   try {
-    return localStorage.getItem("skyline_smart_mode") === "true";
+    const val = localStorage.getItem("skyline_smart_mode");
+    if (val === null) return true;
+    return val === "true";
   } catch (e) {
-    return false;
+    return true;
   }
 }
 
