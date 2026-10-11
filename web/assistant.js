@@ -2276,7 +2276,7 @@ function initWelcomeIntro() {
   const grip = document.getElementById("grip-assistant-bar");
 
   // Mount visualizer inside welcome slot initially
-  if (visualizer && slot) {
+  if (visualizer && slot && visualizer.parentElement !== slot) {
     visualizer.classList.add("in-welcome-modal");
     visualizer.style.display = "block";
     slot.appendChild(visualizer);
@@ -2294,88 +2294,92 @@ function initWelcomeIntro() {
   }
 
   let closed = false;
-  let welcomeSourceNode = null;
-  let welcomeAudioFallback = null;
+  let welcomeAudio = null;
+  let audioUnlocked = false;
 
   function closeWelcome() {
     if (closed) return;
     closed = true;
-    if (welcomeSourceNode) {
-      try { welcomeSourceNode.stop(); } catch (e) {}
-      welcomeSourceNode = null;
-    }
-    if (welcomeAudioFallback) {
-      try { welcomeAudioFallback.pause(); } catch (e) {}
-      welcomeAudioFallback = null;
+
+    if (welcomeAudio) {
+      try { welcomeAudio.pause(); } catch (e) {}
+      welcomeAudio = null;
     }
     stopSyntheticAudioPulsing();
     setSpeakingState(false);
 
-    // Dock visualizer into assistant bar
+    // Smooth FLIP morph animation from modal slot down to assistant bar
     if (visualizer && assistantBar && grip) {
+      const firstRect = visualizer.getBoundingClientRect();
+
       visualizer.classList.remove("in-welcome-modal");
       assistantBar.insertBefore(visualizer, grip);
       visualizer.style.display = "block";
+
+      const lastRect = visualizer.getBoundingClientRect();
+      const dx = firstRect.left - lastRect.left;
+      const dy = firstRect.top - lastRect.top;
+      const scale = firstRect.width / (lastRect.width || 64);
+
+      visualizer.style.transformOrigin = "top left";
+      visualizer.style.transition = "none";
+      visualizer.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          visualizer.style.transition = "transform 0.85s cubic-bezier(0.16, 1, 0.3, 1)";
+          visualizer.style.transform = "none";
+          setTimeout(() => {
+            visualizer.style.transition = "";
+            visualizer.style.transform = "";
+            visualizer.style.transformOrigin = "";
+          }, 900);
+        });
+      });
     }
 
     backdrop.classList.add("is-closing");
     setTimeout(() => {
       backdrop.style.display = "none";
-    }, 600);
+    }, 850);
   }
 
-  function playWelcomeVoice() {
+  function playGreeting() {
     if (closed) return;
     try {
-      const { audioCtx, analyserNode } = getAudioContext();
-      if (audioCtx && analyserNode) {
-        if (audioCtx.state === "suspended") {
-          audioCtx.resume().catch(() => {});
-        }
-        fetch("assets/welcome_laura.mp3")
-          .then((res) => res.arrayBuffer())
-          .then((buf) => audioCtx.decodeAudioData(buf))
-          .then((decoded) => {
-            if (closed) return;
-            welcomeSourceNode = audioCtx.createBufferSource();
-            welcomeSourceNode.buffer = decoded;
-            welcomeSourceNode.connect(analyserNode);
-            analyserNode.connect(audioCtx.destination);
-            welcomeSourceNode.onended = () => {
-              closeWelcome();
-            };
-            setSpeakingState(true);
-            welcomeSourceNode.start(0);
-            if (hint) hint.style.display = "none";
-          })
-          .catch(() => {
-            playFallbackAudio();
-          });
-      } else {
-        playFallbackAudio();
-      }
+      welcomeAudio = new Audio("assets/welcome_laura.mp3");
+
+      welcomeAudio.onended = () => {
+        closeWelcome();
+      };
+
+      welcomeAudio.play().then(() => {
+        audioUnlocked = true;
+        setSpeakingState(true);
+        startSyntheticAudioPulsing();
+        if (hint) hint.style.display = "none";
+      }).catch(() => {
+        // Autoplay policy prevented playback until user gesture
+        if (hint) hint.style.display = "block";
+      });
     } catch (e) {
-      playFallbackAudio();
+      setTimeout(closeWelcome, 3500);
     }
   }
 
-  function playFallbackAudio() {
+  function handleUserGesture() {
     if (closed) return;
-    try {
-      welcomeAudioFallback = new Audio("assets/welcome_laura.mp3");
-      setSpeakingState(true);
-      startSyntheticAudioPulsing();
-      welcomeAudioFallback.play().then(() => {
+    if (!audioUnlocked && welcomeAudio) {
+      welcomeAudio.play().then(() => {
+        audioUnlocked = true;
+        setSpeakingState(true);
+        startSyntheticAudioPulsing();
         if (hint) hint.style.display = "none";
       }).catch(() => {
-        if (hint) hint.style.display = "block";
-      });
-      welcomeAudioFallback.onended = () => {
-        stopSyntheticAudioPulsing();
         closeWelcome();
-      };
-    } catch (e) {
-      // Audio totally unavailable
+      });
+    } else {
+      closeWelcome();
     }
   }
 
@@ -2387,23 +2391,34 @@ function initWelcomeIntro() {
   }
 
   if (card) {
-    card.addEventListener("click", () => {
-      if (!isSpeaking) {
-        playWelcomeVoice();
-      }
-    });
+    card.addEventListener("click", handleUserGesture);
   }
 
   backdrop.addEventListener("click", (e) => {
     if (e.target === backdrop) {
-      closeWelcome();
+      handleUserGesture();
     }
   });
 
-  // Start greeting shortly after page load
+  const onDocGesture = () => {
+    if (!closed && !audioUnlocked) {
+      handleUserGesture();
+    }
+  };
+  document.addEventListener("click", onDocGesture, { once: true });
+  document.addEventListener("keydown", onDocGesture, { once: true });
+
+  // Start greeting audio shortly after page load
   setTimeout(() => {
-    playWelcomeVoice();
-  }, 400);
+    playGreeting();
+  }, 350);
+
+  // Safety fallback: if audio blocked or muted and user idle, auto-morph after 4.5s
+  setTimeout(() => {
+    if (!closed) {
+      closeWelcome();
+    }
+  }, 4500);
 }
 
 if (typeof window !== "undefined") {

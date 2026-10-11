@@ -2685,7 +2685,6 @@ body.radar-tab-active .leaflet-control-zoom {
   font-size: 11px;
   color: var(--muted-foreground);
   margin-top: 4px;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
