@@ -162,8 +162,9 @@ function formatAirportSummary(ap) {
   const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
   const conf = ap.importance_confidence || "medium";
 
+  const spelledIata = (ap.iata || "").split("").join(" ");
   const parts = [
-    `${cityOrName}, ${ap.iata}. Importance ${curScore} now, ${h5Level} at plus five, ${h10Level} at plus ten. ${classLabel}. Data is ${dq} with ${conf} confidence.`,
+    `${cityOrName}, code ${spelledIata}. It currently scores ${curScore}, projected to reach ${h5Level} in five years and ${h10Level} in ten years as an ${classLabel.toLowerCase()} airport. Data is ${dq} with ${conf} confidence.`,
   ];
 
   const h5Coverage = ap.forecast_h5 && ap.forecast_h5.coverage_pct != null ? ap.forecast_h5.coverage_pct : 80;
@@ -173,10 +174,10 @@ function formatAirportSummary(ap) {
   const h10Caveat = h10Coverage < 70 ? "indicative only" : (ap.forecast_h10 && ap.forecast_h10.band_label === "indicative only" ? "indicative only" : null);
 
   if (h5Caveat) {
-    parts.push(`The plus five range is ${h5Caveat}.`);
+    parts.push(`The five year projection is a ${h5Caveat}.`);
   }
   if (h10Caveat) {
-    parts.push(`The plus ten range is ${h10Caveat}.`);
+    parts.push(`The ten year projection is ${h10Caveat}.`);
   }
 
   return parts.join(" ");
@@ -780,8 +781,8 @@ function getKokoroWorker() {
 function synthesizeWithKokoro(text, voice) {
   return new Promise((resolve, reject) => {
     const worker = getKokoroWorker();
-    if (!worker || kokoroFallbackToDevice) {
-      return reject(new Error("Worker unavailable or fallback active"));
+    if (!worker) {
+      return reject(new Error("Worker unavailable"));
     }
     const id = ++kokoroRequestId;
     pendingKokoroRequests.set(id, { resolve, reject });
@@ -791,7 +792,7 @@ function synthesizeWithKokoro(text, voice) {
         pendingKokoroRequests.delete(id);
         reject(new Error("Synthesis timed out"));
       }
-    }, 500);
+    }, 60000);
   });
 }
 
@@ -889,9 +890,9 @@ function pickVoice(voices, savedVoiceURI = null) {
 
 function getSelectedKokoroVoice() {
   try {
-    return localStorage.getItem("skyline_kokoro_voice") || "bf_emma";
+    return localStorage.getItem("skyline_kokoro_voice") || "af_heart";
   } catch (e) {
-    return "bf_emma";
+    return "af_heart";
   }
 }
 
@@ -907,6 +908,8 @@ function updateVoiceFallbackLabels(isFallback) {
     if (isFallback) {
       note.textContent = "device voice";
       note.style.display = "block";
+    } else {
+      note.style.display = "none";
     }
   });
 }
@@ -923,7 +926,8 @@ function populateVoicePickers() {
   const selectedVal = getSelectedKokoroVoice();
 
   const options = [
-    { value: "bf_emma", label: "Natural AI: Emma (British female, default)" },
+    { value: "af_heart", label: "Natural AI: Heart (American female, default)" },
+    { value: "bf_emma", label: "Natural AI: Emma (British female)" },
     { value: "af_sarah", label: "Natural AI: Sarah (American female)" },
     { value: "bm_george", label: "Natural AI: George (British male)" },
     { value: "device", label: "Device voice (speechSynthesis)" },
@@ -964,8 +968,8 @@ function speakDeviceSpeech(text) {
   if (typeof UtteranceClass === "function") {
     try {
       utterance = new UtteranceClass(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.05;
+      utterance.rate = 0.96;
+      utterance.pitch = 1.0;
 
       const voices = window.speechSynthesis.getVoices() || [];
       const voice = pickVoice(voices);
@@ -1003,7 +1007,7 @@ async function speakSpeech(text) {
   if (!isSpeakerEnabled() || !text) return;
 
   const chosenVoice = getSelectedKokoroVoice();
-  if (chosenVoice !== "device" && !kokoroFallbackToDevice) {
+  if (chosenVoice !== "device") {
     try {
       setSpeakingState(true);
       const { pcmData, sampleRate } = await synthesizeWithKokoro(text, chosenVoice);
@@ -1023,9 +1027,10 @@ async function speakSpeech(text) {
         setSpeakingState(false);
       };
       source.start();
+      updateVoiceFallbackLabels(false);
       return;
     } catch (err) {
-      kokoroFallbackToDevice = true;
+      console.warn("Kokoro TTS playback fell back to device:", err);
       updateVoiceFallbackLabels(true);
     }
   }
@@ -1671,6 +1676,12 @@ function initAssistant() {
   // Request persistent browser storage so cached TTS model is not evicted
   if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().catch(() => {});
+  }
+
+  // Pre-warm Kokoro TTS worker in background
+  const ttsWorker = getKokoroWorker();
+  if (ttsWorker) {
+    ttsWorker.postMessage({ type: "init" });
   }
 
   // Initialize Smart Mode
