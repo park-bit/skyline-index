@@ -26,6 +26,23 @@ function levenshteinDistance(s1, s2) {
   return d[m][n];
 }
 
+const COUNTRY_NAME_TO_CODE = {
+  india: "IN", indian: "IN",
+  us: "US", usa: "US", america: "US", american: "US",
+  uk: "GB", britain: "GB", british: "GB", england: "GB", english: "GB",
+  china: "CN", chinese: "CN",
+  japan: "JP", japanese: "JP",
+  germany: "DE", german: "DE",
+  france: "FR", french: "FR",
+  spain: "ES", spanish: "ES",
+  italy: "IT", italian: "IT",
+  uae: "AE", dubai: "AE",
+  singapore: "SG",
+  indonesia: "ID", indonesian: "ID",
+  canada: "CA", canadian: "CA",
+  australia: "AU", australian: "AU",
+};
+
 function fuzzyMatchAirport(query, airports) {
   if (!query || !airports || airports.length === 0) return [];
   const q = query.trim().toLowerCase().replace(/^[,\s.]+|[,\s.]+$/g, "");
@@ -275,65 +292,102 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
     };
   }
 
-  // Command: Top 10 emerging / hubs / declining [at +5 / +10]
-  const topMatch = clean.match(/^top\s*(\d+)?\s*(emerging|hubs?|established_hubs?|declining)(?:\s+(?:at|for|in)?\s*(\+?5|\+?10|current|present))?$/i);
-  if (topMatch) {
-    const count = parseInt(topMatch[1] || "10", 10);
-    const catRaw = topMatch[2].toLowerCase();
+  // Command: Top / Opportunities / Fastest growing / Hubs / Declining (supports conversational phrasing & regions)
+  const isTopOrOpportunity =
+    /\b(best\s+opportunit\w*|fastest\s+grow\w*|grow\w*\s+fastest|top|emerging|opportunit\w*|risers?|hubs?|established|busiest|biggest\s+hubs?|declining|shrinking)\b/i.test(clean);
+
+  if (isTopOrOpportunity) {
+    let count = 10;
+    if (/\b(best|top\s+1\b|number\s+1\b|highest)\b/i.test(clean)) count = 1;
+    const countMatch = clean.match(/\b(?:top|first)\s*(\d+)\b/i);
+    if (countMatch) count = parseInt(countMatch[1], 10);
+
     let targetClass = "emerging";
     let catTitle = "Emerging";
-    if (catRaw.startsWith("hub") || catRaw.includes("established")) {
+    let isGrowthSort = false;
+
+    if (/\b(hubs?|established|busiest|biggest\s+hubs?|largest)\b/i.test(clean)) {
       targetClass = "established_hub";
       catTitle = "Established Hubs";
-    } else if (catRaw === "declining") {
+    } else if (/\b(declining|shrinking|falling|drops?)\b/i.test(clean)) {
       targetClass = "declining";
       catTitle = "Declining";
+    } else {
+      targetClass = "emerging";
+      catTitle = "Emerging";
+      if (/\b(fastest\s+grow\w*|grow\w*\s+fastest)\b/i.test(clean)) {
+        isGrowthSort = true;
+      }
     }
 
     let horizon = activeHorizon || "present";
     let horizonLabel = horizon === "h5" ? "+5 years" : horizon === "h10" ? "+10 years" : "current";
-    if (topMatch[3]) {
-      const hStr = topMatch[3].replace("+", "").toLowerCase();
-      if (hStr === "5") {
-        horizon = "h5";
-        horizonLabel = "+5 years";
-      } else if (hStr === "10") {
-        horizon = "h10";
-        horizonLabel = "+10 years";
-      } else {
-        horizon = "present";
-        horizonLabel = "current";
+    if (/(?:\+5|\b5\s*years?|\bat\s+\+?5|\bnear\s+future)\b/i.test(clean)) {
+      horizon = "h5";
+      horizonLabel = "+5 years";
+    } else if (/(?:\+10|\b10\s*years?|\bat\s+\+?10|\bdistant\s+future|ten\s+years?)\b/i.test(clean)) {
+      horizon = "h10";
+      horizonLabel = "+10 years";
+    } else if (/\b(current|present|now|baseline)\b/i.test(clean)) {
+      horizon = "present";
+      horizonLabel = "current";
+    }
+
+    let countryCode = null;
+    let countryLabel = "";
+    for (const [cName, cCode] of Object.entries(COUNTRY_NAME_TO_CODE)) {
+      const reg = new RegExp(`\\b${cName}\\b`, "i");
+      if (reg.test(clean)) {
+        countryCode = cCode;
+        countryLabel = cName.charAt(0).toUpperCase() + cName.slice(1) + " ";
+        break;
       }
     }
 
-    const matchingAirports = airports.filter((a) => getAirportClassForHorizon(a, horizon) === targetClass);
+    let matchingAirports = airports.filter((a) => {
+      if (countryCode && a.country !== countryCode) return false;
+      return true;
+    });
 
-    if (targetClass === "declining") {
-      // Sort by largest negative change if forecast exists, else lowest score
+    if (isGrowthSort) {
+      matchingAirports.sort((a, b) => {
+        const fcA = horizon === "h10" ? a.forecast_h10 : a.forecast_h5;
+        const fcB = horizon === "h10" ? b.forecast_h10 : b.forecast_h5;
+        const chA = fcA && fcA.change != null ? fcA.change : 0;
+        const chB = fcB && fcB.change != null ? fcB.change : 0;
+        return chB - chA;
+      });
+    } else if (targetClass === "declining") {
+      matchingAirports = matchingAirports.filter((a) => getAirportClassForHorizon(a, horizon) === "declining");
       matchingAirports.sort((a, b) => {
         const chA = a.forecast_h5 ? a.forecast_h5.change : 0;
         const chB = b.forecast_h5 ? b.forecast_h5.change : 0;
         return chA - chB;
       });
     } else {
+      matchingAirports = matchingAirports.filter((a) => getAirportClassForHorizon(a, horizon) === targetClass);
       matchingAirports.sort((a, b) => getAirportScoreForHorizon(b, horizon) - getAirportScoreForHorizon(a, horizon));
     }
 
     const topList = matchingAirports.slice(0, count);
-    const listLines = topList.map((a, idx) => {
-      const score = getAirportScoreForHorizon(a, horizon).toFixed(1);
-      return `${idx + 1}. ${a.iata} : ${a.city || a.name} (${score})`;
-    });
+    if (topList.length > 0) {
+      const listLines = topList.map((a, idx) => {
+        const score = getAirportScoreForHorizon(a, horizon).toFixed(1);
+        const fc = horizon === "h10" ? a.forecast_h10 : a.forecast_h5;
+        const chStr = isGrowthSort && fc && fc.change != null ? ` (+${fc.change.toFixed(1)} pts)` : ` (${score})`;
+        return `${idx + 1}. ${a.iata} : ${a.city || a.name}${chStr}`;
+      });
 
-    const header = `Top ${topList.length} ${catTitle} airports at ${horizonLabel}:`;
-    return {
-      type: "top",
-      category: targetClass,
-      horizon: horizon,
-      airports: topList,
-      text: [header, ...listLines].join("\n"),
-      spokenText: `Showing top ${topList.length} ${catTitle.toLowerCase()} airports at ${horizonLabel}.`,
-    };
+      const header = `Top ${topList.length} ${countryLabel}${catTitle} airports at ${horizonLabel}:`;
+      return {
+        type: "top",
+        category: targetClass,
+        horizon: horizon,
+        airports: topList,
+        text: [header, ...listLines].join("\n"),
+        spokenText: `Showing top ${topList.length} ${countryLabel.toLowerCase()}${catTitle.toLowerCase()} airports at ${horizonLabel}.`,
+      };
+    }
   }
 
   // Command: Show / Find / Go to / Zoom to / Natural phrases
@@ -645,7 +699,7 @@ function synthesizeWithKokoro(text, voice) {
         pendingKokoroRequests.delete(id);
         reject(new Error("Synthesis timed out"));
       }
-    }, 12000);
+    }, 1500);
   });
 }
 
@@ -1432,8 +1486,14 @@ function initAssistant() {
     }
   }
 
-  // Form submit
+  // Form submit & focus pre-warm
   if (form) {
+    if (input) {
+      input.addEventListener("focus", () => {
+        const w = getKokoroWorker();
+        if (w) w.postMessage({ type: "init" });
+      });
+    }
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       if (!input) return;
