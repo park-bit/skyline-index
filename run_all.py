@@ -24,6 +24,7 @@ def main():
             "notebook",
             "--execute",
             "--inplace",
+            "--ExecutePreprocessor.kernel_name=python3",
             "training_notebook.ipynb",
         ],
         [py, "scripts/05_horizon10_shrinkage.py"],

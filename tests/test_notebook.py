@@ -14,5 +14,5 @@ def test_notebook_executes_successfully():
     assert nb_path.exists(), "training_notebook.ipynb missing from repo root"
 
     nb = nbformat.read(nb_path, as_version=4)
-    client = NotebookClient(nb, timeout=1200, resources={"metadata": {"path": str(ROOT)}})
+    client = NotebookClient(nb, timeout=1200, kernel_name="python3", resources={"metadata": {"path": str(ROOT)}})
     client.execute()
