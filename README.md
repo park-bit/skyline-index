@@ -161,9 +161,19 @@ python -m http.server 8000
 
 Open `http://localhost:8000/web/index.html` in a web browser.
 
-Optional later: ElevenLabs via a serverless proxy, not included.
-
 Live deployment: https://skyline-index-web.vercel.app/
+
+## Smart Mode (Optional)
+
+The voice assistant includes an optional Smart Mode powered by the Needle 3 foundation tool-calling model (35 MB, Apache-2.0). When enabled, natural voice queries that exceed the built-in rule parser are routed to a FastAPI service deployed on Render.
+
+To run or deploy the API service:
+1. See instructions in `api/README.md`.
+2. Deploy as a web service on Render using `render.yaml`.
+3. Set `ALLOWED_ORIGINS` to your frontend domains.
+4. Point the client to the service by setting `NEEDLE_URL` in `web/assistant.js`.
+
+Cold start note: Free tier instances spin down after 15 minutes of inactivity. When waking, the initial request may take 40 to 50 seconds while the service starts. The interface pings `/health` and displays "warming up" during spin-up.
 
 ## Limitations
 

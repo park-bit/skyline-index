@@ -426,6 +426,122 @@ function setSpeakerEnabled(enabled) {
   }
 }
 
+let NEEDLE_URL = "";
+
+function isSmartModeEnabled() {
+  try {
+    return localStorage.getItem("skyline_smart_mode") === "true";
+  } catch (e) {
+    return false;
+  }
+}
+
+function setSmartModeEnabled(enabled) {
+  try {
+    localStorage.setItem("skyline_smart_mode", enabled ? "true" : "false");
+  } catch (e) {
+    // Ignore localStorage storage errors
+  }
+}
+
+function setNeedleUrlForTesting(url) {
+  NEEDLE_URL = url || "";
+  updateSmartModeVisibility();
+  if (NEEDLE_URL && isSmartModeEnabled()) {
+    pingSmartModeHealth();
+  }
+}
+
+async function pingSmartModeHealth() {
+  if (!NEEDLE_URL || typeof document === "undefined") return;
+  const statusChips = [
+    document.getElementById("smart-mode-status"),
+    document.getElementById("reply-smart-mode-status"),
+  ].filter(Boolean);
+
+  statusChips.forEach((chip) => {
+    chip.textContent = "warming up";
+    chip.style.display = "inline-block";
+  });
+
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 4000) : null;
+  try {
+    const res = await fetch(`${NEEDLE_URL}/health`, { signal: controller ? controller.signal : undefined });
+    if (timer) clearTimeout(timer);
+    if (res.ok) {
+      statusChips.forEach((chip) => {
+        chip.textContent = "ready";
+      });
+      setTimeout(() => {
+        statusChips.forEach((chip) => {
+          if (chip.textContent === "ready") chip.style.display = "none";
+        });
+      }, 2000);
+    } else {
+      statusChips.forEach((chip) => { chip.textContent = "offline"; });
+    }
+  } catch (e) {
+    if (timer) clearTimeout(timer);
+    statusChips.forEach((chip) => { chip.textContent = "offline"; });
+  }
+}
+
+function updateSmartModeVisibility() {
+  if (typeof document === "undefined") return;
+  const groups = [
+    document.getElementById("settings-group-smart-mode"),
+    document.getElementById("reply-smart-mode-field"),
+  ].filter(Boolean);
+
+  const isVisible = Boolean(NEEDLE_URL && NEEDLE_URL.trim() !== "");
+  groups.forEach((g) => {
+    g.style.display = isVisible ? "block" : "none";
+  });
+
+  const enabled = isSmartModeEnabled();
+  const toggles = [
+    document.getElementById("toggle-smart-mode"),
+    document.getElementById("reply-toggle-smart-mode"),
+  ].filter(Boolean);
+
+  toggles.forEach((t) => {
+    t.checked = enabled;
+    t.onchange = (e) => {
+      const next = e.target.checked;
+      setSmartModeEnabled(next);
+      toggles.forEach((other) => {
+        if (other !== e.target) other.checked = next;
+      });
+      const replyStatus = document.getElementById("reply-smart-mode-status");
+      if (replyStatus) replyStatus.textContent = next ? "On" : "Off";
+      if (next && NEEDLE_URL) {
+        pingSmartModeHealth();
+      }
+    };
+  });
+}
+
+async function queryNeedleParse(queryText) {
+  if (!NEEDLE_URL || !queryText) return null;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 4000) : null;
+  try {
+    const res = await fetch(`${NEEDLE_URL}/parse`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: queryText.slice(0, 200) }),
+      signal: controller ? controller.signal : undefined,
+    });
+    if (timer) clearTimeout(timer);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    if (timer) clearTimeout(timer);
+    return null;
+  }
+}
+
 let audioCtx = null;
 let analyserNode = null;
 let currentAudioSource = null;
@@ -1086,7 +1202,7 @@ function closeReplyPanel() {
   if (panel) panel.style.display = "none";
 }
 
-function executeAssistantCommand(inputStr) {
+async function executeAssistantCommand(inputStr) {
   const text = (inputStr || "").trim();
   if (!text) return;
 
@@ -1094,7 +1210,33 @@ function executeAssistantCommand(inputStr) {
 
   const airports = window.airportsData || [];
   const activeHorizon = window.currentHorizon || "present";
-  const result = parseAssistantCommand(text, airports, activeHorizon);
+  let result = parseAssistantCommand(text, airports, activeHorizon);
+
+  if (result.type === "unknown" && isSmartModeEnabled() && NEEDLE_URL) {
+    const parseRes = await queryNeedleParse(text);
+    if (parseRes && Array.isArray(parseRes.calls) && parseRes.calls.length > 0) {
+      const call = parseRes.calls[0];
+      const name = call.name;
+      const args = call.args || {};
+      if (name === "select_airport" && args.query) {
+        result = parseAssistantCommand("show " + args.query, airports, activeHorizon);
+      } else if (name === "compare_airports" && args.a && args.b) {
+        result = parseAssistantCommand("compare " + args.a + " and " + args.b, airports, activeHorizon);
+      } else if (name === "top_airports" && args.kind) {
+        const hStr = args.horizon ? " at +" + args.horizon : "";
+        const nStr = args.n ? " " + args.n : " 10";
+        result = parseAssistantCommand("top" + nStr + " " + args.kind + hStr, airports, activeHorizon);
+      } else if (name === "switch_horizon" && args.horizon != null) {
+        result = parseAssistantCommand("switch to +" + args.horizon, airports, activeHorizon);
+      } else if (name === "radar" && args.airport) {
+        result = parseAssistantCommand("radar for " + args.airport, airports, activeHorizon);
+      } else if (name === "reset") {
+        result = parseAssistantCommand("reset", airports, activeHorizon);
+      } else if (name === "help") {
+        result = parseAssistantCommand("help", airports, activeHorizon);
+      }
+    }
+  }
 
   // Store exchange history (keep last 3)
   conversationHistory.push({ query: text, reply: result.text, multipleMatches: result.multipleMatches });
@@ -1278,6 +1420,12 @@ function initAssistant() {
       assistantSettingsView.style.display = isHidden ? "block" : "none";
     });
   }
+
+  // Initialize Smart Mode
+  updateSmartModeVisibility();
+  if (isSmartModeEnabled() && NEEDLE_URL) {
+    pingSmartModeHealth();
+  }
 }
 
 if (typeof window !== "undefined") {
@@ -1288,6 +1436,13 @@ if (typeof window !== "undefined") {
   window.showVisualizer = showVisualizer;
   window.hideVisualizer = hideVisualizer;
   window.initVisualizer = initVisualizer;
+  window.setNeedleUrlForTesting = setNeedleUrlForTesting;
+  window.isSmartModeEnabled = isSmartModeEnabled;
+  window.setSmartModeEnabled = setSmartModeEnabled;
+  window.queryNeedleParse = queryNeedleParse;
+  window.pingSmartModeHealth = pingSmartModeHealth;
+  window.getConversationHistory = () => conversationHistory;
+  window.executeAssistantCommand = executeAssistantCommand;
 }
 
 if (typeof document !== "undefined") {

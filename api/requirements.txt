@@ -1,0 +1,5 @@
+fastapi==0.115.11
+uvicorn==0.34.0
+pydantic==2.10.6
+cactus-needle==3.2.0
+psutil==7.0.0

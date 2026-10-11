@@ -83,6 +83,16 @@
             <select id="settings-voice-select" class="settings-select" aria-label="Assistant voice"></select>
             <div class="voice-fallback-msg" id="settings-voice-fallback" style="display:none;">British voice not available on this device</div>
           </div>
+          <div class="settings-group" id="settings-group-smart-mode" style="display:none;">
+            <div class="settings-row-label">
+              <label for="toggle-smart-mode">Smart mode</label>
+              <span id="smart-mode-status" class="settings-val-chip" style="display:none;">warming up</span>
+            </div>
+            <label class="toggle-checkbox-label">
+              <input type="checkbox" id="toggle-smart-mode" aria-label="Toggle Smart Mode">
+              <span>Enable Needle parser</span>
+            </label>
+          </div>
           <div class="settings-group">
             <button type="button" class="reset-layout-btn" id="btn-reset-layout">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -306,6 +316,13 @@
             <label for="assistant-voice-select">Voice</label>
             <select id="assistant-voice-select" class="assistant-voice-select" aria-label="Voice selection"></select>
             <div class="voice-fallback-msg" id="reply-voice-fallback" style="display:none;">British voice not available on this device</div>
+          </div>
+          <div class="assistant-voice-field" id="reply-smart-mode-field" style="display:none;">
+            <label for="reply-toggle-smart-mode">Smart mode (Needle)</label>
+            <label class="toggle-checkbox-label">
+              <input type="checkbox" id="reply-toggle-smart-mode" aria-label="Toggle Smart Mode">
+              <span id="reply-smart-mode-status" style="font-size:11px;color:var(--muted);margin-left:6px;">Off</span>
+            </label>
           </div>
         </div>
         <div class="reply-panel-body" id="assistant-history-list"></div>

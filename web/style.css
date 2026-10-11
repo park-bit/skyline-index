@@ -2537,3 +2537,18 @@ body.radar-tab-active .assistant-reply-panel {
 body.radar-tab-active .radar-panel {
   padding-bottom: 240px;
 }
+
+.toggle-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--foreground);
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent-amber);
+}
