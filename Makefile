@@ -1,4 +1,4 @@
-.PHONY: install download panel model-table train test all
+.PHONY: install download panel model-table train intelligence test all
 
 install:
 	pip install -r requirements.txt
@@ -15,7 +15,11 @@ model-table:
 train:
 	jupyter nbconvert --to notebook --execute --inplace training_notebook.ipynb
 
+intelligence:
+	python scripts/05_horizon10_shrinkage.py
+	python scripts/04_build_intelligence.py
+
 test:
 	pytest -v
 
-all: download panel model-table train test
+all: download panel model-table train intelligence test

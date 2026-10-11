@@ -9,8 +9,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="assistant.css">
+  <link rel="stylesheet" href="intel.css">
 </head>
 <body class="dashboard">
   <!-- Top Bar -->
@@ -49,7 +51,25 @@
             <path d="M12 3a9 9 0 0 1 9 9"/>
             <path d="M12 12l5.5 -5.5"/>
           </svg>
-          Opportunity Radar
+          Radar
+        </button>
+        <button type="button" class="nav-button" id="tab-nav-intel" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          Intelligence
+        </button>
+        <button type="button" class="nav-button" id="tab-nav-scenario" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6v7l5 9H4l5-9z"/><line x1="9" y1="3" x2="15" y2="3"/>
+          </svg>
+          Scenario Lab
+        </button>
+        <button type="button" class="nav-button" id="tab-nav-method" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+          Methodology
         </button>
       </nav>
 
@@ -58,6 +78,12 @@
         <button type="button" class="pill-action-btn" id="btn-open-compare">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><path d="M5 9v12"/><circle cx="19" cy="18" r="3"/><path d="M19 15V3"/></svg>
           Compare airports
+        </button>
+        <button type="button" class="settings-toggle-btn" id="btn-copy-link" aria-label="Copy shareable link" title="Copy link to this view">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
         </button>
         <button type="button" class="settings-toggle-btn" id="btn-settings-toggle" aria-label="Settings" title="Display and voice settings">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -77,6 +103,21 @@
               <span id="transparency-val" class="settings-val-chip">45%</span>
             </div>
             <input type="range" id="slider-transparency" min="30" max="90" value="45" step="1" aria-label="Panel transparency">
+          </div>
+          <div class="settings-group">
+            <label for="h10-mode-select">2035 estimate</label>
+            <select id="h10-mode-select" class="settings-select" aria-label="2035 estimate mode">
+              <option value="damped">Validated (damped)</option>
+              <option value="raw">Raw ensemble (undamped)</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label for="basemap-select">Basemap</label>
+            <select id="basemap-select" class="settings-select" aria-label="Basemap style">
+              <option value="dark">Dark (tiles + vector fallback)</option>
+              <option value="light">Light</option>
+              <option value="none">None (vector only)</option>
+            </select>
           </div>
           <div class="settings-group">
             <label for="settings-voice-select">Voice</label>
@@ -142,20 +183,40 @@
           <circle cx="11" cy="11" r="8"/>
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input type="text" id="search-input" placeholder="Search IATA, city or airport..." aria-label="Search airports or cities" autocomplete="off">
+        <input type="text" id="search-input" placeholder="Search IATA, airport, city or country" aria-label="Search airports, cities or countries" autocomplete="off">
         <button type="button" id="btn-clear-search" class="clear-btn" aria-label="Clear search" style="display:none;">&times;</button>
         <kbd id="search-kbd">&#9003;</kbd>
       </div>
       <div class="search-results" id="search-results" style="display:none;"></div>
 
       <div class="panel-block">
-        <div class="panel-label">TIME HORIZON</div>
-        <div class="horizon-control" role="group" aria-label="Time horizon">
-          <button type="button" class="horizon-option selected active" id="btn-horizon-present" data-horizon="present">Current</button>
-          <button type="button" class="horizon-option" id="btn-horizon-h5" data-horizon="h5">+5 years</button>
-          <button type="button" class="horizon-option" id="btn-horizon-h10" data-horizon="h10">+10 years</button>
+        <div class="panel-label-row">
+          <div class="panel-label">TIME HORIZON</div>
+          <span class="horizon-year" id="horizon-year-label" aria-live="polite">2025</span>
         </div>
-        <div class="horizon-status-chip" id="horizon-status-chip">Showing current baseline, 2025</div>
+        <div class="horizon-control" role="group" aria-label="Time horizon">
+          <button type="button" class="horizon-option selected active" id="btn-horizon-present" data-horizon="present" aria-pressed="true">Current</button>
+          <button type="button" class="horizon-option" id="btn-horizon-h5" data-horizon="h5" aria-pressed="false">+5 years</button>
+          <button type="button" class="horizon-option" id="btn-horizon-h10" data-horizon="h10" aria-pressed="false">+10 years</button>
+        </div>
+        <div class="horizon-row">
+          <div class="horizon-status-chip" id="horizon-status-chip">Baseline &middot; 2025</div>
+          <button type="button" class="horizon-play" id="btn-horizon-play" aria-pressed="false" aria-label="Play time-lapse 2025 to 2035" title="Animate 2025 to 2035">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg><span>Play</span>
+          </button>
+          <label class="loop-label" title="Loop the time-lapse">
+            <input type="checkbox" id="toggle-loop-timelapse" aria-label="Loop time-lapse">
+            <span>Loop</span>
+          </label>
+        </div>
+        <div class="toggle-group" style="margin-top: 10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-network-shifts">
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-text">Show network shifts</span>
+        </div>
+        <div class="toggle-hint" id="network-shift-hint">Great-circle arcs for the 150 routes whose combined endpoint importance shifts most (of the 600 most important), coloured by direction.</div>
       </div>
 
       <div class="panel-block">
@@ -205,6 +266,13 @@
           </select>
         </div>
 
+        <div class="filter-select" id="filter-region-wrap" style="display:none;">
+          <label for="filter-region">REGION</label>
+          <select id="filter-region">
+            <option value="all">All regions</option>
+          </select>
+        </div>
+
         <div class="filter-select">
           <label for="filter-confidence">CONFIDENCE</label>
           <select id="filter-confidence">
@@ -225,7 +293,7 @@
       </div>
 
       <div class="legend">
-        <h3>OPPORTUNITY SCORE</h3>
+        <h3>IMPORTANCE SCORE</h3>
         <div class="legend-bar"></div>
         <div class="legend-scores">
           <span>0 (Low)</span>
@@ -254,6 +322,7 @@
       <div class="panel-grip-handle" id="grip-airport-card" aria-label="Drag airport card" title="Drag to move, double click to reset"></div>
       <div id="airport-card-body"></div>
     </aside>
+    <aside class="airport-card glass country-card" id="country-card" aria-label="Country summary" style="display:none;"></aside>
     <div class="selected-summary" id="selected-summary" style="display:none;">
       <button type="button" class="btn-summary" id="btn-open-card">
         <span id="summary-iata">SIN</span> : View card
@@ -275,6 +344,38 @@
       </div>
       <div class="radar-results" id="radar-results-list"></div>
     </section>
+
+    <!-- Intelligence / Scenario / Methodology views (rendered lazily by window.SkylineIntel) -->
+    <section class="radar-panel view-panel glass" id="intel-panel" role="tabpanel" aria-labelledby="tab-nav-intel" style="display:none;"></section>
+    <section class="radar-panel view-panel glass" id="scenario-panel" role="tabpanel" aria-labelledby="tab-nav-scenario" style="display:none;"></section>
+    <section class="radar-panel view-panel glass" id="method-panel" role="tabpanel" aria-labelledby="tab-nav-method" style="display:none;"></section>
+
+    <!-- Legend pill (bottom-left) -->
+    <aside class="legend-pill glass" id="legend-pill" aria-label="Map legend">
+      <button type="button" class="legend-pill-toggle" id="btn-legend-toggle" aria-expanded="true" aria-controls="legend-pill-body">
+        <span>Legend</span>
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="legend-pill-body" id="legend-pill-body">
+        <div class="legend-row legend-classes">
+          <span><i class="class-dot hub"></i>Hub</span>
+          <span><i class="class-dot emerging"></i>Emerging</span>
+          <span><i class="class-dot stable"></i>Stable</span>
+          <span><i class="class-dot declining"></i>Declining</span>
+        </div>
+        <div class="legend-row">
+          <span class="legend-size"><i style="width:6px;height:6px;"></i><i style="width:10px;height:10px;"></i><i style="width:14px;height:14px;"></i>Size = importance</span>
+          <span class="legend-ring"><i class="ring-solid"></i>Observed <i class="ring-outline"></i>Reconstructed <i class="ring-thin"></i>Static</span>
+        </div>
+        <div class="legend-network" id="legend-network-block" style="display:none;">
+          <span><i class="arc rising"></i>Rising route</span>
+          <span><i class="arc falling"></i>Falling route</span>
+          <span><i class="arc flat"></i>Flat</span>
+          <span class="legend-network-stats" id="legend-network-stats"></span>
+        </div>
+      </div>
+    </aside>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <!-- Compare Drawer Overlay -->
     <div class="compare-overlay" id="compare-overlay" style="display:none;">
@@ -308,6 +409,9 @@
             <button type="button" class="assistant-settings-toggle" id="btn-assistant-settings-toggle" aria-label="Voice settings" title="Voice settings">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
+            <button type="button" class="assistant-settings-toggle" id="btn-assistant-clear" aria-label="Clear conversation" title="Clear conversation">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
             <button type="button" class="reply-panel-close" id="btn-close-reply-panel" aria-label="Close assistant panel">&times;</button>
           </div>
         </div>
@@ -324,24 +428,57 @@
               <span id="reply-smart-mode-status" style="font-size:11px;color:var(--muted);margin-left:6px;">Off</span>
             </label>
           </div>
+          <div class="assistant-voice-field" id="assistant-grounding-field">
+            <label>Answer source</label>
+            <div class="assistant-llm-note" id="assistant-grounding-note">All answers are computed locally from the project dataset (forecasts, opportunities, intelligence JSON). No external APIs are called.</div>
+          </div>
+          <details class="assistant-advanced" id="assistant-advanced">
+            <summary>Advanced: bring your own model (off by default, optional)</summary>
+          <div class="assistant-voice-field assistant-llm-field" id="assistant-llm-field">
+            <label for="assistant-llm-key">Bring your own model <span class="assistant-llm-note">optional · stored only in this browser (localStorage)</span></label>
+            <div class="assistant-llm-grid">
+              <select id="assistant-llm-provider" class="assistant-voice-select" aria-label="LLM provider">
+                <option value="openai">OpenAI-compatible</option>
+                <option value="gemini">Google Gemini</option>
+              </select>
+              <input type="text" id="assistant-llm-model" class="assistant-voice-select" placeholder="model, e.g. gpt-4o-mini" aria-label="LLM model" autocomplete="off">
+              <input type="text" id="assistant-llm-base" class="assistant-voice-select" placeholder="base URL (optional)" aria-label="LLM base URL" autocomplete="off">
+              <input type="password" id="assistant-llm-key" class="assistant-voice-select" placeholder="API key" aria-label="LLM API key" autocomplete="off">
+            </div>
+            <div class="assistant-llm-actions">
+              <button type="button" class="cp-chip" id="btn-assistant-llm-save">Save locally</button>
+              <button type="button" class="cp-chip" id="btn-assistant-llm-clear">Clear</button>
+              <span id="assistant-llm-status" class="assistant-llm-note">Local engine only</span>
+            </div>
+          </div>
+          </details>
         </div>
-        <div class="reply-panel-body" id="assistant-history-list"></div>
+        <div class="reply-panel-body" id="assistant-history-list" aria-live="polite"></div>
+        <div class="assistant-typing" id="assistant-typing" style="display:none;" aria-hidden="true"><span></span><span></span><span></span></div>
       </div>
 
       <div class="map-statistics" id="map-statistics">
         <div class="panel-grip-handle" id="grip-map-statistics" aria-label="Drag statistics strip" title="Drag to move, double click to reset"></div>
+        <div class="map-statistics-eyebrow">
+          <span id="stat-horizon-label">Current baseline</span>
+          <strong id="stat-horizon-year">2025</strong>
+        </div>
         <div class="map-statistics-content">
           <div>
             <strong id="stat-airports-count">0</strong>
-            <span>Airports tracked</span>
+            <span>Airports</span>
           </div>
           <div>
             <strong id="stat-emerging-count" class="class-emerging-text">0</strong>
-            <span>Emerging opportunities</span>
+            <span>Emerging</span>
           </div>
           <div>
             <strong id="stat-hubs-count" class="class-hub-text">0</strong>
-            <span>Established hubs</span>
+            <span>Hubs</span>
+          </div>
+          <div>
+            <strong id="stat-declining-count" class="class-declining-text">0</strong>
+            <span>Declining</span>
           </div>
         </div>
       </div>
@@ -355,7 +492,7 @@
         </button>
 
         <form class="assistant-input-form" id="assistant-form" action="javascript:void(0);">
-          <input type="text" id="assistant-input" class="assistant-input" placeholder="Ask Skyline: show Hyderabad" aria-label="Ask Skyline: show Hyderabad" autocomplete="off" />
+          <input type="text" id="assistant-input" class="assistant-input" placeholder="Ask Skyline anything: which Indian airports grow most by 2035?" aria-label="Ask Skyline Copilot" autocomplete="off" />
         </form>
 
         <div class="assistant-waveform" id="assistant-waveform" aria-hidden="true" style="display:none;">
@@ -390,8 +527,11 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="vendor/leaflet/leaflet.js"></script>
   <script src="app.js"></script>
+  <script src="intel.js"></script>
+  <script src="scenario.js"></script>
+  <script src="copilot.js"></script>
   <script src="assistant.js"></script>
 </body>
 </html>

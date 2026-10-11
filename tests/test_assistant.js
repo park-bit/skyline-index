@@ -165,11 +165,12 @@ const tests = [
     },
   },
   {
-    name: "17. Unknown input",
+    name: "17. Unknown input (legacy parser: graceful, never 'not recognized')",
     input: "what is the weather today",
     verify: (res) => {
       assert.strictEqual(res.type, "unknown");
-      assert.ok(res.text.includes("Command not recognized"));
+      assert.ok(!res.text.includes("Command not recognized"));
+      assert.ok(res.text.includes("help"));
     },
   },
   {
@@ -332,5 +333,32 @@ voiceTests.forEach((vt) => {
   }
 });
 
-const totalCount = tests.length + voiceTests.length;
+// Copilot engine (pure, DOM-free) smoke tests
+const Copilot = require("../web/copilot.js");
+const lookup = {};
+airports.forEach((a) => { lookup[a.iata] = a; });
+const copilotCtx = { airports, airportLookup: lookup, horizon: "present", selectedAirport: lookup.SIN, history: [] };
+const copilotTests = [
+  ["which airports in india will grow the most by 2035", "top_n", (r) => r.rows.length === 10 && r.rows.every((i) => lookup[i].country === "IN")],
+  ["is there a direct flight DEL to SFO", "route_between", (r) => /direct|hops?/.test(r.reply)],
+  ["what happens if DXB closes", "resilience", (r) => /\d/.test(r.reply)],
+  ["compare SIN and DXB", "compare", (r) => r.actions.some((a) => a.type === "compare")],
+  ["what is the weather today", "fallback", (r) => r.followups.length === 3 && !/not recognized/i.test(r.reply)],
+  ["help", "help", (r) => r.html.includes("data-copilot-ask")],
+];
+copilotTests.forEach(([q, intent, check], i) => {
+  try {
+    const r = Copilot.answer(q, copilotCtx);
+    assert.strictEqual(r.intent, intent, `intent ${r.intent} != ${intent}`);
+    assert.ok(r.reply && r.html && Array.isArray(r.actions) && typeof r.confidence === "number");
+    assert.ok(check(r), "check failed: " + r.reply);
+    passed++;
+    console.log(`PASS: C${i + 1}. Copilot: ${q}`);
+  } catch (err) {
+    console.error(`FAIL: C${i + 1}. Copilot: ${q}:`, err.message);
+    process.exitCode = 1;
+  }
+});
+
+const totalCount = tests.length + voiceTests.length + copilotTests.length;
 console.log(`\nAssistant test suite: ${passed}/${totalCount} tests passed.`);

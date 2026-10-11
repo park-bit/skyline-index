@@ -1,23 +1,6 @@
 // skyline-index - Voice and Text Assistant (Skyline)
-let NEEDLE_URL = "https://skyline-smart-mode.onrender.com";
-
-let defaultOpportunities = null;
-if (typeof window === "undefined") {
-  try {
-    const fs = require("fs");
-    const p = require("path").join(__dirname, "opportunities.json");
-    if (fs.existsSync(p)) {
-      defaultOpportunities = JSON.parse(fs.readFileSync(p, "utf8"));
-    }
-  } catch (e) {}
-}
-
-function getOpportunitiesDataset() {
-  if (typeof window !== "undefined" && window.opportunitiesData) {
-    return window.opportunitiesData;
-  }
-  return defaultOpportunities;
-}
+// Legacy Needle smart mode is OFF by default (no remote health ping). Tests inject a URL via setNeedleUrlForTesting.
+let NEEDLE_URL = "";
 
 function levenshteinDistance(s1, s2) {
   const a = s1.toLowerCase();
@@ -43,23 +26,6 @@ function levenshteinDistance(s1, s2) {
   }
   return d[m][n];
 }
-
-const COUNTRY_NAME_TO_CODE = {
-  india: "IN", indian: "IN",
-  us: "US", usa: "US", america: "US", american: "US",
-  uk: "GB", britain: "GB", british: "GB", england: "GB", english: "GB",
-  china: "CN", chinese: "CN",
-  japan: "JP", japanese: "JP",
-  germany: "DE", german: "DE",
-  france: "FR", french: "FR",
-  spain: "ES", spanish: "ES",
-  italy: "IT", italian: "IT",
-  uae: "AE", dubai: "AE",
-  singapore: "SG",
-  indonesia: "ID", indonesian: "ID",
-  canada: "CA", canadian: "CA",
-  australia: "AU", australian: "AU",
-};
 
 function fuzzyMatchAirport(query, airports) {
   if (!query || !airports || airports.length === 0) return [];
@@ -159,7 +125,7 @@ function formatAirportSummary(ap) {
   };
   const classLabel = classNames[rawClass] || rawClass;
 
-  const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "reconstructed");
+  const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
   const conf = ap.importance_confidence || "medium";
 
   const parts = [
@@ -177,45 +143,6 @@ function formatAirportSummary(ap) {
   }
   if (h10Caveat) {
     parts.push(`The plus ten range is ${h10Caveat}.`);
-  }
-
-  return parts.join(" ");
-}
-
-function formatAirportSpokenSummary(ap) {
-  const cityOrName = ap.city || ap.name;
-  const curScore = Number(ap.importance_present.toFixed(1));
-  const h5Level = ap.forecast_h5 ? Number(ap.forecast_h5.level.toFixed(1)) : curScore;
-  const h10Level = ap.forecast_h10 ? Number(ap.forecast_h10.level.toFixed(1)) : curScore;
-
-  const rawClass = ap.forecast_h5 && ap.forecast_h5.class ? ap.forecast_h5.class : "stable";
-  const classNames = {
-    established_hub: "Established hub",
-    emerging: "Emerging",
-    stable: "Stable",
-    declining: "Declining",
-  };
-  const classLabel = classNames[rawClass] || rawClass;
-
-  const dq = ap.data_quality === "observed" ? "observed flight data" : "reconstructed data";
-  const conf = ap.importance_confidence || "medium";
-  const spelledIata = (ap.iata || "").split("").join(", ");
-
-  const parts = [
-    `${cityOrName}, airport code ${spelledIata}. Currently scores ${curScore}, projected to reach ${h5Level} in five years and ${h10Level} in ten years, as an ${classLabel.toLowerCase()} airport. Data quality is ${dq} with ${conf} confidence.`,
-  ];
-
-  const h5Coverage = ap.forecast_h5 && ap.forecast_h5.coverage_pct != null ? ap.forecast_h5.coverage_pct : 80;
-  const h10Coverage = ap.forecast_h10 && ap.forecast_h10.coverage_pct != null ? ap.forecast_h10.coverage_pct : 32.3;
-
-  const h5Caveat = h5Coverage < 70 ? "a rough range" : null;
-  const h10Caveat = h10Coverage < 70 ? "indicative only" : null;
-
-  if (h5Caveat) {
-    parts.push(`The five year projection is ${h5Caveat}.`);
-  }
-  if (h10Caveat) {
-    parts.push(`The ten year projection is ${h10Caveat}.`);
   }
 
   return parts.join(" ");
@@ -349,189 +276,65 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
     };
   }
 
-  // Command: Opportunity Radar / Opportunities / Candidate Routes strictly from model dataset
-  const isOpportunityQuery =
-    /\b(opportunit\w*|candidate\s+routes?|radar\s+candidates?)\b/i.test(clean) ||
-    /^(?:open\s+|show\s+|view\s+)?(?:opportunity\s+)?radar$/i.test(clean);
-
-  if (isOpportunityQuery && !radarMatch) {
-    const oppData = getOpportunitiesDataset();
-
-    let view = "airline";
-    if (/\b(investor|risers?)\b/i.test(clean)) {
-      view = "investor";
-    } else if (/\b(tourism|destinations?)\b/i.test(clean)) {
-      view = "tourism";
-    }
-
-    let count = 10;
-    const countMatch = clean.match(/\b(?:top|first)\s*(\d+)\b/i);
-    if (countMatch) count = parseInt(countMatch[1], 10);
-    else if (/\b(best|top\s+1\b|number\s+1\b)\b/i.test(clean)) count = 1;
-
-    if (oppData) {
-      if (view === "airline") {
-        const items = (oppData.airline_opportunities || []).slice(0, count);
-        if (items.length > 0) {
-          const lines = items.map((it) => {
-            return `${it.rank}. ${it.origin_iata} \u2194 ${it.dest_iata} (Score ${it.score}) : ${it.origin_city} to ${it.dest_city} (${it.distance_km} km)`;
-          });
-          const header = `Top ${items.length} Candidate Route Opportunities (Opportunity Radar):`;
-          return {
-            type: "radar",
-            radarView: "airline",
-            text: [header, ...lines].join("\n"),
-            spokenText: `Showing top ${items.length} candidate route opportunities in Opportunity Radar.`,
-          };
-        }
-      } else if (view === "investor") {
-        const items = (oppData.investor_opportunities || []).slice(0, count);
-        if (items.length > 0) {
-          const lines = items.map((it) => {
-            return `${it.rank}. ${it.iata} : ${it.city || it.name} (+${it.forecast_change_h5.toFixed(2)} pts) [Driver: ${it.top_driver}]`;
-          });
-          const header = `Top ${items.length} High Confidence Risers (Opportunity Radar):`;
-          return {
-            type: "radar",
-            radarView: "investor",
-            text: [header, ...lines].join("\n"),
-            spokenText: `Showing top ${items.length} high confidence risers in Opportunity Radar.`,
-          };
-        }
-      } else if (view === "tourism") {
-        const items = (oppData.tourism_opportunities || []).slice(0, count);
-        if (items.length > 0) {
-          const lines = items.map((it) => {
-            return `${it.rank}. ${it.iata} : ${it.city || it.name} (${it.country}) [${it.type}]`;
-          });
-          const header = `Top ${items.length} Tourism Destinations (Opportunity Radar):`;
-          return {
-            type: "radar",
-            radarView: "tourism",
-            text: [header, ...lines].join("\n"),
-            spokenText: `Showing top ${items.length} tourism destinations in Opportunity Radar.`,
-          };
-        }
-      }
-    }
-
-    return {
-      type: "radar",
-      radarView: view,
-      text: `Opening Opportunity Radar for ${view} opportunities.`,
-      spokenText: `Opening Opportunity Radar.`,
-    };
-  }
-
-  // Explanation: Emerging classification or score criteria
-  const isEmergingQuestion =
-    /\b(?:is\s+it\s+(?:still\s+)?emerging|why\s+(?:is\s+it\s+)?emerging|what\s+is\s+emerging|how\s+is\s+emerging|emerging\s+(?:rule|definition|criteria|threshold))\b/i.test(clean) ||
-    /\b(?:\d+(?:\.\d+)?\s*(?:score)?\s*(?:is\s+it|still)\s*emerging)\b/i.test(clean);
-
-  if (isEmergingQuestion) {
-    return {
-      type: "explanation",
-      text: "Emerging classification is based on predicted growth, not raw score. Airports below score 90 qualify as emerging if their projected 5-year growth is in the top 20% within their data quality group, with at least a 2.0 point gain. An airport scoring 29.4 can be emerging if its projected 5-year growth puts it in the top 20% of risers.",
-      spokenText: "Emerging classification is based on projected growth, not current score. Airports below 90 qualify as emerging if their 5-year projected growth is in the top 20 percent of their group, with at least a 2 point gain. An airport scoring 29 point 4 is emerging whenever its projected trajectory meets those growth criteria.",
-    };
-  }
-
-  // Command: Top / Fastest growing / Hubs / Declining (supports conversational phrasing & regions)
-  const isTopOrOpportunity =
-    /\b(fastest\s+grow\w*|grow\w*\s+fastest|top|emerging|hubs?|established|busiest|biggest\s+hubs?|declining|shrinking)\b/i.test(clean);
-
-  if (isTopOrOpportunity) {
-    let count = 10;
-    if (/\b(best|top\s+1\b|number\s+1\b|highest)\b/i.test(clean)) count = 1;
-    const countMatch = clean.match(/\b(?:top|first)\s*(\d+)\b/i);
-    if (countMatch) count = parseInt(countMatch[1], 10);
-
+  // Command: Top 10 emerging / hubs / declining [at +5 / +10]
+  const topMatch = clean.match(/^top\s*(\d+)?\s*(emerging|hubs?|established_hubs?|declining)(?:\s+(?:at|for|in)?\s*(\+?5|\+?10|current|present))?$/i);
+  if (topMatch) {
+    const count = parseInt(topMatch[1] || "10", 10);
+    const catRaw = topMatch[2].toLowerCase();
     let targetClass = "emerging";
     let catTitle = "Emerging";
-    let isGrowthSort = false;
-
-    if (/\b(hubs?|established|busiest|biggest\s+hubs?|largest)\b/i.test(clean)) {
+    if (catRaw.startsWith("hub") || catRaw.includes("established")) {
       targetClass = "established_hub";
       catTitle = "Established Hubs";
-    } else if (/\b(declining|shrinking|falling|drops?)\b/i.test(clean)) {
+    } else if (catRaw === "declining") {
       targetClass = "declining";
       catTitle = "Declining";
-    } else {
-      targetClass = "emerging";
-      catTitle = "Emerging";
-      if (/\b(fastest\s+grow\w*|grow\w*\s+fastest)\b/i.test(clean)) {
-        isGrowthSort = true;
-      }
     }
 
     let horizon = activeHorizon || "present";
     let horizonLabel = horizon === "h5" ? "+5 years" : horizon === "h10" ? "+10 years" : "current";
-    if (/(?:\+5|\b5\s*years?|\bat\s+\+?5|\bnear\s+future)\b/i.test(clean)) {
-      horizon = "h5";
-      horizonLabel = "+5 years";
-    } else if (/(?:\+10|\b10\s*years?|\bat\s+\+?10|\bdistant\s+future|ten\s+years?)\b/i.test(clean)) {
-      horizon = "h10";
-      horizonLabel = "+10 years";
-    } else if (/\b(current|present|now|baseline)\b/i.test(clean)) {
-      horizon = "present";
-      horizonLabel = "current";
-    }
-
-    let countryCode = null;
-    let countryLabel = "";
-    for (const [cName, cCode] of Object.entries(COUNTRY_NAME_TO_CODE)) {
-      const reg = new RegExp(`\\b${cName}\\b`, "i");
-      if (reg.test(clean)) {
-        countryCode = cCode;
-        countryLabel = cName.charAt(0).toUpperCase() + cName.slice(1) + " ";
-        break;
+    if (topMatch[3]) {
+      const hStr = topMatch[3].replace("+", "").toLowerCase();
+      if (hStr === "5") {
+        horizon = "h5";
+        horizonLabel = "+5 years";
+      } else if (hStr === "10") {
+        horizon = "h10";
+        horizonLabel = "+10 years";
+      } else {
+        horizon = "present";
+        horizonLabel = "current";
       }
     }
 
-    let matchingAirports = airports.filter((a) => {
-      if (countryCode && a.country !== countryCode) return false;
-      return true;
-    });
+    const matchingAirports = airports.filter((a) => getAirportClassForHorizon(a, horizon) === targetClass);
 
-    if (isGrowthSort) {
-      matchingAirports.sort((a, b) => {
-        const fcA = horizon === "h10" ? a.forecast_h10 : a.forecast_h5;
-        const fcB = horizon === "h10" ? b.forecast_h10 : b.forecast_h5;
-        const chA = fcA && fcA.change != null ? fcA.change : 0;
-        const chB = fcB && fcB.change != null ? fcB.change : 0;
-        return chB - chA;
-      });
-    } else if (targetClass === "declining") {
-      matchingAirports = matchingAirports.filter((a) => getAirportClassForHorizon(a, horizon) === "declining");
+    if (targetClass === "declining") {
+      // Sort by largest negative change if forecast exists, else lowest score
       matchingAirports.sort((a, b) => {
         const chA = a.forecast_h5 ? a.forecast_h5.change : 0;
         const chB = b.forecast_h5 ? b.forecast_h5.change : 0;
         return chA - chB;
       });
     } else {
-      matchingAirports = matchingAirports.filter((a) => getAirportClassForHorizon(a, horizon) === targetClass);
       matchingAirports.sort((a, b) => getAirportScoreForHorizon(b, horizon) - getAirportScoreForHorizon(a, horizon));
     }
 
     const topList = matchingAirports.slice(0, count);
-    if (topList.length > 0) {
-      const listLines = topList.map((a, idx) => {
-        const score = getAirportScoreForHorizon(a, horizon).toFixed(1);
-        const fc = horizon === "h10" ? a.forecast_h10 : a.forecast_h5;
-        const chStr = isGrowthSort && fc && fc.change != null ? ` (+${fc.change.toFixed(1)} pts)` : ` (${score})`;
-        return `${idx + 1}. ${a.iata} : ${a.city || a.name}${chStr}`;
-      });
+    const listLines = topList.map((a, idx) => {
+      const score = getAirportScoreForHorizon(a, horizon).toFixed(1);
+      return `${idx + 1}. ${a.iata} : ${a.city || a.name} (${score})`;
+    });
 
-      const header = `Top ${topList.length} ${countryLabel}${catTitle} airports at ${horizonLabel}:`;
-      return {
-        type: "top",
-        category: targetClass,
-        horizon: horizon,
-        airports: topList,
-        text: [header, ...listLines].join("\n"),
-        spokenText: `Showing top ${topList.length} ${countryLabel.toLowerCase()}${catTitle.toLowerCase()} airports at ${horizonLabel}.`,
-      };
-    }
+    const header = `Top ${topList.length} ${catTitle} airports at ${horizonLabel}:`;
+    return {
+      type: "top",
+      category: targetClass,
+      horizon: horizon,
+      airports: topList,
+      text: [header, ...listLines].join("\n"),
+      spokenText: `Showing top ${topList.length} ${catTitle.toLowerCase()} airports at ${horizonLabel}.`,
+    };
   }
 
   // Command: Show / Find / Go to / Zoom to / Natural phrases
@@ -584,21 +387,20 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
 
     const ap = matches[0];
     const summary = formatAirportSummary(ap);
-    const spoken = formatAirportSpokenSummary(ap);
     return {
       type: "show",
       airport: ap,
       multipleMatches: null,
       text: summary,
-      spokenText: spoken,
+      spokenText: summary,
     };
   }
 
   // Unknown command fallback: say what it can do, never guess
   return {
     type: "unknown",
-    text: 'Command not recognized. Say "help" to see available commands, or try: "show [airport]", "compare [A] and [B]", "top 10 emerging", "switch to +5", "radar for [airport]", or "reset".',
-    spokenText: "I did not recognize that command. Say help to hear what I can do.",
+    text: 'I could not map that to the aviation data yet. Say "help" to see what Skyline can do, or try: "show [airport]", "compare [A] and [B]", "top 10 emerging", "switch to +5", "radar for [airport]", or "reset".',
+    spokenText: "I could not map that to the data yet. Say help to hear what I can do.",
   };
 }
 
@@ -629,11 +431,9 @@ function setSpeakerEnabled(enabled) {
 
 function isSmartModeEnabled() {
   try {
-    const val = localStorage.getItem("skyline_smart_mode");
-    if (val === null) return true;
-    return val === "true";
+    return localStorage.getItem("skyline_smart_mode") === "true";
   } catch (e) {
-    return true;
+    return false;
   }
 }
 
@@ -1258,20 +1058,16 @@ let visualizerCanvas = null;
 let visualizerCtx = null;
 let visualizerAnimId = null;
 let isAnswering = false;
-let startVisualizerLoop = () => {};
-let stopVisualizerLoop = () => {};
 
 function showVisualizer() {
   if (visualizerCanvas) {
     visualizerCanvas.style.display = "block";
-    startVisualizerLoop();
   }
 }
 
 function hideVisualizer() {
   if (visualizerCanvas && !isSpeaking && !isAnswering) {
     visualizerCanvas.style.display = "none";
-    stopVisualizerLoop();
   }
 }
 
@@ -1291,26 +1087,9 @@ function initVisualizer() {
 
   const freqArray = new Uint8Array(64);
 
-  startVisualizerLoop = function () {
-    if (visualizerAnimId) return;
-    if (typeof requestAnimationFrame === "undefined") return;
-    lastTime = performance.now();
-    visualizerAnimId = requestAnimationFrame(drawFrame);
-  };
-
-  stopVisualizerLoop = function () {
-    if (visualizerAnimId) {
-      cancelAnimationFrame(visualizerAnimId);
-      visualizerAnimId = null;
-    }
-  };
-
   function drawFrame(now) {
-    if (!visualizerCanvas || visualizerCanvas.style.display === "none") {
-      visualizerAnimId = null;
-      return;
-    }
     visualizerAnimId = requestAnimationFrame(drawFrame);
+    if (!visualizerCanvas || visualizerCanvas.style.display === "none") return;
 
     const dt = Math.min(0.1, (now - lastTime) / 1000);
     lastTime = now;
@@ -1427,6 +1206,10 @@ function initVisualizer() {
 
     ctx.restore();
   }
+
+  if (typeof requestAnimationFrame !== "undefined") {
+    drawFrame(performance.now());
+  }
 }
 
 function setListeningState(listening) {
@@ -1495,6 +1278,377 @@ function triggerPulseRing(lat, lon) {
   }, 50);
 }
 
+// ---------------------------------------------------------------------------
+// Copilot chat thread, action dispatch and optional bring-your-own-model LLM
+// ---------------------------------------------------------------------------
+const MAX_HISTORY = 60;
+let copilotLayerGroup = null;
+let copilotHighlightGroup = null;
+let copilotSelectedIata = null;
+let intelligenceFetchAttempted = false;
+let placeholderTimer = null;
+
+const PLACEHOLDER_EXAMPLES = [
+  "Which Indian airports grow most by 2035?",
+  "Is there a direct route DEL→SFO?",
+  "What happens if DXB closes?",
+  "Compare SIN and DXB",
+  "Fastest growing countries in Africa",
+  "Where does Hyderabad rank?",
+  "If India's GDP grows 2% faster…",
+  "Why is BLR emerging?",
+];
+
+function escapeHtmlText(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function getActiveHorizon() {
+  if (typeof window.getCurrentHorizon === "function") return window.getCurrentHorizon();
+  if (window.currentHorizon) return window.currentHorizon;
+  const btn = document.querySelector(".horizon-option.selected, .horizon-option.active");
+  return btn ? btn.getAttribute("data-horizon") || "present" : "present";
+}
+
+function getSelectedAirportForCopilot() {
+  const lookup = window.airportLookup || {};
+  if (copilotSelectedIata && lookup[copilotSelectedIata]) return lookup[copilotSelectedIata];
+  const summary = document.getElementById("summary-iata");
+  if (summary && lookup[summary.textContent.trim()]) return lookup[summary.textContent.trim()];
+  return lookup.SIN || null;
+}
+
+async function ensureIntelligenceLoaded() {
+  if (window.intelligenceData || intelligenceFetchAttempted) return window.intelligenceData || null;
+  intelligenceFetchAttempted = true;
+  try {
+    const res = await fetch("intelligence.json", { cache: "force-cache" });
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.countries) window.intelligenceData = json;
+    }
+  } catch (e) {
+    // graceful: engine computes aggregates client-side
+  }
+  return window.intelligenceData || null;
+}
+
+function buildCopilotContext() {
+  return {
+    airports: window.airportsData || [],
+    airportLookup: window.airportLookup || {},
+    opportunities: window.opportunitiesData || null,
+    intelligence: window.intelligenceData || undefined,
+    meta: window.forecastsMeta || null,
+    horizon: getActiveHorizon(),
+    h10Mode: window.SKYLINE_H10_MODE === "raw" ? "raw" : "damped",
+    selectedAirport: getSelectedAirportForCopilot(),
+    history: conversationHistory.slice(-8),
+  };
+}
+
+// ---- LLM (bring your own key) --------------------------------------------
+function getLlmConfig() {
+  try {
+    const raw = localStorage.getItem("skyline_llm_config");
+    if (!raw) return null;
+    const cfg = JSON.parse(raw);
+    return cfg && cfg.key && cfg.model ? cfg : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setLlmConfig(cfg) {
+  try {
+    if (!cfg) localStorage.removeItem("skyline_llm_config");
+    else localStorage.setItem("skyline_llm_config", JSON.stringify(cfg));
+  } catch (e) {}
+  updateLlmStatus();
+}
+
+function updateLlmStatus() {
+  const el = document.getElementById("assistant-llm-status");
+  if (!el) return;
+  const cfg = getLlmConfig();
+  el.textContent = cfg ? `Model mode on: ${cfg.model} (${cfg.provider === "gemini" ? "Gemini" : "OpenAI-compatible"})` : "Local engine only";
+}
+
+const LLM_TOOLS = [
+  { name: "select_airport", description: "Select an airport on the map", parameters: { type: "object", properties: { iata: { type: "string" } }, required: ["iata"] } },
+  { name: "set_horizon", description: "Set forecast horizon", parameters: { type: "object", properties: { horizon: { type: "string", enum: ["present", "h5", "h10"] } }, required: ["horizon"] } },
+  { name: "switch_tab", description: "Open a view", parameters: { type: "object", properties: { tab: { type: "string", enum: ["map", "radar", "intel", "scenario", "method"] } }, required: ["tab"] } },
+  { name: "compare", description: "Compare two airports", parameters: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, required: ["a", "b"] } },
+  { name: "draw_route", description: "Draw a route between two airports", parameters: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, required: ["a", "b"] } },
+  { name: "highlight", description: "Highlight airports on the map", parameters: { type: "object", properties: { iatas: { type: "array", items: { type: "string" } } }, required: ["iatas"] } },
+  { name: "fly_to", description: "Fly the map to coordinates", parameters: { type: "object", properties: { lat: { type: "number" }, lon: { type: "number" }, zoom: { type: "number" } }, required: ["lat", "lon"] } },
+];
+
+function llmSystemPrompt() {
+  return "You are Skyline Copilot, an aviation intelligence assistant embedded in a map of 4,079 airports with importance scores (0-100) today, 2030 and 2035, class labels (emerging, stable, declining, established_hub), route network and country aggregates. Answer ONLY from the JSON context provided, which comes from the project dataset; never use outside knowledge about airports, traffic or economies. If the context lacks the facts, say so and suggest a more specific question. Reply in at most 3 short sentences of plain text, numbers to one decimal, then optionally call tools to drive the map. Never invent airports or numbers.";
+}
+
+async function queryLlm(text, localResult) {
+  const cfg = getLlmConfig();
+  if (!cfg || !window.SkylineCopilot || typeof fetch !== "function") return null;
+  const context = window.SkylineCopilot.compactContext(text, buildCopilotContext(), 6000);
+  context.local_engine_answer = (localResult && localResult.reply) || null;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 12000) : null;
+  try {
+    let replyText = "";
+    const actions = [];
+    if (cfg.provider === "gemini") {
+      const base = (cfg.baseUrl || "https://generativelanguage.googleapis.com/v1beta").replace(/\/$/, "");
+      const res = await fetch(`${base}/models/${encodeURIComponent(cfg.model)}:generateContent?key=${encodeURIComponent(cfg.key)}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, signal: controller ? controller.signal : undefined,
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: llmSystemPrompt() }] },
+          contents: [{ role: "user", parts: [{ text: `Question: ${text}\nContext JSON: ${JSON.stringify(context)}` }] }],
+          tools: [{ functionDeclarations: LLM_TOOLS }],
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const parts = (((json.candidates || [])[0] || {}).content || {}).parts || [];
+      parts.forEach((p) => {
+        if (p.text) replyText += p.text;
+        if (p.functionCall && p.functionCall.name) actions.push(Object.assign({ type: p.functionCall.name }, p.functionCall.args || {}));
+      });
+    } else {
+      const base = (cfg.baseUrl || "https://api.openai.com/v1").replace(/\/$/, "");
+      const res = await fetch(`${base}/chat/completions`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.key}` }, signal: controller ? controller.signal : undefined,
+        body: JSON.stringify({
+          model: cfg.model, temperature: 0.2,
+          messages: [{ role: "system", content: llmSystemPrompt() }, { role: "user", content: `Question: ${text}\nContext JSON: ${JSON.stringify(context)}` }],
+          tools: LLM_TOOLS.map((t) => ({ type: "function", function: t })),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const msg = ((json.choices || [])[0] || {}).message || {};
+      replyText = msg.content || "";
+      (msg.tool_calls || []).forEach((tc) => {
+        try { actions.push(Object.assign({ type: tc.function.name }, JSON.parse(tc.function.arguments || "{}"))); } catch (e) {}
+      });
+    }
+    if (timer) clearTimeout(timer);
+    replyText = String(replyText || "").trim();
+    if (!replyText && !actions.length) return null;
+    return { reply: replyText || (localResult && localResult.reply) || "", actions, source: cfg.provider === "gemini" ? "gemini" : "openai" };
+  } catch (e) {
+    if (timer) clearTimeout(timer);
+    return null;
+  }
+}
+
+// ---- Action dispatch ------------------------------------------------------
+function getCopilotLayers() {
+  if (!window.map || typeof L === "undefined") return null;
+  if (!copilotLayerGroup) copilotLayerGroup = L.layerGroup().addTo(window.map);
+  if (!copilotHighlightGroup) copilotHighlightGroup = L.layerGroup().addTo(window.map);
+  return { routes: copilotLayerGroup, highlights: copilotHighlightGroup };
+}
+
+function clearCopilotOverlays() {
+  if (copilotLayerGroup) copilotLayerGroup.clearLayers();
+  if (copilotHighlightGroup) copilotHighlightGroup.clearLayers();
+}
+
+function latLngOf(iata) {
+  const ap = (window.airportLookup || {})[iata];
+  return ap && ap.latitude != null && ap.longitude != null ? [ap.latitude, ap.longitude] : null;
+}
+
+function applyCopilotAction(action) {
+  if (!action || !action.type) return;
+  const lookup = window.airportLookup || {};
+  const map = window.map;
+  switch (action.type) {
+    case "select_airport": {
+      const ap = lookup[String(action.iata || "").toUpperCase()];
+      if (!ap) return;
+      copilotSelectedIata = ap.iata;
+      if (typeof window.switchTab === "function" && document.body.classList.contains("radar-tab-active")) window.switchTab("map");
+      if (typeof window.selectAirport === "function") window.selectAirport(ap);
+      if (map && ap.latitude != null) {
+        map.flyTo([ap.latitude, ap.longitude], Math.max(map.getZoom(), 5), { duration: 1.0 });
+        triggerPulseRing(ap.latitude, ap.longitude);
+      }
+      return;
+    }
+    case "fly_to": {
+      if (map && action.lat != null && action.lon != null) map.flyTo([action.lat, action.lon], action.zoom || 6, { duration: 1.2 });
+      return;
+    }
+    case "set_horizon": {
+      if (typeof window.setHorizon === "function") window.setHorizon(action.horizon);
+      else { const btn = document.getElementById("btn-horizon-" + action.horizon); if (btn) btn.click(); }
+      return;
+    }
+    case "switch_tab": {
+      if (typeof window.switchTab === "function") window.switchTab(action.tab);
+      return;
+    }
+    case "compare": {
+      if (!lookup[action.a] || !lookup[action.b]) return;
+      if (typeof window.setCompareAirports === "function") window.setCompareAirports(action.a, action.b);
+      if (typeof window.openCompareDrawer === "function") window.openCompareDrawer();
+      return;
+    }
+    case "filter": {
+      const classes = action.classes || [];
+      if (classes.length) {
+        document.querySelectorAll("#class-filters-list input").forEach((input) => {
+          const next = classes.includes(input.value);
+          if (input.checked !== next) { input.checked = next; input.dispatchEvent(new Event("change", { bubbles: true })); }
+        });
+      }
+      return;
+    }
+    case "draw_route": {
+      const layers = getCopilotLayers();
+      if (!layers) return;
+      const path = Array.isArray(action.path) && action.path.length >= 2 ? action.path : [action.a, action.b];
+      const pts = path.map(latLngOf).filter(Boolean);
+      if (pts.length < 2) return;
+      for (let i = 1; i < pts.length; i++) {
+        const seg = typeof window.geodesicSegments === "function" ? null : null;
+        L.polyline([pts[i - 1], pts[i]], { color: action.candidate ? "#3D9BFF" : "#FFB020", weight: 2.5, opacity: 0.9, dashArray: action.candidate ? "6 8" : null, className: "copilot-route" }).addTo(layers.routes);
+      }
+      pts.forEach((p) => L.circleMarker(p, { radius: 5, color: "#FFB020", fillColor: "#0B0E12", fillOpacity: 1, weight: 2 }).addTo(layers.routes));
+      if (map) map.fitBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: 6 });
+      return;
+    }
+    case "highlight": {
+      const layers = getCopilotLayers();
+      if (!layers) return;
+      (action.iatas || []).slice(0, 250).forEach((code) => {
+        const p = latLngOf(code);
+        if (p) L.circleMarker(p, { radius: 9, color: "#FFB020", fillColor: "#FFB020", fillOpacity: 0.18, weight: 1.5, className: "copilot-highlight" }).addTo(layers.highlights);
+      });
+      return;
+    }
+    case "fit_bounds": {
+      const pts = (action.iatas || []).map(latLngOf).filter(Boolean);
+      if (map && pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: 6 });
+      return;
+    }
+    case "reset": {
+      const resetBtn = document.getElementById("btn-reset-filters");
+      if (resetBtn) resetBtn.click();
+      clearCopilotOverlays();
+      if (map) map.flyTo([22.0, 15.0], 3, { duration: 1.0 });
+      return;
+    }
+    case "zoom": {
+      if (map) { if (action.direction === "in") map.zoomIn(); else map.zoomOut(); }
+      return;
+    }
+    case "ask": {
+      if (action.q) executeAssistantCommand(action.q);
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+function applyCopilotActions(actions) {
+  if (!Array.isArray(actions)) return;
+  const hasOverlay = actions.some((a) => a.type === "draw_route" || a.type === "highlight");
+  if (hasOverlay) clearCopilotOverlays();
+  actions.forEach((a) => {
+    try { applyCopilotAction(a); } catch (e) { /* never let a UI side effect break the chat */ }
+  });
+}
+
+// ---- Thread rendering -----------------------------------------------------
+function formatTime(ts) {
+  try { return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; }
+}
+
+function buildExchangeElement(item, index, animate) {
+  const exchangeEl = document.createElement("div");
+  exchangeEl.className = "reply-exchange cp-exchange";
+  exchangeEl.setAttribute("data-index", String(index));
+
+  const userRow = document.createElement("div");
+  userRow.className = "cp-msg cp-msg-user";
+  userRow.innerHTML = `<div class="cp-bubble cp-bubble-user reply-query">${escapeHtmlText(item.query)}</div><div class="cp-meta">${formatTime(item.ts)}</div>`;
+  exchangeEl.appendChild(userRow);
+
+  const botRow = document.createElement("div");
+  botRow.className = "cp-msg cp-msg-bot";
+  const bubble = document.createElement("div");
+  bubble.className = "cp-bubble cp-bubble-bot";
+  const replyEl = document.createElement("div");
+  replyEl.className = "reply-answer cp-reply";
+  bubble.appendChild(replyEl);
+  if (item.html) {
+    const rich = document.createElement("div");
+    rich.className = "cp-rich";
+    rich.innerHTML = item.html;
+    bubble.appendChild(rich);
+  }
+  if (item.followups && item.followups.length) {
+    const fu = document.createElement("div");
+    fu.className = "cp-followups";
+    item.followups.slice(0, 3).forEach((q) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "cp-followup"; b.setAttribute("data-copilot-ask", q); b.textContent = q;
+      fu.appendChild(b);
+    });
+    bubble.appendChild(fu);
+  }
+  const meta = document.createElement("div");
+  meta.className = "cp-meta";
+  const intentLabel = (item.intent || "").replace(/_/g, " ");
+  meta.innerHTML = `${escapeHtmlText(intentLabel)}${item.confidence != null ? ` · ${Math.round(item.confidence * 100)}%` : ""}${item.smartSource && item.smartSource !== "none" ? ` · <span class="reply-smart-badge" title="${escapeHtmlText(item.smartSource)}">${item.smartSource === "needle" ? "Smart mode" : "Model mode"}</span>` : ""}`;
+  botRow.appendChild(bubble);
+  botRow.appendChild(meta);
+  exchangeEl.appendChild(botRow);
+
+  // Legacy multiple-match chooser (kept for tests)
+  if (item.multipleMatches && item.multipleMatches.length > 0) {
+    const choicesEl = document.createElement("div");
+    choicesEl.className = "reply-choices";
+    item.multipleMatches.forEach((matchAp) => {
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "reply-choice-btn"; btn.setAttribute("data-iata", matchAp.iata);
+      btn.innerHTML = `<strong>${escapeHtmlText(matchAp.iata)}</strong> ${escapeHtmlText(matchAp.city || matchAp.name)}`;
+      btn.addEventListener("click", () => executeAssistantCommand(`show ${matchAp.iata}`));
+      choicesEl.appendChild(btn);
+    });
+    bubble.appendChild(choicesEl);
+  }
+
+  if (animate) {
+    replyEl.textContent = "";
+    isAnswering = true;
+    showVisualizer();
+    let charIdx = 0;
+    const fullText = item.reply || "";
+    const panel = document.getElementById("assistant-reply-panel");
+    typewriterTimer = setInterval(() => {
+      if (charIdx < fullText.length) {
+        charIdx = Math.min(fullText.length, charIdx + 2);
+        replyEl.textContent = fullText.slice(0, charIdx);
+        if (panel) scrollThreadToEnd();
+      } else {
+        clearInterval(typewriterTimer);
+        typewriterTimer = null;
+        isAnswering = false;
+        if (!isSpeaking) hideVisualizer();
+      }
+    }, 10);
+  } else {
+    replyEl.textContent = item.reply || "";
+  }
+  return exchangeEl;
+}
+
 function renderReplyPanel(latestTyped = true) {
   const panel = document.getElementById("assistant-reply-panel");
   const historyList = document.getElementById("assistant-history-list");
@@ -1504,85 +1658,42 @@ function renderReplyPanel(latestTyped = true) {
     panel.style.display = "none";
     return;
   }
+  panel.style.display = "flex";
+  if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null; }
 
-  panel.style.display = "block";
-  historyList.innerHTML = "";
-
-  if (typewriterTimer) {
-    clearInterval(typewriterTimer);
-    typewriterTimer = null;
+  const rendered = historyList.children.length;
+  const lastIndex = conversationHistory.length - 1;
+  if (rendered === lastIndex && rendered > 0) {
+    // Incremental append keeps earlier cards (and their scroll) intact
+    historyList.appendChild(buildExchangeElement(conversationHistory[lastIndex], lastIndex, latestTyped));
+  } else {
+    historyList.innerHTML = "";
+    conversationHistory.forEach((item, index) => {
+      historyList.appendChild(buildExchangeElement(item, index, latestTyped && index === lastIndex));
+    });
   }
+  scrollThreadToEnd();
+  requestAnimationFrame(() => { scrollThreadToEnd(); nudgePanelIfColliding(panel); });
+}
 
-  conversationHistory.forEach((item, index) => {
-    const exchangeEl = document.createElement("div");
-    exchangeEl.className = "reply-exchange";
+function scrollThreadToEnd() {
+  const historyList = document.getElementById("assistant-history-list");
+  if (historyList) historyList.scrollTop = historyList.scrollHeight;
+}
 
-    const queryEl = document.createElement("div");
-    queryEl.className = "reply-query";
-    queryEl.textContent = item.query;
-    exchangeEl.appendChild(queryEl);
+function nudgePanelIfColliding(panel) {
+  // Cooperate with app.js anti-collision helpers when the panel was dragged somewhere awkward.
+  if (!panel || typeof window.checkPanelCollision !== "function") return;
+  if (panel.classList.contains("is-dragged") && window.checkPanelCollision(panel) && typeof window.animatePanelToDefault === "function") {
+    window.animatePanelToDefault(panel, "reply-panel");
+  }
+}
 
-    const answerEl = document.createElement("div");
-    answerEl.className = "reply-answer";
-
-    const isLatest = index === conversationHistory.length - 1;
-    if (isLatest && latestTyped) {
-      answerEl.textContent = "";
-      exchangeEl.appendChild(answerEl);
-
-      isAnswering = true;
-      showVisualizer();
-
-      let charIdx = 0;
-      const fullText = item.reply;
-      typewriterTimer = setInterval(() => {
-        if (charIdx < fullText.length) {
-          answerEl.textContent += fullText.charAt(charIdx);
-          charIdx++;
-          panel.scrollTop = panel.scrollHeight;
-        } else {
-          clearInterval(typewriterTimer);
-          typewriterTimer = null;
-          isAnswering = false;
-          if (!isSpeaking) {
-            hideVisualizer();
-          }
-        }
-      }, 12);
-    } else {
-      answerEl.textContent = item.reply;
-      exchangeEl.appendChild(answerEl);
-    }
-
-    if (item.smartSource && item.smartSource !== "none") {
-      const badge = document.createElement("span");
-      badge.className = "reply-smart-badge";
-      badge.textContent = "Smart mode";
-      badge.title = item.smartSource;
-      exchangeEl.appendChild(badge);
-    }
-
-    if (item.multipleMatches && item.multipleMatches.length > 0) {
-      const choicesEl = document.createElement("div");
-      choicesEl.className = "reply-choices";
-      item.multipleMatches.forEach((matchAp) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "reply-choice-btn";
-        btn.setAttribute("data-iata", matchAp.iata);
-        btn.innerHTML = `<strong>${matchAp.iata}</strong> ${matchAp.city || matchAp.name}`;
-        btn.addEventListener("click", () => {
-          executeAssistantCommand(`show ${matchAp.iata}`);
-        });
-        choicesEl.appendChild(btn);
-      });
-      exchangeEl.appendChild(choicesEl);
-    }
-
-    historyList.appendChild(exchangeEl);
-  });
-
-  panel.scrollTop = panel.scrollHeight;
+function setTypingIndicator(on) {
+  const el = document.getElementById("assistant-typing");
+  if (el) el.style.display = on ? "flex" : "none";
+  const panel = document.getElementById("assistant-reply-panel");
+  if (on && panel && panel.style.display === "none" && conversationHistory.length === 0) panel.style.display = "flex";
 }
 
 function closeReplyPanel() {
@@ -1592,124 +1703,189 @@ function closeReplyPanel() {
   if (!isSpeaking) hideVisualizer();
 }
 
+function clearConversation() {
+  conversationHistory.length = 0;
+  const historyList = document.getElementById("assistant-history-list");
+  if (historyList) historyList.innerHTML = "";
+  clearCopilotOverlays();
+  closeReplyPanel();
+}
+
+// ---- Legacy Needle mapping (kept, off by default) --------------------------
+function mapNeedleCallToText(call) {
+  if (!call || !call.name) return null;
+  const args = call.args || {};
+  switch (call.name) {
+    case "select_airport": return args.query ? "show " + args.query : null;
+    case "compare_airports": return args.a && args.b ? "compare " + args.a + " and " + args.b : null;
+    case "top_airports": return args.kind ? "top " + (args.n || 10) + " " + args.kind + (args.horizon ? " at +" + args.horizon : "") : null;
+    case "switch_horizon": return args.horizon != null ? "switch to +" + args.horizon : null;
+    case "radar": return args.airport ? "radar for " + args.airport : null;
+    case "reset": return "reset";
+    case "help": return "help";
+    default: return null;
+  }
+}
+
+// ---- Main entry point -----------------------------------------------------
 async function executeAssistantCommand(inputStr) {
   const text = (inputStr || "").trim();
   if (!text) return;
 
   cancelSpeech();
+  setTypingIndicator(true);
+  await ensureIntelligenceLoaded();
 
   const airports = window.airportsData || [];
-  const activeHorizon = window.currentHorizon || "present";
-  let result = parseAssistantCommand(text, airports, activeHorizon);
+  const ctx = buildCopilotContext();
+  let result;
   let smartSource = null;
 
-  if (result.type === "unknown" && isSmartModeEnabled() && NEEDLE_URL) {
-    const parseRes = await queryNeedleParse(text);
-    if (parseRes && Array.isArray(parseRes.calls) && parseRes.calls.length > 0) {
-      smartSource = parseRes.source || "needle";
-      const call = parseRes.calls[0];
-      const name = call.name;
-      const args = call.args || {};
-      if (name === "select_airport" && args.query) {
-        result = parseAssistantCommand("show " + args.query, airports, activeHorizon);
-      } else if (name === "compare_airports" && args.a && args.b) {
-        result = parseAssistantCommand("compare " + args.a + " and " + args.b, airports, activeHorizon);
-      } else if (name === "top_airports" && args.kind) {
-        const hStr = args.horizon ? " at +" + args.horizon : "";
-        const nStr = args.n ? " " + args.n : " 10";
-        result = parseAssistantCommand("top" + nStr + " " + args.kind + hStr, airports, activeHorizon);
-      } else if (name === "switch_horizon" && args.horizon != null) {
-        result = parseAssistantCommand("switch to +" + args.horizon, airports, activeHorizon);
-      } else if (name === "radar" && args.airport) {
-        result = parseAssistantCommand("radar for " + args.airport, airports, activeHorizon);
-      } else if (name === "opportunities") {
-        const vStr = args.view ? ` ${args.view}` : "";
-        const nStr = args.n ? ` ${args.n}` : " 10";
-        result = parseAssistantCommand(`top${nStr}${vStr} opportunities`, airports, activeHorizon);
-      } else if (name === "reset") {
-        result = parseAssistantCommand("reset", airports, activeHorizon);
-      } else if (name === "help") {
-        result = parseAssistantCommand("help", airports, activeHorizon);
+  if (window.SkylineCopilot && typeof window.SkylineCopilot.answer === "function" && airports.length) {
+    try {
+      result = window.SkylineCopilot.answer(text, ctx);
+    } catch (err) {
+      result = null;
+    }
+  }
+  if (!result) {
+    // Engine missing or data not loaded: legacy parser keeps the lights on
+    const legacy = parseAssistantCommand(text, airports, ctx.horizon);
+    result = { reply: legacy.text, html: "", actions: [], followups: [], confidence: legacy.type === "unknown" ? 0.2 : 0.7, intent: legacy.type, multipleMatches: legacy.multipleMatches, legacy };
+  }
+
+  // Low-confidence: optional remote helpers (both off unless the user enables them)
+  if (result.confidence < 0.6) {
+    if (isSmartModeEnabled() && NEEDLE_URL) {
+      const parseRes = await queryNeedleParse(text);
+      if (parseRes && Array.isArray(parseRes.calls) && parseRes.calls.length > 0) {
+        const mapped = mapNeedleCallToText(parseRes.calls[0]);
+        if (mapped && window.SkylineCopilot) {
+          const r2 = window.SkylineCopilot.answer(mapped, ctx);
+          if (r2 && r2.confidence > result.confidence) { result = r2; smartSource = parseRes.source || "needle"; }
+        }
+      }
+    }
+    if (!smartSource && getLlmConfig()) {
+      const llm = await queryLlm(text, result);
+      if (llm) {
+        result = Object.assign({}, result, { reply: llm.reply, actions: (llm.actions || []).concat(result.actions || []), intent: result.intent === "fallback" ? "open_question" : result.intent, confidence: Math.max(result.confidence, 0.7) });
+        smartSource = llm.source;
       }
     }
   }
 
-  // Store exchange history (keep last 3)
-  conversationHistory.push({
+  const item = {
     query: text,
-    reply: result.text,
-    multipleMatches: result.multipleMatches,
+    reply: result.reply || "",
+    html: result.html || "",
+    intent: result.intent || "fallback",
+    confidence: result.confidence != null ? result.confidence : 0.5,
+    entities: result.entities || null,
+    actions: result.actions || [],
+    followups: result.followups || [],
+    multipleMatches: result.multipleMatches || null,
     smartSource: smartSource,
-  });
-  if (conversationHistory.length > 3) {
-    conversationHistory.shift();
-  }
+    ts: Date.now(),
+  };
+  conversationHistory.push(item);
+  if (conversationHistory.length > MAX_HISTORY) conversationHistory.shift();
 
+  setTypingIndicator(false);
   renderReplyPanel(true);
 
-  if (result.spokenText) {
-    speakSpeech(result.spokenText);
+  if (item.reply) speakSpeech(result && result.spokenText ? result.spokenText : item.reply);
+
+  // Side effects
+  if (result.legacy) applyLegacySideEffects(result.legacy);
+  else applyCopilotActions(item.actions);
+  return item;
+}
+
+function applyLegacySideEffects(result) {
+  if (result.type === "show" && result.airport) {
+    applyCopilotActions([{ type: "select_airport", iata: result.airport.iata }]);
+  } else if (result.type === "compare" && result.compareAirports && result.compareAirports.length === 2) {
+    applyCopilotActions([{ type: "compare", a: result.compareAirports[0].iata, b: result.compareAirports[1].iata }]);
+  } else if (result.type === "top" && result.airports && result.airports.length > 0) {
+    applyCopilotActions([{ type: "fit_bounds", iatas: result.airports.map((a) => a.iata) }]);
+  } else if (result.type === "switch_horizon") {
+    applyCopilotActions([{ type: "set_horizon", horizon: result.horizon }]);
+  } else if (result.type === "radar") {
+    applyCopilotActions([{ type: "switch_tab", tab: "radar" }]);
+  } else if (result.type === "reset") {
+    applyCopilotActions([{ type: "reset" }]);
+  }
+}
+
+function initCopilotUi() {
+  const historyList = document.getElementById("assistant-history-list");
+  const panel = document.getElementById("assistant-reply-panel");
+  if (historyList) {
+    historyList.addEventListener("click", (e) => {
+      const ask = e.target.closest("[data-copilot-ask]");
+      if (ask) { e.preventDefault(); executeAssistantCommand(ask.getAttribute("data-copilot-ask")); return; }
+      const actEl = e.target.closest("[data-copilot-action]");
+      if (actEl) {
+        e.preventDefault();
+        try { applyCopilotActions([JSON.parse(actEl.getAttribute("data-copilot-action"))]); } catch (err) {}
+      }
+    });
+    historyList.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-copilot-action][role=button]")) {
+        e.preventDefault();
+        try { applyCopilotActions([JSON.parse(e.target.getAttribute("data-copilot-action"))]); } catch (err) {}
+      }
+    });
+  }
+  const clearBtn = document.getElementById("btn-assistant-clear");
+  if (clearBtn) clearBtn.addEventListener("click", clearConversation);
+
+  // Placeholder rotation
+  const input = document.getElementById("assistant-input");
+  if (input) {
+    let i = 0;
+    const rotate = () => {
+      if (document.activeElement === input && input.value) return;
+      i = (i + 1) % PLACEHOLDER_EXAMPLES.length;
+      input.setAttribute("placeholder", "Ask Skyline: " + PLACEHOLDER_EXAMPLES[i]);
+    };
+    input.setAttribute("placeholder", "Ask Skyline: " + PLACEHOLDER_EXAMPLES[0]);
+    placeholderTimer = setInterval(rotate, 4000);
   }
 
-  // Handle side effects on map and UI
-  if (result.type === "show" && result.airport) {
-    if (typeof window.switchTab === "function") {
-      window.switchTab("map");
-    }
-    const ap = result.airport;
-    if (typeof window.selectAirport === "function") {
-      window.selectAirport(ap);
-    }
-    if (window.map && ap.latitude != null && ap.longitude != null) {
-      window.map.flyTo([ap.latitude, ap.longitude], 6, { duration: 1.2 });
-      triggerPulseRing(ap.latitude, ap.longitude);
-    }
-  } else if (result.type === "compare" && result.compareAirports && result.compareAirports.length === 2) {
-    if (typeof window.switchTab === "function") {
-      window.switchTab("map");
-    }
-    const [apA, apB] = result.compareAirports;
-    if (typeof window.setCompareAirports === "function") {
-      window.setCompareAirports(apA.iata, apB.iata);
-    }
-    if (typeof window.openCompareDrawer === "function") {
-      window.openCompareDrawer();
-    }
-  } else if (result.type === "top" && result.airports && result.airports.length > 0) {
-    if (typeof window.switchTab === "function") {
-      window.switchTab("map");
-    }
-    if (window.map && typeof L !== "undefined") {
-      const latLngs = result.airports
-        .filter((a) => a.latitude != null && a.longitude != null)
-        .map((a) => [a.latitude, a.longitude]);
-      if (latLngs.length > 0) {
-        window.map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50], maxZoom: 6 });
-      }
-    }
-  } else if (result.type === "switch_horizon") {
-    if (typeof window.switchTab === "function") {
-      window.switchTab("map");
-    }
-    const btn = document.getElementById("btn-horizon-" + result.horizon);
-    if (btn) btn.click();
-  } else if (result.type === "radar") {
-    if (typeof window.switchTab === "function") {
-      window.switchTab("radar");
-    }
-    if (result.radarView && typeof window.setRadarView === "function") {
-      window.setRadarView(result.radarView);
-    }
-  } else if (result.type === "reset") {
-    if (typeof window.switchTab === "function") {
-      window.switchTab("map");
-    }
-    const resetBtn = document.getElementById("btn-reset-filters");
-    if (resetBtn) resetBtn.click();
-    if (window.map) {
-      window.map.flyTo([22.0, 15.0], 3, { duration: 1.0 });
-    }
+  // Bring-your-own-model settings
+  const provider = document.getElementById("assistant-llm-provider");
+  const model = document.getElementById("assistant-llm-model");
+  const base = document.getElementById("assistant-llm-base");
+  const key = document.getElementById("assistant-llm-key");
+  const save = document.getElementById("btn-assistant-llm-save");
+  const clear = document.getElementById("btn-assistant-llm-clear");
+  const cfg = getLlmConfig();
+  if (cfg) {
+    if (provider) provider.value = cfg.provider || "openai";
+    if (model) model.value = cfg.model || "";
+    if (base) base.value = cfg.baseUrl || "";
+    if (key) key.value = cfg.key || "";
   }
+  if (save) save.addEventListener("click", () => {
+    const next = { provider: provider ? provider.value : "openai", model: model ? model.value.trim() : "", baseUrl: base ? base.value.trim() : "", key: key ? key.value.trim() : "" };
+    if (!next.key || !next.model) { const st = document.getElementById("assistant-llm-status"); if (st) st.textContent = "Model and API key are required"; return; }
+    setLlmConfig(next);
+  });
+  if (clear) clear.addEventListener("click", () => {
+    if (model) model.value = ""; if (base) base.value = ""; if (key) key.value = "";
+    setLlmConfig(null);
+  });
+  updateLlmStatus();
+
+  // Keep track of selections made elsewhere in the UI (airport card, search)
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-iata]");
+    if (t && t.getAttribute("data-iata")) copilotSelectedIata = t.getAttribute("data-iata");
+  }, true);
+
+  if (panel) panel.setAttribute("data-copilot", "ready");
 }
 
 function initAssistant() {
@@ -1804,6 +1980,7 @@ function initAssistant() {
   if (closePanelBtn) {
     closePanelBtn.addEventListener("click", closeReplyPanel);
   }
+  initCopilotUi();
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
@@ -1859,6 +2036,10 @@ if (typeof window !== "undefined") {
   window.pingSmartModeHealth = pingSmartModeHealth;
   window.getConversationHistory = () => conversationHistory;
   window.executeAssistantCommand = executeAssistantCommand;
+  window.applyCopilotActions = applyCopilotActions;
+  window.clearConversation = clearConversation;
+  window.getLlmConfig = getLlmConfig;
+  window.setLlmConfig = setLlmConfig;
 }
 
 if (typeof document !== "undefined") {

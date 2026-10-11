@@ -26,6 +26,8 @@ def main():
             "--inplace",
             "training_notebook.ipynb",
         ],
+        [py, "scripts/05_horizon10_shrinkage.py"],
+        [py, "scripts/04_build_intelligence.py"],
         [py, "-m", "pytest", "-v"],
     ]
 
