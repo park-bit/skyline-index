@@ -4,12 +4,23 @@ services:
     env: python
     rootDir: api
     plan: free
-    buildCommand: pip install -r requirements.txt && needle download needle3
+    branch: main
+    healthCheckPath: /health
+    buildCommand: pip install -r requirements.txt && (needle download needle3 || true)
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
       - key: NEEDLE_TELEMETRY
         value: "0"
       - key: DO_NOT_TRACK
         value: "1"
       - key: ALLOWED_ORIGINS
-        value: "http://localhost:3000,http://127.0.0.1:8000,https://skyline-index.vercel.app"
+        sync: false
+        value: "https://skyline-index-web.vercel.app,https://skyline-index.vercel.app"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: "gemini-2.5-flash"
+      - key: DAILY_LIMIT
+        value: "500"

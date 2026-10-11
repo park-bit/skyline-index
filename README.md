@@ -172,15 +172,19 @@ Live deployment: https://skyline-index-web.vercel.app/
 
 ## Smart Mode (Optional)
 
-The voice assistant includes an optional Smart Mode powered by the Needle 3 foundation tool-calling model (35 MB, Apache-2.0). When enabled, natural voice queries that exceed the built-in rule parser are routed to a FastAPI service deployed on Render.
+The voice assistant includes an optional Smart Mode for natural conversational queries beyond structured keywords:
 
-To run or deploy the API service:
-1. See instructions in `api/README.md`.
+1. Rule Parser (in-browser, 0 ms): Exact and fuzzy IATA/city matching, command verbs, and multi-word phrases run locally with zero network overhead.
+2. Needle 3 Foundation Model (api/, 35 MB, Apache-2.0): Containerized tool-calling model returning parsed functions when confidence is 0.5 or higher.
+3. Gemini Fallback (REST API, gemini-2.5-flash): Cloud fallback invoked when Needle is absent, errors, or falls below 0.5 confidence and `GEMINI_API_KEY` is provided. Operates with a 3 second timeout, temperature 0, a 20 request per minute limit per IP, and a 500 request daily cap.
+
+To deploy or connect the API service:
+1. Follow setup instructions in `api/README.md`.
 2. Deploy as a web service on Render using `render.yaml`.
-3. Set `ALLOWED_ORIGINS` to your frontend domains.
-4. Point the client to the service by setting `NEEDLE_URL` in `web/assistant.js`.
+3. Configure `ALLOWED_ORIGINS` to include your client domain.
+4. Set `NEEDLE_URL` at line 2 in `web/assistant.js` to point to your Render endpoint.
 
-Cold start note: Free tier instances spin down after 15 minutes of inactivity. When waking, the initial request may take 40 to 50 seconds while the service starts. The interface pings `/health` and displays "warming up" during spin-up.
+Render cold start notes: Free tier instances spin down after 15 minutes of inactivity. When waking, the initial health ping wakes the instance and shows "Smart mode warming up" until ready. Client timeouts are set to 6 seconds on initial wake and 4 seconds on subsequent queries, falling back gracefully to standard help responses on failure.
 
 ## Limitations
 
