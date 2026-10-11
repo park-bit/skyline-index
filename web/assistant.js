@@ -2344,40 +2344,83 @@ function initWelcomeIntro() {
     }, 850);
   }
 
-  function playGreeting() {
-    if (closed) return;
-    try {
-      welcomeAudio = new Audio("assets/welcome_laura.mp3");
+  function doPlayVoiceline() {
+    if (closed || audioUnlocked) return;
+    audioUnlocked = true;
 
-      welcomeAudio.onended = () => {
+    try {
+      const audioUrl = new URL("assets/welcome_laura.mp3", window.location.href).href;
+      const audio = new Audio(audioUrl);
+      audio.volume = 1.0;
+      audio.muted = false;
+      welcomeAudio = audio;
+
+      let finished = false;
+      const onFinished = () => {
+        if (finished) return;
+        finished = true;
         closeWelcome();
       };
 
-      welcomeAudio.play().then(() => {
-        audioUnlocked = true;
+      audio.onended = onFinished;
+      audio.onerror = () => {
+        fallbackSpeech(onFinished);
+      };
+
+      try {
+        const { audioCtx } = getAudioContext();
+        if (audioCtx && audioCtx.state === "suspended") {
+          audioCtx.resume().catch(() => {});
+        }
+      } catch (e) {}
+
+      setSpeakingState(true);
+      startSyntheticAudioPulsing();
+
+      const p = audio.play();
+      if (p && p.then) {
+        p.then(() => {
+          if (hint) hint.style.display = "none";
+          setTimeout(() => {
+            if (!closed && !finished) onFinished();
+          }, 2600);
+        }).catch(() => {
+          audioUnlocked = false;
+          setSpeakingState(false);
+          stopSyntheticAudioPulsing();
+          if (hint) hint.style.display = "inline-flex";
+        });
+      }
+    } catch (e) {
+      fallbackSpeech(closeWelcome);
+    }
+  }
+
+  function fallbackSpeech(onEnd) {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      try {
+        const u = new SpeechSynthesisUtterance("Hey there! What do you want to search today?");
+        u.rate = 1.0;
+        u.pitch = 1.0;
+        u.onend = () => { if (onEnd) onEnd(); };
+        u.onerror = () => { if (onEnd) onEnd(); };
+        window.speechSynthesis.speak(u);
         setSpeakingState(true);
         startSyntheticAudioPulsing();
         if (hint) hint.style.display = "none";
-      }).catch(() => {
-        // Autoplay policy prevented playback until user gesture
-        if (hint) hint.style.display = "block";
-      });
-    } catch (e) {
-      setTimeout(closeWelcome, 3500);
+        setTimeout(() => { if (onEnd) onEnd(); }, 2800);
+      } catch (e) {
+        if (onEnd) onEnd();
+      }
+    } else {
+      if (onEnd) onEnd();
     }
   }
 
   function handleUserGesture() {
     if (closed) return;
-    if (!audioUnlocked && welcomeAudio) {
-      welcomeAudio.play().then(() => {
-        audioUnlocked = true;
-        setSpeakingState(true);
-        startSyntheticAudioPulsing();
-        if (hint) hint.style.display = "none";
-      }).catch(() => {
-        closeWelcome();
-      });
+    if (!audioUnlocked) {
+      doPlayVoiceline();
     } else {
       closeWelcome();
     }
@@ -2408,17 +2451,17 @@ function initWelcomeIntro() {
   document.addEventListener("click", onDocGesture, { once: true });
   document.addEventListener("keydown", onDocGesture, { once: true });
 
-  // Start greeting audio shortly after page load
+  // Attempt autoplay shortly after load
   setTimeout(() => {
-    playGreeting();
-  }, 350);
+    doPlayVoiceline();
+  }, 250);
 
-  // Safety fallback: if audio blocked or muted and user idle, auto-morph after 4.5s
+  // Safety fallback: if no user interaction after 7s, auto-morph so card never stays stuck
   setTimeout(() => {
     if (!closed) {
       closeWelcome();
     }
-  }, 4500);
+  }, 7000);
 }
 
 if (typeof window !== "undefined") {
