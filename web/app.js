@@ -2053,9 +2053,14 @@ const TAB_REGISTRY = {
   },
 };
 
-function switchTab(tab) {
+function switchTab(tab, options) {
   if (!TAB_REGISTRY[tab]) tab = "map";
   closeCompareDrawer();
+  if (!options || options.closeReply !== false) {
+    if (typeof closeReplyPanel === "function") closeReplyPanel();
+    const replyPanelEl = document.getElementById("assistant-reply-panel");
+    if (replyPanelEl) replyPanelEl.style.display = "none";
+  }
   currentTab = tab;
   const leftPanel = document.getElementById("left-panel");
   const airportCard = document.getElementById("airport-card");

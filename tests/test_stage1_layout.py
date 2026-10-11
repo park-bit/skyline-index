@@ -152,13 +152,17 @@ def test_stage1_layout_zero_overlap(web_server, width, height):
         page.evaluate("closeReplyPanel(); switchTab('map');")
         time.sleep(0.2)
 
-        # State (d): Radar tab open
-        page.evaluate("switchTab('radar')")
-        time.sleep(0.4)
-        res_d = page.evaluate(CHECK_INTERSECTIONS_JS)
-        assert res_d["intersections"] == [], (
-            f"State (d) Radar tab had intersections at {width}x{height}: {res_d['intersections']}"
-        )
+        # State (d): Test all five tabs (map, radar, intel, scenario, method)
+        for tab in ["map", "radar", "intel", "scenario", "method"]:
+            page.evaluate(f"switchTab('{tab}')")
+            time.sleep(0.3)
+            res_tab = page.evaluate(CHECK_INTERSECTIONS_JS)
+            assert res_tab["intersections"] == [], (
+                f"Tab {tab} had intersections at {width}x{height}: {res_tab['intersections']}"
+            )
+            assert page.evaluate("() => document.getElementById('assistant-reply-panel').style.display === 'none'"), (
+                f"Reply panel should be closed when switching to tab {tab} at {width}x{height}"
+            )
 
         page.close()
         browser.close()

@@ -711,7 +711,7 @@ function normalizeTextForSpeech(text) {
   s = s.replace(/\b([A-Z]{3})\b/g, (m) => m.split("").join(", "));
 
   // Convert colons, semicolons, and dashes into gentle comma pauses
-  s = s.replace(/\s*[-–—]\s*/g, ", ");
+  s = s.replace(/\s*[-\u2013\u2014]\s*/g, ", ");
   s = s.replace(/:\s+/g, ", ");
 
   // Collapse multiple commas and whitespace
@@ -1470,7 +1470,7 @@ function applyCopilotAction(action) {
       const ap = lookup[String(action.iata || "").toUpperCase()];
       if (!ap) return;
       copilotSelectedIata = ap.iata;
-      if (typeof window.switchTab === "function" && document.body.classList.contains("radar-tab-active")) window.switchTab("map");
+      if (typeof window.switchTab === "function" && document.body.classList.contains("radar-tab-active")) window.switchTab("map", { closeReply: false });
       if (typeof window.selectAirport === "function") window.selectAirport(ap);
       if (map && ap.latitude != null) {
         map.flyTo([ap.latitude, ap.longitude], Math.max(map.getZoom(), 5), { duration: 1.0 });
@@ -1488,7 +1488,7 @@ function applyCopilotAction(action) {
       return;
     }
     case "switch_tab": {
-      if (typeof window.switchTab === "function") window.switchTab(action.tab);
+      if (typeof window.switchTab === "function") window.switchTab(action.tab, { closeReply: false });
       return;
     }
     case "compare": {
@@ -1656,9 +1656,11 @@ function renderReplyPanel(latestTyped = true) {
 
   if (conversationHistory.length === 0) {
     panel.style.display = "none";
+    document.body.classList.remove("reply-panel-open");
     return;
   }
   panel.style.display = "flex";
+  document.body.classList.add("reply-panel-open");
   if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null; }
 
   const rendered = historyList.children.length;
@@ -1693,12 +1695,16 @@ function setTypingIndicator(on) {
   const el = document.getElementById("assistant-typing");
   if (el) el.style.display = on ? "flex" : "none";
   const panel = document.getElementById("assistant-reply-panel");
-  if (on && panel && panel.style.display === "none" && conversationHistory.length === 0) panel.style.display = "flex";
+  if (on && panel && panel.style.display === "none" && conversationHistory.length === 0) {
+    panel.style.display = "flex";
+    document.body.classList.add("reply-panel-open");
+  }
 }
 
 function closeReplyPanel() {
   const panel = document.getElementById("assistant-reply-panel");
   if (panel) panel.style.display = "none";
+  document.body.classList.remove("reply-panel-open");
   isAnswering = false;
   if (!isSpeaking) hideVisualizer();
 }

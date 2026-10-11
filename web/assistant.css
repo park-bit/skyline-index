@@ -1,15 +1,19 @@
-/* Skyline Copilot — conversational thread, rich cards and chips.
+/* Skyline Copilot: conversational thread, rich cards and chips.
    Loaded after style.css; only touches assistant-* / cp-* elements. */
 
 #assistant-reply-panel.assistant-reply-panel {
   width: 560px;
   max-width: calc(100vw - 32px);
-  max-height: min(62vh, 640px);
-  bottom: 164px;
+  max-height: min(60vh, 520px);
+  bottom: 72px;
   padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+body:not(.view-tab-active):not(.radar-tab-active) #assistant-reply-panel.assistant-reply-panel {
+  bottom: 164px;
 }
 #assistant-reply-panel .reply-panel-header { flex: 0 0 auto; }
 #assistant-reply-panel .reply-panel-body {
@@ -156,8 +160,19 @@
 @keyframes cp-pulse { 0%, 100% { stroke-opacity: 0.9; } 50% { stroke-opacity: 0.35; } }
 
 @media (max-width: 700px) {
-  /* style.css pins the legacy panel to 180px with !important; the thread needs more room */
-  #assistant-reply-panel.assistant-reply-panel { max-height: min(50vh, 420px) !important; bottom: 150px !important; }
+  #assistant-reply-panel.assistant-reply-panel {
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: 60px !important;
+    width: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: 40% !important;
+    max-height: 40vh !important;
+    transform: none !important;
+    border-bottom-left-radius: 4px !important;
+    border-bottom-right-radius: 4px !important;
+  }
   .cp-kpis { grid-template-columns: repeat(2, 1fr); }
   .assistant-llm-grid { grid-template-columns: 1fr; }
   .cp-bubble-user { max-width: 100%; }
