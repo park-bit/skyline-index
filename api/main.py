@@ -46,7 +46,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS", "HEAD"],
     allow_headers=["*"],
 )
 
@@ -437,7 +437,7 @@ async def call_gemini_fallback(query: str, api_key: str, model_name: str) -> lis
     return []
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, Any]:
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     return {
