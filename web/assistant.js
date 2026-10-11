@@ -1,5 +1,5 @@
 // skyline-index - Voice and Text Assistant (Skyline)
-let NEEDLE_URL = ""; // Render or local API service endpoint. Empty by default.
+let NEEDLE_URL = "https://skyline-smart-mode.onrender.com"; // Render API service endpoint.
 
 function levenshteinDistance(s1, s2) {
   const a = s1.toLowerCase();
@@ -413,9 +413,10 @@ const conversationHistory = [];
 
 function isSpeakerEnabled() {
   try {
-    return localStorage.getItem("skyline_voice_enabled") === "true";
+    const val = localStorage.getItem("skyline_voice_enabled");
+    return val === null ? true : val === "true";
   } catch (e) {
-    return false;
+    return true;
   }
 }
 
@@ -661,6 +662,8 @@ function cancelSpeech() {
   }
   stopSyntheticAudioPulsing();
   setSpeakingState(false);
+  isAnswering = false;
+  hideVisualizer();
 }
 
 function isExcludedVoice(v) {
@@ -668,6 +671,9 @@ function isExcludedVoice(v) {
   if (/female/i.test(name)) return false;
   return /male$|george|ryan|daniel|oliver/i.test(name);
 }
+
+const MALE_VOICE_PATTERN = /\b(george|david|mark|daniel|richard|oliver|guy|male)\b/i;
+const FEMALE_VOICE_PATTERN = /\b(jenny|aria|samantha|libby|sonia|serena|maisie|hazel|susan|kate|stephanie|zira|ava|karen|victoria|female)\b|google.*female/i;
 
 function pickVoice(voices, savedVoiceURI = null) {
   if (!voices || voices.length === 0) return null;
@@ -682,20 +688,43 @@ function pickVoice(voices, savedVoiceURI = null) {
   const validVoices = voices.filter((v) => !isExcludedVoice(v));
   if (validVoices.length === 0) return voices[0] || null;
 
-  const femalePattern = /sonia|libby|maisie|hazel|susan|serena|kate|stephanie|google uk english female|female/i;
+  // 1. Natural / neural female voice (en-GB or en-US)
+  const naturalFemale = validVoices.find((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    const name = v.name || "";
+    return lang.startsWith("en") && FEMALE_VOICE_PATTERN.test(name) && /natural|online|neural|google/i.test(name);
+  });
+  if (naturalFemale) return naturalFemale;
 
+  // 2. en-GB female
   const gbFemale = validVoices.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
-    return lang.startsWith("en-gb") && femalePattern.test(v.name || "");
+    return lang.startsWith("en-gb") && FEMALE_VOICE_PATTERN.test(v.name || "");
   });
   if (gbFemale) return gbFemale;
 
+  // 3. Any English female voice
+  const enFemale = validVoices.find((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    return lang.startsWith("en") && FEMALE_VOICE_PATTERN.test(v.name || "");
+  });
+  if (enFemale) return enFemale;
+
+  // 4. Any English voice not explicitly male
+  const enNonMale = validVoices.find((v) => {
+    const lang = (v.lang || "").toLowerCase().replace("_", "-");
+    return lang.startsWith("en") && !MALE_VOICE_PATTERN.test(v.name || "");
+  });
+  if (enNonMale) return enNonMale;
+
+  // 5. en-GB any
   const gbAny = validVoices.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     return lang.startsWith("en-gb");
   });
   if (gbAny) return gbAny;
 
+  // 6. en any
   const enAny = validVoices.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     return lang.startsWith("en");
@@ -741,9 +770,9 @@ function populateVoicePickers() {
   const selectedVal = getSelectedKokoroVoice();
 
   const options = [
-    { value: "bf_emma", label: "Kokoro: bf_emma (British female, default)" },
-    { value: "bm_george", label: "Kokoro: bm_george (British male)" },
-    { value: "af_sarah", label: "Kokoro: af_sarah (American female)" },
+    { value: "bf_emma", label: "Natural AI: Emma (British female, default)" },
+    { value: "af_sarah", label: "Natural AI: Sarah (American female)" },
+    { value: "bm_george", label: "Natural AI: George (British male)" },
     { value: "device", label: "Device voice (speechSynthesis)" },
   ];
 
@@ -905,6 +934,7 @@ const ICO_EDGES = [
 let visualizerCanvas = null;
 let visualizerCtx = null;
 let visualizerAnimId = null;
+let isAnswering = false;
 
 function showVisualizer() {
   if (visualizerCanvas) {
@@ -913,7 +943,7 @@ function showVisualizer() {
 }
 
 function hideVisualizer() {
-  if (visualizerCanvas && !isSpeaking && !isListening) {
+  if (visualizerCanvas && !isSpeaking && !isAnswering) {
     visualizerCanvas.style.display = "none";
   }
 }
@@ -1072,11 +1102,9 @@ function setListeningState(listening) {
     else micBtn.classList.remove("listening");
   }
   if (listening) {
-    showVisualizer();
     startListeningWithAnalyser();
   } else {
     stopListeningAnalyser();
-    if (!isSpeaking) hideVisualizer();
   }
 }
 
@@ -1094,7 +1122,7 @@ function setSpeakingState(speaking) {
   if (speaking) {
     showVisualizer();
   } else {
-    if (!isListening) hideVisualizer();
+    if (!isAnswering) hideVisualizer();
   }
 }
 
@@ -1162,6 +1190,9 @@ function renderReplyPanel(latestTyped = true) {
       answerEl.textContent = "";
       exchangeEl.appendChild(answerEl);
 
+      isAnswering = true;
+      showVisualizer();
+
       let charIdx = 0;
       const fullText = item.reply;
       typewriterTimer = setInterval(() => {
@@ -1172,6 +1203,10 @@ function renderReplyPanel(latestTyped = true) {
         } else {
           clearInterval(typewriterTimer);
           typewriterTimer = null;
+          isAnswering = false;
+          if (!isSpeaking) {
+            hideVisualizer();
+          }
         }
       }, 12);
     } else {
@@ -1213,6 +1248,8 @@ function renderReplyPanel(latestTyped = true) {
 function closeReplyPanel() {
   const panel = document.getElementById("assistant-reply-panel");
   if (panel) panel.style.display = "none";
+  isAnswering = false;
+  if (!isSpeaking) hideVisualizer();
 }
 
 async function executeAssistantCommand(inputStr) {
@@ -1413,14 +1450,6 @@ function initAssistant() {
   });
 
   initVisualizer();
-
-  const assistantInput = document.getElementById("assistant-input");
-  if (assistantInput) {
-    assistantInput.addEventListener("focus", () => showVisualizer());
-    assistantInput.addEventListener("blur", () => {
-      if (!isSpeaking && !isListening) hideVisualizer();
-    });
-  }
 
   // Pre-load synthesis voices if available
   populateVoicePickers();

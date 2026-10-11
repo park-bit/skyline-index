@@ -2317,20 +2317,26 @@ body.radar-tab-active .leaflet-control-zoom {
 
 .assistant-visualizer {
   position: absolute;
-  bottom: 56px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 320px;
-  height: 320px;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: 12px;
+  width: 64px;
+  height: 64px;
   pointer-events: none;
   z-index: 25;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
 }
 
 @media (max-width: 699px) {
   .assistant-visualizer {
-    width: 200px;
-    height: 200px;
-    bottom: 52px;
+    right: auto;
+    left: 8px;
+    top: -54px;
+    transform: none;
+    margin-right: 0;
+    width: 48px;
+    height: 48px;
   }
 }
 
