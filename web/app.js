@@ -287,6 +287,7 @@ function renderMarkers() {
     }
     airportMarkers.push(marker);
   });
+  window.airportMarkers = airportMarkers;
 
   if (selectedAirport) {
     updateSelectedHalo(selectedAirport);
@@ -323,6 +324,7 @@ function updateMarkerStyles(full = false) {
 
 function selectAirport(ap) {
   selectedAirport = ap;
+  window.selectedAirport = ap;
   renderAirportCard(ap);
   drawAirportRoutes(ap);
   updateSelectedHalo(ap);
@@ -1389,6 +1391,12 @@ function initDraggablePanels() {
   if (btnResetLayout) {
     btnResetLayout.addEventListener("click", resetAllLayoutPositions);
   }
+
+  window.addEventListener("blur", () => {
+    if (map && map.dragging && !map.dragging.enabled()) {
+      map.dragging.enable();
+    }
+  });
 }
 
 async function startApp() {

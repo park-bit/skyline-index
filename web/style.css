@@ -455,6 +455,7 @@ button {
   overflow: hidden;
   background: var(--map-ocean);
   z-index: 1;
+  pointer-events: auto;
 }
 
 /* Leaflet tile tint */
@@ -462,12 +463,15 @@ button {
   opacity: 0.95;
 }
 
-.map-canvas {
+.map-canvas,
+#map,
+.leaflet-container {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   z-index: 1;
+  pointer-events: auto;
 }
 
 .map-vignette {
@@ -2111,7 +2115,8 @@ input:checked + .slider:before {
 .leaflet-bottom.leaflet-left {
   left: 352px;
   bottom: 20px;
-  z-index: 12;
+  z-index: 1000;
+  pointer-events: auto;
 }
 
 body.radar-tab-active .leaflet-control-zoom {
