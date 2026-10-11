@@ -1091,19 +1091,8 @@ async function speakSpeech(text) {
   speakDeviceSpeech(text);
 }
 
-async function startListeningWithAnalyser() {
+function startListeningWithAnalyser() {
   startSyntheticAudioPulsing();
-  if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    micMediaStream = stream;
-    const { audioCtx, analyserNode } = getAudioContext();
-    if (audioCtx && analyserNode) {
-      if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
-      micSourceNode = audioCtx.createMediaStreamSource(stream);
-      micSourceNode.connect(analyserNode);
-    }
-  } catch (e) {}
 }
 
 function stopListeningAnalyser() {
@@ -2091,18 +2080,34 @@ function initAssistant() {
     try {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.interimResults = true;
       recognition.lang = "en-US";
+
+      const originalPlaceholder = input ? input.placeholder : "";
 
       recognition.onstart = () => {
         setListeningState(true);
+        if (input) input.placeholder = "Listening... Speak now";
       };
+
       recognition.onresult = (e) => {
-        setListeningState(false);
-        const transcript = e.results && e.results[0] && e.results[0][0] ? e.results[0][0].transcript : "";
-        if (transcript && input) {
-          input.value = transcript;
+        let interim = "";
+        let final = "";
+        for (let i = e.resultIndex; i < e.results.length; ++i) {
+          if (e.results[i].isFinal) {
+            final += e.results[i][0].transcript;
+          } else {
+            interim += e.results[i][0].transcript;
+          }
+        }
+        const text = final || interim;
+        if (text && input) {
+          input.value = text;
           input.focus();
+        }
+        if (final) {
+          setListeningState(false);
+          if (input) input.placeholder = originalPlaceholder;
           const sendBtn = document.getElementById("btn-assistant-send");
           if (sendBtn) {
             sendBtn.classList.add("highlight");
@@ -2110,8 +2115,30 @@ function initAssistant() {
           }
         }
       };
-      recognition.onerror = () => setListeningState(false);
-      recognition.onend = () => setListeningState(false);
+
+      recognition.onerror = (e) => {
+        setListeningState(false);
+        if (input) {
+          if (e.error === "not-allowed") {
+            input.placeholder = "Microphone blocked. Allow mic in browser.";
+          } else if (e.error === "network") {
+            input.placeholder = "Voice network blocked (In Brave: allow Google Speech, or use Chrome/Edge)";
+          } else if (e.error === "no-speech") {
+            input.placeholder = "No speech detected. Tap mic to try again.";
+          }
+          setTimeout(() => {
+            if (input && !isListening) input.placeholder = originalPlaceholder;
+          }, 3500);
+        }
+      };
+
+      recognition.onend = () => {
+        setListeningState(false);
+        if (input && input.placeholder.startsWith("Listening")) {
+          input.placeholder = originalPlaceholder;
+        }
+      };
+
       recognitionInstance = recognition;
 
       const toggleRecognition = (e) => {
@@ -2121,6 +2148,8 @@ function initAssistant() {
           setListeningState(false);
         } else {
           try {
+            setListeningState(true);
+            if (input) input.placeholder = "Listening... Speak now";
             recognition.start();
           } catch (err) {
             try {
