@@ -51,7 +51,7 @@ function initMap() {
   }).addTo(map);
 
   // Custom zoom control
-  L.control.zoom({ position: "bottomright" }).addTo(map);
+  L.control.zoom({ position: "bottomleft" }).addTo(map);
 
   routeLayerGroup = L.layerGroup().addTo(map);
   candidateRouteLayerGroup = L.layerGroup().addTo(map);
@@ -908,6 +908,16 @@ function setupEventListeners() {
   document.getElementById("tab-nav-map").addEventListener("click", () => switchTab("map"));
   document.getElementById("tab-nav-radar").addEventListener("click", () => switchTab("radar"));
 
+  // Mobile navigation menu toggle
+  const mobileMenuBtn = document.getElementById("btn-mobile-menu");
+  const pillsRightGroup = document.getElementById("pills-right-group");
+  if (mobileMenuBtn && pillsRightGroup) {
+    mobileMenuBtn.addEventListener("click", () => {
+      const isOpen = pillsRightGroup.classList.toggle("mobile-open");
+      mobileMenuBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+  }
+
   // Radar subtabs
   document.querySelectorAll(".radar-tab-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -1140,6 +1150,61 @@ function applyClampedPosition(panel, pos) {
   panel.classList.add("is-dragged");
 }
 
+function getVisibleFloatingElements(excludeEl) {
+  const selectors = [
+    "#pill-brand",
+    "#pill-tabs",
+    "#pill-actions",
+    "#left-panel",
+    "#airport-card",
+    "#assistant-bar",
+    "#assistant-reply-panel",
+    "#map-statistics",
+    ".leaflet-control-zoom",
+  ];
+  const list = [];
+  selectors.forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (!el || el === excludeEl) return;
+    const style = window.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      list.push({ el, rect });
+    }
+  });
+  return list;
+}
+
+function checkPanelCollision(panel) {
+  if (!panel) return false;
+  const style = window.getComputedStyle(panel);
+  if (style.display === "none" || style.visibility === "hidden") return false;
+  const rA = panel.getBoundingClientRect();
+  if (rA.width === 0 || rA.height === 0) return false;
+
+  const others = getVisibleFloatingElements(panel);
+  for (const { rect: rB } of others) {
+    const overlapX = Math.min(rA.right, rB.right) - Math.max(rA.left, rB.left);
+    const overlapY = Math.min(rA.bottom, rB.bottom) - Math.max(rA.top, rB.top);
+    if (overlapX > 4 && overlapY > 4) {
+      return true;
+    }
+  }
+  return false;
+}
+window.checkPanelCollision = checkPanelCollision;
+
+function animatePanelToDefault(panel, key) {
+  if (!panel) return;
+  panel.style.transition = "all 200ms cubic-bezier(0.16, 1, 0.3, 1)";
+  resetPanelPos(panel, key);
+  setTimeout(() => {
+    panel.style.transition = "";
+  }, 220);
+}
+window.animatePanelToDefault = animatePanelToDefault;
+
 function resetPanelPos(panel, key) {
   try {
     localStorage.removeItem(key);
@@ -1171,6 +1236,9 @@ function initDraggablePanels() {
         const parsed = JSON.parse(saved);
         if (typeof parsed.left === "number" && typeof parsed.top === "number") {
           applyClampedPosition(panel, parsed);
+          if (checkPanelCollision(panel)) {
+            resetPanelPos(panel, key);
+          }
         }
       }
     } catch (e) {}
@@ -1234,11 +1302,15 @@ function initDraggablePanels() {
         }
 
         if (moved) {
-          const leftVal = parseFloat(panel.style.left) || 0;
-          const topVal = parseFloat(panel.style.top) || 0;
-          try {
-            localStorage.setItem(key, JSON.stringify({ left: leftVal, top: topVal }));
-          } catch (err) {}
+          if (checkPanelCollision(panel)) {
+            animatePanelToDefault(panel, key);
+          } else {
+            const leftVal = parseFloat(panel.style.left) || 0;
+            const topVal = parseFloat(panel.style.top) || 0;
+            try {
+              localStorage.setItem(key, JSON.stringify({ left: leftVal, top: topVal }));
+            } catch (err) {}
+          }
         }
       };
 
@@ -1272,6 +1344,17 @@ function initDraggablePanels() {
     }
   });
 
+  window.addEventListener("resize", () => {
+    DRAGGABLE_CONFIGS.forEach(({ panelId, key }) => {
+      const panel = document.getElementById(panelId);
+      if (panel && panel.classList.contains("is-dragged")) {
+        if (checkPanelCollision(panel)) {
+          animatePanelToDefault(panel, key);
+        }
+      }
+    });
+  });
+
   const btnResetLayout = document.getElementById("btn-reset-layout");
   if (btnResetLayout) {
     btnResetLayout.addEventListener("click", resetAllLayoutPositions);
@@ -1303,11 +1386,15 @@ async function startApp() {
 
     renderMarkers();
 
-    // Default select Singapore (SIN)
-    if (airportLookup["SIN"]) {
-      selectAirport(airportLookup["SIN"]);
-    } else if (airportsData.length > 0) {
-      selectAirport(airportsData[0]);
+    // Default select Singapore (SIN) on desktop
+    if (window.innerWidth >= 700) {
+      if (airportLookup["SIN"]) {
+        selectAirport(airportLookup["SIN"]);
+      } else if (airportsData.length > 0) {
+        selectAirport(airportsData[0]);
+      }
+    } else {
+      selectedAirport = airportLookup["SIN"] || airportsData[0];
     }
   } catch (err) {
     console.error("Error loading skyline-index data:", err);

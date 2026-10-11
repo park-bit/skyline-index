@@ -8,74 +8,93 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="icon" type="image/png" href="logo.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="dashboard">
   <!-- Top Bar -->
-  <header class="app-header">
-    <div class="brand">
-      <img src="logo.svg" alt="skyline index logo" width="30" height="30" class="brand-logo">
+  <h1 id="app-title" class="sr-only">Global Aviation Intelligence Map</h1>
+
+  <!-- Floating Pills Top Row -->
+  <div class="pills-header" id="pills-header">
+    <!-- (a) Brand Pill -->
+    <div class="nav-pill pill-brand" id="pill-brand">
+      <img src="logo.png" alt="skyline index logo" width="24" height="24" class="brand-logo">
       <span class="brand-name">skyline index</span>
     </div>
 
-    <nav class="top-nav" aria-label="Views">
-      <button type="button" class="nav-button active" id="tab-nav-map" aria-pressed="true">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
-          <line x1="8" y1="2" x2="8" y2="18"/>
-          <line x1="16" y1="6" x2="16" y2="22"/>
-        </svg>
-        Map
-      </button>
-      <button type="button" class="nav-button" id="tab-nav-radar" aria-pressed="false">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/>
-          <path d="M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0"/>
-          <path d="M12 3a9 9 0 0 1 9 9"/>
-          <path d="M12 12l5.5 -5.5"/>
-        </svg>
-        Opportunity Radar
-      </button>
-    </nav>
+    <!-- Mobile Menu Button (< 700px) -->
+    <button type="button" class="nav-pill pill-menu-btn" id="btn-mobile-menu" aria-label="Toggle navigation menu" aria-expanded="false">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
 
-    <div class="header-settings">
-      <button type="button" class="settings-toggle-btn" id="btn-settings-toggle" aria-label="Settings" title="Display and voice settings">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </button>
+    <div class="pills-right-group" id="pills-right-group">
+      <!-- (b) Tabs Pill -->
+      <nav class="nav-pill pill-tabs" id="pill-tabs" aria-label="Views">
+        <button type="button" class="nav-button active" id="tab-nav-map" aria-pressed="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/>
+            <line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+          Map
+        </button>
+        <button type="button" class="nav-button" id="tab-nav-radar" aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/>
+            <path d="M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0"/>
+            <path d="M12 3a9 9 0 0 1 9 9"/>
+            <path d="M12 12l5.5 -5.5"/>
+          </svg>
+          Opportunity Radar
+        </button>
+      </nav>
 
-      <div class="settings-popover glass" id="settings-popover" style="display:none;" role="dialog" aria-label="Settings popover">
-        <div class="settings-popover-header">
-          <span>Settings</span>
-          <button type="button" class="settings-close-btn" id="btn-close-settings" aria-label="Close settings">&times;</button>
-        </div>
-        <div class="settings-group">
-          <div class="settings-row-label">
-            <label for="slider-transparency">Transparency</label>
-            <span id="transparency-val" class="settings-val-chip">45%</span>
+      <!-- (c) Actions Pill -->
+      <div class="nav-pill pill-actions" id="pill-actions">
+        <button type="button" class="pill-action-btn" id="btn-open-compare">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><path d="M5 9v12"/><circle cx="19" cy="18" r="3"/><path d="M19 15V3"/></svg>
+          Compare airports
+        </button>
+        <button type="button" class="settings-toggle-btn" id="btn-settings-toggle" aria-label="Settings" title="Display and voice settings">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+
+        <div class="settings-popover glass" id="settings-popover" style="display:none;" role="dialog" aria-label="Settings popover">
+          <div class="settings-popover-header">
+            <span>Settings</span>
+            <button type="button" class="settings-close-btn" id="btn-close-settings" aria-label="Close settings">&times;</button>
           </div>
-          <input type="range" id="slider-transparency" min="30" max="90" value="45" step="1" aria-label="Panel transparency">
-        </div>
-        <div class="settings-group">
-          <label for="settings-voice-select">Voice</label>
-          <select id="settings-voice-select" class="settings-select" aria-label="Assistant voice"></select>
-          <div class="voice-fallback-msg" id="settings-voice-fallback" style="display:none;">British voice not available on this device</div>
-        </div>
-        <div class="settings-group">
-          <button type="button" class="reset-layout-btn" id="btn-reset-layout">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-            Reset layout
-          </button>
+          <div class="settings-group">
+            <div class="settings-row-label">
+              <label for="slider-transparency">Transparency</label>
+              <span id="transparency-val" class="settings-val-chip">45%</span>
+            </div>
+            <input type="range" id="slider-transparency" min="30" max="90" value="45" step="1" aria-label="Panel transparency">
+          </div>
+          <div class="settings-group">
+            <label for="settings-voice-select">Voice</label>
+            <select id="settings-voice-select" class="settings-select" aria-label="Assistant voice"></select>
+            <div class="voice-fallback-msg" id="settings-voice-fallback" style="display:none;">British voice not available on this device</div>
+          </div>
+          <div class="settings-group">
+            <button type="button" class="reset-layout-btn" id="btn-reset-layout">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              Reset layout
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <h1 id="app-title" class="sr-only">Global Aviation Intelligence Map</h1>
-  </header>
+  <div class="app-layout" id="app-layout">
 
   <div class="map-stage">
     <!-- Ambience Overlays -->
@@ -231,25 +250,6 @@
       </button>
     </div>
 
-    <!-- Bottom Stat Strip -->
-    <div class="map-statistics" id="map-statistics">
-      <div class="panel-grip-handle" id="grip-map-statistics" aria-label="Drag statistics strip" title="Drag to move, double click to reset"></div>
-      <div class="map-statistics-content">
-        <div>
-          <strong id="stat-airports-count">0</strong>
-          <span>Airports tracked</span>
-        </div>
-        <div>
-          <strong id="stat-emerging-count" class="class-emerging-text">0</strong>
-          <span>Emerging opportunities</span>
-        </div>
-        <div>
-          <strong id="stat-hubs-count" class="class-hub-text">0</strong>
-          <span>Established hubs</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Opportunity Radar Panel -->
     <section class="radar-panel glass" id="radar-panel" role="tabpanel" style="display:none;">
       <div class="radar-header">
@@ -285,17 +285,8 @@
       </section>
     </div>
 
-    <!-- Map bottom footer -->
-    <div class="map-bottom">
-      <div class="map-bottom-spacer"></div>
-      <button type="button" class="compare-launch" id="btn-open-compare">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="3"/><path d="M5 9v12"/><circle cx="19" cy="18" r="3"/><path d="M19 15V3"/></svg>
-        Compare airports
-      </button>
-    </div>
-
-    <!-- Skyline Assistant Command Bar and Reply Panel -->
-    <div class="assistant-container" id="assistant-container">
+    <!-- Bottom Center Zone (stacked reply panel, stat strip, and command bar) -->
+    <div class="bottom-center-zone" id="bottom-center-zone">
       <div class="assistant-reply-panel glass" id="assistant-reply-panel" style="display:none;" role="region" aria-label="Skyline assistant history">
         <div class="panel-grip-handle" id="grip-reply-panel" aria-label="Drag reply panel" title="Drag to move, double click to reset"></div>
         <div class="reply-panel-header">
@@ -318,6 +309,24 @@
           </div>
         </div>
         <div class="reply-panel-body" id="assistant-history-list"></div>
+      </div>
+
+      <div class="map-statistics" id="map-statistics">
+        <div class="panel-grip-handle" id="grip-map-statistics" aria-label="Drag statistics strip" title="Drag to move, double click to reset"></div>
+        <div class="map-statistics-content">
+          <div>
+            <strong id="stat-airports-count">0</strong>
+            <span>Airports tracked</span>
+          </div>
+          <div>
+            <strong id="stat-emerging-count" class="class-emerging-text">0</strong>
+            <span>Emerging opportunities</span>
+          </div>
+          <div>
+            <strong id="stat-hubs-count" class="class-hub-text">0</strong>
+            <span>Established hubs</span>
+          </div>
+        </div>
       </div>
 
       <div class="assistant-bar glass" id="assistant-bar">

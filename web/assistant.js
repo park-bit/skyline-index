@@ -698,15 +698,11 @@ function renderReplyPanel(latestTyped = true) {
   });
 
   panel.scrollTop = panel.scrollHeight;
-  const statStrip = document.getElementById("map-statistics");
-  if (statStrip) statStrip.style.display = "none";
 }
 
 function closeReplyPanel() {
   const panel = document.getElementById("assistant-reply-panel");
   if (panel) panel.style.display = "none";
-  const statStrip = document.getElementById("map-statistics");
-  if (statStrip) statStrip.style.display = "flex";
 }
 
 function executeAssistantCommand(inputStr) {

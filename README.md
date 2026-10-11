@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="web/logo.svg" width="48" height="48" alt="skyline index logo" />
+  <img src="web/logo.png" width="48" height="48" alt="skyline index logo" />
 </p>
 
 # Skyline Index: Global Aviation Intelligence Map
