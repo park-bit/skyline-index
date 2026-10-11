@@ -203,10 +203,8 @@ def test_hash_tab_load_hides_map_chrome(browser, web_server):
         assert page.is_visible(f"#{panel}")
         for sel in ["#airport-card", "#country-card", "#left-panel", "#legend-pill", "#map-statistics"]:
             assert not page.is_visible(sel), f"{sel} should be hidden on the {tab} tab"
-        # Returning to the map restores the default dossier and chrome
+        # Returning to the map restores map chrome
         page.click("#tab-nav-map")
-        page.wait_for_selector("#airport-card", state="visible")
-        assert page.text_content("#selected-iata") == "SIN"
         for sel in ["#left-panel", "#legend-pill", "#map-statistics"]:
             assert page.is_visible(sel)
         assert errors == [], errors

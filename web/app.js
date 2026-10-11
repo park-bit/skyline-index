@@ -2140,13 +2140,17 @@ function updateUrlState() {
   const parts = [];
   if (selectedCountry) parts.push("c=" + encodeURIComponent(selectedCountry));
   else if (selectedAirport) parts.push("ap=" + encodeURIComponent(selectedAirport.iata));
-  parts.push("h=" + currentHorizon);
-  parts.push("tab=" + currentTab);
+  if (currentHorizon !== "present" || selectedAirport || selectedCountry) parts.push("h=" + currentHorizon);
+  if (currentTab !== "map" || selectedAirport || selectedCountry) parts.push("tab=" + currentTab);
   if (showNetworkShifts) parts.push("net=1");
-  const hash = "#" + parts.join("&");
+  const hash = parts.length > 0 ? "#" + parts.join("&") : "";
   if (window.location.hash !== hash) {
     try {
-      history.replaceState(null, "", hash);
+      if (hash) {
+        history.replaceState(null, "", hash);
+      } else {
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
     } catch (e) {
       window.location.hash = hash;
     }
@@ -2871,16 +2875,8 @@ async function startApp() {
       document.dispatchEvent(new CustomEvent("skyline:dataready", { detail: window.skylineData }));
     } catch (e) {}
 
-    // Restore URL state, else default-select Singapore (SIN) on desktop.
-    const restored = restoreUrlState();
-    if (!restored) {
-      if (window.innerWidth >= 700) {
-        if (airportLookup["SIN"]) selectAirport(airportLookup["SIN"], { noPan: true });
-        else if (airportsData.length > 0) selectAirport(airportsData[0], { noPan: true });
-      } else {
-        selectedAirport = airportLookup["SIN"] || airportsData[0];
-      }
-    }
+    // Restore URL state if hash exists.
+    restoreUrlState();
     restoreUrlTab();
     suppressUrlUpdates = false;
     if (showNetworkShifts) drawNetworkShifts();
