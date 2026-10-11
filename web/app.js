@@ -880,6 +880,16 @@ function switchTab(tab) {
 }
 window.switchTab = switchTab;
 
+function setRadarView(view) {
+  currentRadarView = view || "airline";
+  document.querySelectorAll(".radar-tab-btn").forEach((b) => {
+    if (b.getAttribute("data-view") === currentRadarView) b.classList.add("active");
+    else b.classList.remove("active");
+  });
+  renderRadar();
+}
+window.setRadarView = setRadarView;
+
 function renderAboutCard(data) {
   const aboutText = document.getElementById("about-text");
   if (!aboutText) return;

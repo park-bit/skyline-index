@@ -2540,9 +2540,14 @@ body.radar-tab-active .leaflet-control-zoom {
   font-variant-numeric: tabular-nums;
 }
 
-/* Radar tab active: dock reply panel above command bar with max-height 30vh */
+/* Radar tab active: hide map statistics strip and dock reply panel above command bar */
+body.radar-tab-active .map-statistics {
+  display: none !important;
+}
+
 body.radar-tab-active .assistant-reply-panel {
-  max-height: 30vh;
+  bottom: 76px;
+  max-height: 35vh;
 }
 
 body.radar-tab-active .radar-panel {

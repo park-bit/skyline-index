@@ -1,6 +1,24 @@
 // skyline-index - Voice and Text Assistant (Skyline)
 let NEEDLE_URL = "https://skyline-smart-mode.onrender.com";
 
+let defaultOpportunities = null;
+if (typeof window === "undefined") {
+  try {
+    const fs = require("fs");
+    const p = require("path").join(__dirname, "opportunities.json");
+    if (fs.existsSync(p)) {
+      defaultOpportunities = JSON.parse(fs.readFileSync(p, "utf8"));
+    }
+  } catch (e) {}
+}
+
+function getOpportunitiesDataset() {
+  if (typeof window !== "undefined" && window.opportunitiesData) {
+    return window.opportunitiesData;
+  }
+  return defaultOpportunities;
+}
+
 function levenshteinDistance(s1, s2) {
   const a = s1.toLowerCase();
   const b = s2.toLowerCase();
@@ -292,9 +310,83 @@ function parseAssistantCommand(input, airports = [], activeHorizon = "present") 
     };
   }
 
-  // Command: Top / Opportunities / Fastest growing / Hubs / Declining (supports conversational phrasing & regions)
+  // Command: Opportunity Radar / Opportunities / Candidate Routes strictly from model dataset
+  const isOpportunityQuery =
+    /\b(opportunit\w*|candidate\s+routes?|radar\s+candidates?)\b/i.test(clean) ||
+    /^(?:open\s+|show\s+|view\s+)?(?:opportunity\s+)?radar$/i.test(clean);
+
+  if (isOpportunityQuery && !radarMatch) {
+    const oppData = getOpportunitiesDataset();
+
+    let view = "airline";
+    if (/\b(investor|risers?)\b/i.test(clean)) {
+      view = "investor";
+    } else if (/\b(tourism|destinations?)\b/i.test(clean)) {
+      view = "tourism";
+    }
+
+    let count = 10;
+    const countMatch = clean.match(/\b(?:top|first)\s*(\d+)\b/i);
+    if (countMatch) count = parseInt(countMatch[1], 10);
+    else if (/\b(best|top\s+1\b|number\s+1\b)\b/i.test(clean)) count = 1;
+
+    if (oppData) {
+      if (view === "airline") {
+        const items = (oppData.airline_opportunities || []).slice(0, count);
+        if (items.length > 0) {
+          const lines = items.map((it) => {
+            return `${it.rank}. ${it.origin_iata} \u2194 ${it.dest_iata} (Score ${it.score}) : ${it.origin_city} to ${it.dest_city} (${it.distance_km} km)`;
+          });
+          const header = `Top ${items.length} Candidate Route Opportunities (Opportunity Radar):`;
+          return {
+            type: "radar",
+            radarView: "airline",
+            text: [header, ...lines].join("\n"),
+            spokenText: `Showing top ${items.length} candidate route opportunities in Opportunity Radar.`,
+          };
+        }
+      } else if (view === "investor") {
+        const items = (oppData.investor_opportunities || []).slice(0, count);
+        if (items.length > 0) {
+          const lines = items.map((it) => {
+            return `${it.rank}. ${it.iata} : ${it.city || it.name} (+${it.forecast_change_h5.toFixed(2)} pts) [Driver: ${it.top_driver}]`;
+          });
+          const header = `Top ${items.length} High Confidence Risers (Opportunity Radar):`;
+          return {
+            type: "radar",
+            radarView: "investor",
+            text: [header, ...lines].join("\n"),
+            spokenText: `Showing top ${items.length} high confidence risers in Opportunity Radar.`,
+          };
+        }
+      } else if (view === "tourism") {
+        const items = (oppData.tourism_opportunities || []).slice(0, count);
+        if (items.length > 0) {
+          const lines = items.map((it) => {
+            return `${it.rank}. ${it.iata} : ${it.city || it.name} (${it.country}) [${it.type}]`;
+          });
+          const header = `Top ${items.length} Tourism Destinations (Opportunity Radar):`;
+          return {
+            type: "radar",
+            radarView: "tourism",
+            text: [header, ...lines].join("\n"),
+            spokenText: `Showing top ${items.length} tourism destinations in Opportunity Radar.`,
+          };
+        }
+      }
+    }
+
+    return {
+      type: "radar",
+      radarView: view,
+      text: `Opening Opportunity Radar for ${view} opportunities.`,
+      spokenText: `Opening Opportunity Radar.`,
+    };
+  }
+
+  // Command: Top / Fastest growing / Hubs / Declining (supports conversational phrasing & regions)
   const isTopOrOpportunity =
-    /\b(best\s+opportunit\w*|fastest\s+grow\w*|grow\w*\s+fastest|top|emerging|opportunit\w*|risers?|hubs?|established|busiest|biggest\s+hubs?|declining|shrinking)\b/i.test(clean);
+    /\b(fastest\s+grow\w*|grow\w*\s+fastest|top|emerging|hubs?|established|busiest|biggest\s+hubs?|declining|shrinking)\b/i.test(clean);
 
   if (isTopOrOpportunity) {
     let count = 10;
@@ -1360,6 +1452,10 @@ async function executeAssistantCommand(inputStr) {
         result = parseAssistantCommand("switch to +" + args.horizon, airports, activeHorizon);
       } else if (name === "radar" && args.airport) {
         result = parseAssistantCommand("radar for " + args.airport, airports, activeHorizon);
+      } else if (name === "opportunities") {
+        const vStr = args.view ? ` ${args.view}` : "";
+        const nStr = args.n ? ` ${args.n}` : " 10";
+        result = parseAssistantCommand(`top${nStr}${vStr} opportunities`, airports, activeHorizon);
       } else if (name === "reset") {
         result = parseAssistantCommand("reset", airports, activeHorizon);
       } else if (name === "help") {
@@ -1387,6 +1483,9 @@ async function executeAssistantCommand(inputStr) {
 
   // Handle side effects on map and UI
   if (result.type === "show" && result.airport) {
+    if (typeof window.switchTab === "function") {
+      window.switchTab("map");
+    }
     const ap = result.airport;
     if (typeof window.selectAirport === "function") {
       window.selectAirport(ap);
@@ -1396,6 +1495,9 @@ async function executeAssistantCommand(inputStr) {
       triggerPulseRing(ap.latitude, ap.longitude);
     }
   } else if (result.type === "compare" && result.compareAirports && result.compareAirports.length === 2) {
+    if (typeof window.switchTab === "function") {
+      window.switchTab("map");
+    }
     const [apA, apB] = result.compareAirports;
     if (typeof window.setCompareAirports === "function") {
       window.setCompareAirports(apA.iata, apB.iata);
@@ -1404,6 +1506,9 @@ async function executeAssistantCommand(inputStr) {
       window.openCompareDrawer();
     }
   } else if (result.type === "top" && result.airports && result.airports.length > 0) {
+    if (typeof window.switchTab === "function") {
+      window.switchTab("map");
+    }
     if (window.map && typeof L !== "undefined") {
       const latLngs = result.airports
         .filter((a) => a.latitude != null && a.longitude != null)
@@ -1413,13 +1518,22 @@ async function executeAssistantCommand(inputStr) {
       }
     }
   } else if (result.type === "switch_horizon") {
+    if (typeof window.switchTab === "function") {
+      window.switchTab("map");
+    }
     const btn = document.getElementById("btn-horizon-" + result.horizon);
     if (btn) btn.click();
   } else if (result.type === "radar") {
     if (typeof window.switchTab === "function") {
       window.switchTab("radar");
     }
+    if (result.radarView && typeof window.setRadarView === "function") {
+      window.setRadarView(result.radarView);
+    }
   } else if (result.type === "reset") {
+    if (typeof window.switchTab === "function") {
+      window.switchTab("map");
+    }
     const resetBtn = document.getElementById("btn-reset-filters");
     if (resetBtn) resetBtn.click();
     if (window.map) {

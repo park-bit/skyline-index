@@ -183,6 +183,7 @@ def test_key_missing(monkeypatch):
 
 
 def test_rate_limit_per_ip(monkeypatch):
+    monkeypatch.setattr("api.main.model_instance", None)
     monkeypatch.setenv("GEMINI_API_KEY", "test_secret_key")
     gemini_resp = make_gemini_response([{"name": "help", "args": {}}])
 
@@ -203,6 +204,7 @@ def test_rate_limit_per_ip(monkeypatch):
 
 
 def test_rate_limit_daily(monkeypatch):
+    monkeypatch.setattr("api.main.model_instance", None)
     monkeypatch.setenv("GEMINI_API_KEY", "test_secret_key")
     monkeypatch.setenv("DAILY_LIMIT", "2")
     gemini_resp = make_gemini_response([{"name": "help", "args": {}}])
