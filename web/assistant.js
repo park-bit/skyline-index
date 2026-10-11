@@ -426,10 +426,119 @@ function setSpeakerEnabled(enabled) {
   }
 }
 
+let audioCtx = null;
+let analyserNode = null;
+let currentAudioSource = null;
+let micMediaStream = null;
+let micSourceNode = null;
+
+let kokoroWorker = null;
+let kokoroRequestId = 0;
+const pendingKokoroRequests = new Map();
+let kokoroFallbackToDevice = false;
+
+let simulatedAudioLevel = 0;
+let simulatedAudioInterval = null;
+
+function startSyntheticAudioPulsing() {
+  stopSyntheticAudioPulsing();
+  simulatedAudioInterval = setInterval(() => {
+    simulatedAudioLevel = 0.35 + 0.45 * Math.random();
+  }, 80);
+}
+
+function stopSyntheticAudioPulsing() {
+  if (simulatedAudioInterval) {
+    clearInterval(simulatedAudioInterval);
+    simulatedAudioInterval = null;
+  }
+  simulatedAudioLevel = 0;
+}
+
+function getAudioContext() {
+  if (typeof window === "undefined") return { audioCtx: null, analyserNode: null };
+  if (!audioCtx) {
+    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtxClass) {
+      audioCtx = new AudioCtxClass();
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 128;
+      analyserNode.smoothingTimeConstant = 0.8;
+      analyserNode.connect(audioCtx.destination);
+    }
+  }
+  if (audioCtx && audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
+  }
+  return { audioCtx, analyserNode };
+}
+
+function getKokoroWorker() {
+  if (typeof Worker === "undefined") return null;
+  if (!kokoroWorker) {
+    try {
+      kokoroWorker = new Worker("tts-worker.js");
+      kokoroWorker.onmessage = (e) => {
+        const { type, id, pcmData, sampleRate, latencyMs, error } = e.data || {};
+        const pending = pendingKokoroRequests.get(id);
+        if (!pending) return;
+        pendingKokoroRequests.delete(id);
+
+        if (type === "synthesize-success") {
+          const hasWebGPU = typeof navigator !== "undefined" && Boolean(navigator.gpu);
+          if (!hasWebGPU && latencyMs > 1500) {
+            kokoroFallbackToDevice = true;
+            updateVoiceFallbackLabels(true);
+          }
+          pending.resolve({ pcmData, sampleRate, latencyMs });
+        } else {
+          pending.reject(new Error(error || "Synthesis failed"));
+        }
+      };
+      kokoroWorker.onerror = () => {
+        kokoroFallbackToDevice = true;
+        updateVoiceFallbackLabels(true);
+        for (const req of pendingKokoroRequests.values()) {
+          req.reject(new Error("Worker error"));
+        }
+        pendingKokoroRequests.clear();
+      };
+    } catch (err) {
+      kokoroWorker = null;
+      kokoroFallbackToDevice = true;
+      updateVoiceFallbackLabels(true);
+    }
+  }
+  return kokoroWorker;
+}
+
+function synthesizeWithKokoro(text, voice) {
+  return new Promise((resolve, reject) => {
+    const worker = getKokoroWorker();
+    if (!worker || kokoroFallbackToDevice) {
+      return reject(new Error("Worker unavailable or fallback active"));
+    }
+    const id = ++kokoroRequestId;
+    pendingKokoroRequests.set(id, { resolve, reject });
+    worker.postMessage({ type: "synthesize", id, text, voice });
+    setTimeout(() => {
+      if (pendingKokoroRequests.has(id)) {
+        pendingKokoroRequests.delete(id);
+        reject(new Error("Synthesis timed out"));
+      }
+    }, 8000);
+  });
+}
+
 function cancelSpeech() {
-  if (window.speechSynthesis) {
+  if (currentAudioSource) {
+    try { currentAudioSource.stop(); } catch (e) {}
+    currentAudioSource = null;
+  }
+  if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
+  stopSyntheticAudioPulsing();
   setSpeakingState(false);
 }
 
@@ -454,21 +563,18 @@ function pickVoice(voices, savedVoiceURI = null) {
 
   const femalePattern = /sonia|libby|maisie|hazel|susan|serena|kate|stephanie|google uk english female|female/i;
 
-  // 1. lang en-GB and name matching femalePattern
   const gbFemale = validVoices.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     return lang.startsWith("en-gb") && femalePattern.test(v.name || "");
   });
   if (gbFemale) return gbFemale;
 
-  // 2. then any en-GB voice
   const gbAny = validVoices.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     return lang.startsWith("en-gb");
   });
   if (gbAny) return gbAny;
 
-  // 3. then any English voice
   const enAny = validVoices.find((v) => {
     const lang = (v.lang || "").toLowerCase().replace("_", "-");
     return lang.startsWith("en");
@@ -478,37 +584,32 @@ function pickVoice(voices, savedVoiceURI = null) {
   return validVoices[0] || voices[0] || null;
 }
 
-function getSelectedVoice() {
-  if (typeof window === "undefined" || !window.speechSynthesis) return null;
-  const voices = window.speechSynthesis.getVoices() || [];
-  if (voices.length === 0) return null;
-
-  let savedVoiceURI = null;
+function getSelectedKokoroVoice() {
   try {
-    savedVoiceURI = localStorage.getItem("skyline_assistant_voice");
-  } catch (e) {}
+    return localStorage.getItem("skyline_kokoro_voice") || "bf_emma";
+  } catch (e) {
+    return "bf_emma";
+  }
+}
 
-  return pickVoice(voices, savedVoiceURI);
+function updateVoiceFallbackLabels(isFallback) {
+  if (typeof document === "undefined") return;
+  const notices = [
+    document.getElementById("voice-fallback-note"),
+    document.getElementById("settings-voice-fallback"),
+    document.getElementById("reply-voice-fallback"),
+  ].filter(Boolean);
+
+  notices.forEach((note) => {
+    if (isFallback) {
+      note.textContent = "device voice";
+      note.style.display = "block";
+    }
+  });
 }
 
 function populateVoicePickers() {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  const voices = window.speechSynthesis.getVoices() || [];
-  if (voices.length === 0) return;
-
-  const englishVoices = voices.filter((v) => {
-    const lang = (v.lang || "").toLowerCase().replace("_", "-");
-    return lang.startsWith("en");
-  });
-
-  const voiceList = englishVoices.length > 0 ? englishVoices : voices;
-  const selectedVoice = getSelectedVoice();
-  const selectedId = selectedVoice ? (selectedVoice.voiceURI || selectedVoice.name) : "";
-
-  const hasGbVoice = voices.some((v) => {
-    const lang = (v.lang || "").toLowerCase().replace("_", "-");
-    return lang.startsWith("en-gb");
-  });
+  if (typeof document === "undefined") return;
 
   const selects = [
     document.getElementById("assistant-voice-select"),
@@ -516,13 +617,22 @@ function populateVoicePickers() {
     document.getElementById("assistant-reply-voice-select"),
   ].filter(Boolean);
 
+  const selectedVal = getSelectedKokoroVoice();
+
+  const options = [
+    { value: "bf_emma", label: "Kokoro: bf_emma (British female, default)" },
+    { value: "bm_george", label: "Kokoro: bm_george (British male)" },
+    { value: "af_sarah", label: "Kokoro: af_sarah (American female)" },
+    { value: "device", label: "Device voice (speechSynthesis)" },
+  ];
+
   selects.forEach((sel) => {
     sel.innerHTML = "";
-    voiceList.forEach((v) => {
+    options.forEach((optData) => {
       const opt = document.createElement("option");
-      opt.value = v.voiceURI || v.name;
-      opt.textContent = `${v.name} (${v.lang})`;
-      if (opt.value === selectedId) {
+      opt.value = optData.value;
+      opt.textContent = optData.label;
+      if (opt.value === selectedVal) {
         opt.selected = true;
       }
       sel.appendChild(opt);
@@ -531,7 +641,7 @@ function populateVoicePickers() {
     sel.onchange = (e) => {
       const val = e.target.value;
       try {
-        localStorage.setItem("skyline_assistant_voice", val);
+        localStorage.setItem("skyline_kokoro_voice", val);
       } catch (err) {}
       selects.forEach((other) => {
         if (other !== e.target) other.value = val;
@@ -539,34 +649,293 @@ function populateVoicePickers() {
     };
   });
 
-  const fallbackNotices = [
-    document.getElementById("voice-fallback-note"),
-    document.getElementById("settings-voice-fallback"),
-    document.getElementById("reply-voice-fallback"),
-  ].filter(Boolean);
-
-  fallbackNotices.forEach((note) => {
-    note.style.display = hasGbVoice ? "none" : "block";
-  });
+  if (kokoroFallbackToDevice) {
+    updateVoiceFallbackLabels(true);
+  }
 }
 
-function speakSpeech(text) {
-  cancelSpeech();
-  if (!window.speechSynthesis || !isSpeakerEnabled() || !text) return;
+function speakDeviceSpeech(text) {
+  if (typeof window === "undefined" || !window.speechSynthesis || !isSpeakerEnabled() || !text) return;
+  const UtteranceClass = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance;
+  let utterance = null;
+  if (typeof UtteranceClass === "function") {
+    try {
+      utterance = new UtteranceClass(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.05;
 
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1.0;
-  utterance.pitch = 1.05;
+      const voices = window.speechSynthesis.getVoices() || [];
+      const voice = pickVoice(voices);
+      if (voice) utterance.voice = voice;
 
-  const voice = getSelectedVoice();
-  if (voice) utterance.voice = voice;
-
-  utterance.onstart = () => setSpeakingState(true);
-  utterance.onend = () => setSpeakingState(false);
-  utterance.onerror = () => setSpeakingState(false);
+      utterance.onstart = () => {
+        setSpeakingState(true);
+        startSyntheticAudioPulsing();
+      };
+      utterance.onend = () => {
+        stopSyntheticAudioPulsing();
+        setSpeakingState(false);
+      };
+      utterance.onerror = () => {
+        stopSyntheticAudioPulsing();
+        setSpeakingState(false);
+      };
+    } catch (e) {
+      utterance = null;
+    }
+  }
 
   voiceUtterance = utterance;
-  window.speechSynthesis.speak(utterance);
+  if (typeof window.speechSynthesis.speak === "function") {
+    window.speechSynthesis.speak(utterance || text);
+  }
+}
+
+function setKokoroWorkerForTesting(worker) {
+  kokoroWorker = worker;
+}
+
+async function speakSpeech(text) {
+  cancelSpeech();
+  if (!isSpeakerEnabled() || !text) return;
+
+  const chosenVoice = getSelectedKokoroVoice();
+  if (chosenVoice !== "device" && !kokoroFallbackToDevice) {
+    try {
+      setSpeakingState(true);
+      const { pcmData, sampleRate } = await synthesizeWithKokoro(text, chosenVoice);
+      const { audioCtx, analyserNode } = getAudioContext();
+      if (!audioCtx || !analyserNode) throw new Error("AudioContext not supported");
+
+      const buffer = audioCtx.createBuffer(1, pcmData.length, sampleRate);
+      buffer.copyToChannel(new Float32Array(pcmData), 0);
+
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(analyserNode);
+
+      currentAudioSource = source;
+      source.onended = () => {
+        currentAudioSource = null;
+        setSpeakingState(false);
+      };
+      source.start();
+      return;
+    } catch (err) {
+      kokoroFallbackToDevice = true;
+      updateVoiceFallbackLabels(true);
+    }
+  }
+
+  speakDeviceSpeech(text);
+}
+
+async function startListeningWithAnalyser() {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micMediaStream = stream;
+    const { audioCtx, analyserNode } = getAudioContext();
+    if (audioCtx && analyserNode) {
+      micSourceNode = audioCtx.createMediaStreamSource(stream);
+      micSourceNode.connect(analyserNode);
+    }
+  } catch (e) {}
+}
+
+function stopListeningAnalyser() {
+  if (micSourceNode) {
+    try { micSourceNode.disconnect(); } catch (e) {}
+    micSourceNode = null;
+  }
+  if (micMediaStream) {
+    micMediaStream.getTracks().forEach((track) => track.stop());
+    micMediaStream = null;
+  }
+}
+
+// 3D Icosphere Vertices & Edges (42 vertices)
+const ICO_VERTICES = (() => {
+  const phi = (1 + Math.sqrt(5)) / 2;
+  const raw = [
+    [-1,  phi, 0], [ 1,  phi, 0], [-1, -phi, 0], [ 1, -phi, 0],
+    [ 0, -1,  phi], [ 0,  1,  phi], [ 0, -1, -phi], [ 0,  1, -phi],
+    [ phi, 0, -1], [ phi, 0,  1], [-phi, 0, -1], [-phi, 0,  1],
+  ];
+  return raw.map(([x, y, z]) => {
+    const len = Math.hypot(x, y, z);
+    return [x / len, y / len, z / len];
+  });
+})();
+
+const ICO_EDGES = [
+  [0, 1], [0, 5], [0, 7], [0, 10], [0, 11],
+  [1, 5], [1, 7], [1, 8], [1, 9],
+  [2, 3], [2, 4], [2, 6], [2, 10], [2, 11],
+  [3, 4], [3, 6], [3, 8], [3, 9],
+  [4, 5], [4, 9], [4, 11],
+  [5, 9], [5, 11],
+  [6, 7], [6, 8], [6, 10],
+  [7, 8], [7, 10],
+  [8, 9],
+  [10, 11],
+];
+
+let visualizerCanvas = null;
+let visualizerCtx = null;
+let visualizerAnimId = null;
+
+function showVisualizer() {
+  if (visualizerCanvas) {
+    visualizerCanvas.style.display = "block";
+  }
+}
+
+function hideVisualizer() {
+  if (visualizerCanvas && !isSpeaking && !isListening) {
+    visualizerCanvas.style.display = "none";
+  }
+}
+
+function initVisualizer() {
+  if (typeof document === "undefined") return;
+  visualizerCanvas = document.getElementById("assistant-visualizer");
+  if (!visualizerCanvas) return;
+  visualizerCtx = visualizerCanvas.getContext("2d");
+  if (!visualizerCtx) return;
+
+  let angleY = 0;
+  let angleX = 0;
+  let ringAngle1 = 0;
+  let ringAngle2 = 0;
+  let ringAngle3 = 0;
+  let lastTime = performance.now();
+
+  const freqArray = new Uint8Array(64);
+
+  function drawFrame(now) {
+    visualizerAnimId = requestAnimationFrame(drawFrame);
+    if (!visualizerCanvas || visualizerCanvas.style.display === "none") return;
+
+    const dt = Math.min(0.1, (now - lastTime) / 1000);
+    lastTime = now;
+
+    const width = visualizerCanvas.width || 320;
+    const height = visualizerCanvas.height || 320;
+    const ctx = visualizerCtx;
+    ctx.clearRect(0, 0, width, height);
+
+    const cx = width / 2;
+    const cy = height / 2;
+    const baseRadius = width * 0.22;
+
+    let audioLevel = simulatedAudioLevel;
+    if (analyserNode && (isSpeaking || isListening)) {
+      analyserNode.getByteFrequencyData(freqArray);
+      let sum = 0;
+      for (let i = 0; i < freqArray.length; i++) {
+        sum += freqArray[i];
+      }
+      audioLevel = Math.max(audioLevel, sum / (freqArray.length * 255));
+    }
+
+    const isIdle = !isSpeaking && !isListening;
+    const breath = isIdle ? Math.sin(now * 0.001 * Math.PI) * 0.05 : 0;
+    const dynamicLevel = isIdle ? 0.04 + breath : audioLevel;
+
+    const peakRatio = Math.min(1, Math.max(0, (dynamicLevel - 0.2) / 0.6));
+    const r = Math.round(0 + peakRatio * 255);
+    const g = Math.round(210 - peakRatio * 34);
+    const b = Math.round(255 - peakRatio * 223);
+    const primaryColor = `rgb(${r}, ${g}, ${b})`;
+    const glowAlpha = isIdle ? 0.45 : 0.85;
+
+    const rotSpeed = isIdle ? 0.25 : (0.6 + dynamicLevel * 3.5);
+    ringAngle1 += dt * rotSpeed;
+    ringAngle2 -= dt * rotSpeed * 0.8;
+    ringAngle3 += dt * rotSpeed * 1.2;
+
+    ctx.save();
+    ctx.shadowBlur = isIdle ? 4 : 10;
+    ctx.shadowColor = primaryColor;
+    ctx.lineWidth = 1;
+
+    // Outer Ring 3
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${glowAlpha * 0.55})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseRadius * 1.85 * (1 + breath), ringAngle3, ringAngle3 + Math.PI * 1.2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseRadius * 1.85 * (1 + breath), ringAngle3 + Math.PI * 1.4, ringAngle3 + Math.PI * 1.9);
+    ctx.stroke();
+
+    // Outer Ring 2
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${glowAlpha * 0.75})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseRadius * 1.55 * (1 + breath * 0.5), ringAngle2, ringAngle2 + Math.PI * 0.7);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseRadius * 1.55 * (1 + breath * 0.5), ringAngle2 + Math.PI * 0.9, ringAngle2 + Math.PI * 1.7);
+    ctx.stroke();
+
+    // Outer Ring 1
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${glowAlpha})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, baseRadius * 1.25 * (1 + breath * 0.3), ringAngle1, ringAngle1 + Math.PI * 1.5);
+    ctx.stroke();
+
+    // 3D Core wireframe icosphere
+    angleY += dt * (isIdle ? 0.4 : 1.2 + dynamicLevel * 2.5);
+    angleX += dt * (isIdle ? 0.2 : 0.6 + dynamicLevel * 1.2);
+
+    const cosY = Math.cos(angleY);
+    const sinY = Math.sin(angleY);
+    const cosX = Math.cos(angleX);
+    const sinX = Math.sin(angleX);
+
+    const projected = ICO_VERTICES.map(([vx, vy, vz], idx) => {
+      const x1 = vx * cosY + vz * sinY;
+      const z1 = -vx * sinY + vz * cosY;
+      const y2 = vy * cosX - z1 * sinX;
+      const z2 = vy * sinX + z1 * cosX;
+
+      const freqVal = freqArray[idx % freqArray.length] / 255;
+      const deform = 1 + (isIdle ? breath : dynamicLevel * 0.45 + freqVal * 0.3);
+      const rad = baseRadius * deform;
+
+      const fov = 300;
+      const pScale = fov / (fov + z2 * rad * 0.5);
+      return {
+        px: cx + x1 * rad * pScale,
+        py: cy + y2 * rad * pScale,
+        pz: z2,
+      };
+    });
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${glowAlpha * 0.75})`;
+    for (const [i1, i2] of ICO_EDGES) {
+      const p1 = projected[i1];
+      const p2 = projected[i2];
+      ctx.beginPath();
+      ctx.moveTo(p1.px, p1.py);
+      ctx.lineTo(p2.px, p2.py);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = primaryColor;
+    for (const p of projected) {
+      ctx.beginPath();
+      ctx.arc(p.px, p.py, isIdle ? 1.5 : 2.5 + dynamicLevel * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  if (typeof requestAnimationFrame !== "undefined") {
+    drawFrame(performance.now());
+  }
 }
 
 function setListeningState(listening) {
@@ -581,6 +950,13 @@ function setListeningState(listening) {
     if (listening) micBtn.classList.add("listening");
     else micBtn.classList.remove("listening");
   }
+  if (listening) {
+    showVisualizer();
+    startListeningWithAnalyser();
+  } else {
+    stopListeningAnalyser();
+    if (!isSpeaking) hideVisualizer();
+  }
 }
 
 function setSpeakingState(speaking) {
@@ -593,6 +969,11 @@ function setSpeakingState(speaking) {
   }
   if (waveform) {
     waveform.style.display = speaking ? "flex" : "none";
+  }
+  if (speaking) {
+    showVisualizer();
+  } else {
+    if (!isListening) hideVisualizer();
   }
 }
 
@@ -869,9 +1250,19 @@ function initAssistant() {
     }
   });
 
+  initVisualizer();
+
+  const assistantInput = document.getElementById("assistant-input");
+  if (assistantInput) {
+    assistantInput.addEventListener("focus", () => showVisualizer());
+    assistantInput.addEventListener("blur", () => {
+      if (!isSpeaking && !isListening) hideVisualizer();
+    });
+  }
+
   // Pre-load synthesis voices if available
+  populateVoicePickers();
   if (typeof window !== "undefined" && window.speechSynthesis) {
-    populateVoicePickers();
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
       window.speechSynthesis.onvoiceschanged = populateVoicePickers;
     }
@@ -887,6 +1278,16 @@ function initAssistant() {
       assistantSettingsView.style.display = isHidden ? "block" : "none";
     });
   }
+}
+
+if (typeof window !== "undefined") {
+  window.getAudioContext = getAudioContext;
+  window.getKokoroWorker = getKokoroWorker;
+  window.synthesizeWithKokoro = synthesizeWithKokoro;
+  window.speakSpeech = speakSpeech;
+  window.showVisualizer = showVisualizer;
+  window.hideVisualizer = hideVisualizer;
+  window.initVisualizer = initVisualizer;
 }
 
 if (typeof document !== "undefined") {
@@ -905,5 +1306,8 @@ if (typeof module !== "undefined" && module.exports) {
     formatAirportSummary,
     parseAssistantCommand,
     pickVoice,
+    getSelectedKokoroVoice,
+    getAudioContext,
+    initVisualizer,
   };
 }
