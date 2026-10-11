@@ -1473,6 +1473,11 @@ function initAssistant() {
     });
   }
 
+  // Request persistent browser storage so cached TTS model is not evicted
+  if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(() => {});
+  }
+
   // Initialize Smart Mode
   updateSmartModeVisibility();
   if (isSmartModeEnabled() && NEEDLE_URL) {

@@ -1,6 +1,20 @@
-// Web Worker for Kokoro TTS on-device synthesis
+// Web Worker for Kokoro TTS on-device synthesis with persistent browser cache
 let ttsInstance = null;
 let isInitializing = false;
+
+async function getOrInitTTS(device) {
+  if (ttsInstance) return ttsInstance;
+  const { KokoroTTS, env } = await import("https://cdn.jsdelivr.net/npm/kokoro-js");
+  if (env) {
+    env.useBrowserCache = true;
+    env.allowLocalModels = false;
+  }
+  ttsInstance = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
+    dtype: "q8",
+    device: device,
+  });
+  return ttsInstance;
+}
 
 self.onmessage = async (e) => {
   const { type, id, text, voice } = e.data || {};
@@ -12,14 +26,9 @@ self.onmessage = async (e) => {
     }
     try {
       isInitializing = true;
-      const { KokoroTTS } = await import("https://cdn.jsdelivr.net/npm/kokoro-js");
       const hasWebGPU = typeof navigator !== "undefined" && Boolean(navigator.gpu);
       const device = hasWebGPU ? "webgpu" : "wasm";
-
-      ttsInstance = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
-        dtype: "q8",
-        device: device,
-      });
+      await getOrInitTTS(device);
       isInitializing = false;
       self.postMessage({ type: "init-success", id, device });
     } catch (err) {
@@ -29,21 +38,12 @@ self.onmessage = async (e) => {
   } else if (type === "synthesize") {
     const startTime = performance.now();
     try {
-      if (!ttsInstance) {
-        isInitializing = true;
-        const { KokoroTTS } = await import("https://cdn.jsdelivr.net/npm/kokoro-js");
-        const hasWebGPU = typeof navigator !== "undefined" && Boolean(navigator.gpu);
-        const device = hasWebGPU ? "webgpu" : "wasm";
-
-        ttsInstance = await KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
-          dtype: "q8",
-          device: device,
-        });
-        isInitializing = false;
-      }
+      const hasWebGPU = typeof navigator !== "undefined" && Boolean(navigator.gpu);
+      const device = hasWebGPU ? "webgpu" : "wasm";
+      const model = await getOrInitTTS(device);
 
       const selectedVoice = voice || "bf_emma";
-      const audioResult = await ttsInstance.generate(text, {
+      const audioResult = await model.generate(text, {
         voice: selectedVoice,
       });
 
