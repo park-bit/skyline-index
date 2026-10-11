@@ -151,7 +151,14 @@ Or run the pipeline script:
 python run_all.py
 ```
 
-## Running the Web Map Locally
+## Web Interface and Voice Assistant
+
+The client application includes:
+- Floating pill navigation bars for views, filters, and display settings.
+- Interactive Leaflet map with anti-collision panel layout and trajectory filters.
+- Voice assistant with an audio-reactive 320px wireframe icosphere and rotating rings visualizer.
+- Optional on-device HD voice via Kokoro TTS (82M ONNX Web Worker) with automatic fallback to device speech synthesis.
+- Optional Smart Mode tool-calling backend via Needle 3 foundation model.
 
 To serve the web application locally:
 

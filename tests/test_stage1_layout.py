@@ -119,6 +119,7 @@ def test_stage1_layout_zero_overlap(web_server, width, height):
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": width, "height": height})
         page.goto(f"http://127.0.0.1:{web_server}/web/index.html", wait_until="networkidle")
+        page.evaluate("localStorage.clear(); if (window.resetAllLayoutPositions) window.resetAllLayoutPositions();")
         time.sleep(1.0)
 
         # State (a): Default view
