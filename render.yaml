@@ -17,7 +17,6 @@ services:
         value: "1"
       - key: ALLOWED_ORIGINS
         sync: false
-        value: "https://skyline-index-web.vercel.app,https://skyline-index.vercel.app"
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
