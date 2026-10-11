@@ -11,6 +11,8 @@ let currentTab = "map"; // 'map', 'radar'
 let currentRadarView = "airline"; // 'airline', 'investor', 'tourism'
 let routeLayerGroup;
 let candidateRouteLayerGroup;
+let airportLayerGroup;
+let mapCanvasRenderer;
 let compareAirportA = "SIN";
 let compareAirportB = "DXB";
 
@@ -34,12 +36,15 @@ async function fetchJsonWithFallback(paths) {
 }
 
 function initMap() {
+  mapCanvasRenderer = L.canvas({ tolerance: 12, padding: 0.25 });
+
   map = L.map("map", {
     center: [22.0, 15.0],
     zoom: 3,
     minZoom: 2,
     maxZoom: 12,
     worldCopyJump: true,
+    renderer: mapCanvasRenderer,
     preferCanvas: true,
     zoomControl: false,
   });
@@ -55,8 +60,9 @@ function initMap() {
 
   routeLayerGroup = L.layerGroup().addTo(map);
   candidateRouteLayerGroup = L.layerGroup().addTo(map);
+  airportLayerGroup = L.layerGroup().addTo(map);
 
-  map.on("zoomend", updateMarkerStyles);
+  map.on("zoomend", () => updateMarkerStyles(false));
   window.map = map;
 }
 
@@ -86,12 +92,11 @@ function getAirportRadius(airport, horizon) {
   const score = getAirportScore(airport, horizon);
   const cls = getAirportClass(airport, horizon);
   const currentZoom = map ? map.getZoom() : 3;
-  const zoomBonus = Math.max(0, currentZoom - 3) * 1.0;
-  // Radius about 2 to 3 px for low importance, up to about 7 px for top hubs at default zoom
-  // Hubs largest: extra bonus for established hubs
+  const zoomBonus = Math.max(0, currentZoom - 3) * 0.8;
+  // Radius about 3.5 to 5 px for low importance, up to about 11 px for top hubs
   const hubBonus = cls === "established_hub" ? 2.5 : 0.0;
-  const baseRadius = 2.0 + (score / 100.0) * 5.0 + hubBonus;
-  return Math.min(15.0, baseRadius + zoomBonus);
+  const baseRadius = 3.5 + (score / 100.0) * 4.5 + hubBonus;
+  return Math.min(14.0, baseRadius + zoomBonus);
 }
 
 function getMarkerStyle(airport, color, useQualityStyling) {
@@ -157,6 +162,7 @@ function updateSelectedHalo(ap) {
   const color = getAirportColor(ap, currentHorizon);
 
   selectedHaloMarker = L.circleMarker([ap.latitude, ap.longitude], {
+    renderer: mapCanvasRenderer,
     radius: radius + 4,
     fillColor: color,
     fillOpacity: 0.15,
@@ -235,8 +241,16 @@ function updateStatistics() {
   if (elDeclining) elDeclining.textContent = decliningTotal;
 }
 
+function getAirportTooltipHtml(ap) {
+  const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
+  const scoreVal = getAirportScore(ap, currentHorizon).toFixed(1);
+  return `<b>${ap.iata}</b> : ${ap.city || ap.name} (${scoreVal}) [${dq}]`;
+}
+
 function renderMarkers() {
-  airportMarkers.forEach((m) => map.removeLayer(m));
+  if (airportLayerGroup) {
+    airportLayerGroup.clearLayers();
+  }
   airportMarkers = [];
 
   const useQualityStyling = document.getElementById("toggle-quality-styling")
@@ -253,6 +267,7 @@ function renderMarkers() {
     const styleOpts = getMarkerStyle(ap, color, useQualityStyling);
 
     const marker = L.circleMarker([ap.latitude, ap.longitude], {
+      renderer: mapCanvasRenderer,
       radius: radius,
       ...styleOpts,
     });
@@ -260,14 +275,16 @@ function renderMarkers() {
     marker.airportData = ap;
     marker.on("click", () => selectAirport(ap));
 
-    const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
-    const scoreVal = getAirportScore(ap, currentHorizon).toFixed(1);
-    marker.bindTooltip(`<b>${ap.iata}</b> : ${ap.city || ap.name} (${scoreVal}) [${dq}]`, {
+    marker.bindTooltip(() => getAirportTooltipHtml(ap), {
       direction: "top",
       offset: [0, -radius],
     });
 
-    marker.addTo(map);
+    if (airportLayerGroup) {
+      marker.addTo(airportLayerGroup);
+    } else {
+      marker.addTo(map);
+    }
     airportMarkers.push(marker);
   });
 
@@ -278,30 +295,30 @@ function renderMarkers() {
   updateStatistics();
 }
 
-function updateMarkerStyles() {
-  const useQualityStyling = document.getElementById("toggle-quality-styling")
+function updateMarkerStyles(full = false) {
+  const useQualityStyling = full && document.getElementById("toggle-quality-styling")
     ? document.getElementById("toggle-quality-styling").checked
     : true;
 
   airportMarkers.forEach((m) => {
     const ap = m.airportData;
     const radius = getAirportRadius(ap, currentHorizon);
-    const color = getAirportColor(ap, currentHorizon);
-    const styleOpts = getMarkerStyle(ap, color, useQualityStyling);
-
     m.setRadius(radius);
-    m.setStyle(styleOpts);
 
-    const dq = ap.data_quality || (ap.importance_confidence === "high" ? "observed" : "static_only");
-    const scoreVal = getAirportScore(ap, currentHorizon).toFixed(1);
-    m.setTooltipContent(`<b>${ap.iata}</b> : ${ap.city || ap.name} (${scoreVal}) [${dq}]`);
+    if (full) {
+      const color = getAirportColor(ap, currentHorizon);
+      const styleOpts = getMarkerStyle(ap, color, useQualityStyling);
+      m.setStyle(styleOpts);
+    }
   });
 
   if (selectedAirport) {
     updateSelectedHalo(selectedAirport);
   }
 
-  updateStatistics();
+  if (full) {
+    updateStatistics();
+  }
 }
 
 function selectAirport(ap) {
@@ -339,6 +356,8 @@ function drawAirportRoutes(ap) {
           color: "#F2A93B",
           weight: 1.5,
           opacity: 0.45,
+          interactive: false,
+          renderer: mapCanvasRenderer,
         }
       ).addTo(routeLayerGroup);
     }
@@ -900,7 +919,7 @@ function setupEventListeners() {
         if (statusChip) statusChip.textContent = "Showing +10 years, 2035";
       }
 
-      updateMarkerStyles();
+      updateMarkerStyles(true);
       if (selectedAirport) renderAirportCard(selectedAirport);
     });
   });
@@ -941,7 +960,7 @@ function setupEventListeners() {
   if (confSelect) confSelect.addEventListener("change", renderMarkers);
 
   const stylingToggle = document.getElementById("toggle-quality-styling");
-  if (stylingToggle) stylingToggle.addEventListener("change", updateMarkerStyles);
+  if (stylingToggle) stylingToggle.addEventListener("change", () => updateMarkerStyles(true));
 
   const searchInput = document.getElementById("search-input");
   const clearSearchBtn = document.getElementById("btn-clear-search");

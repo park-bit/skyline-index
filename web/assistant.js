@@ -699,7 +699,7 @@ function synthesizeWithKokoro(text, voice) {
         pendingKokoroRequests.delete(id);
         reject(new Error("Synthesis timed out"));
       }
-    }, 1500);
+    }, 500);
   });
 }
 
@@ -996,16 +996,20 @@ let visualizerCanvas = null;
 let visualizerCtx = null;
 let visualizerAnimId = null;
 let isAnswering = false;
+let startVisualizerLoop = () => {};
+let stopVisualizerLoop = () => {};
 
 function showVisualizer() {
   if (visualizerCanvas) {
     visualizerCanvas.style.display = "block";
+    startVisualizerLoop();
   }
 }
 
 function hideVisualizer() {
   if (visualizerCanvas && !isSpeaking && !isAnswering) {
     visualizerCanvas.style.display = "none";
+    stopVisualizerLoop();
   }
 }
 
@@ -1025,9 +1029,26 @@ function initVisualizer() {
 
   const freqArray = new Uint8Array(64);
 
-  function drawFrame(now) {
+  startVisualizerLoop = function () {
+    if (visualizerAnimId) return;
+    if (typeof requestAnimationFrame === "undefined") return;
+    lastTime = performance.now();
     visualizerAnimId = requestAnimationFrame(drawFrame);
-    if (!visualizerCanvas || visualizerCanvas.style.display === "none") return;
+  };
+
+  stopVisualizerLoop = function () {
+    if (visualizerAnimId) {
+      cancelAnimationFrame(visualizerAnimId);
+      visualizerAnimId = null;
+    }
+  };
+
+  function drawFrame(now) {
+    if (!visualizerCanvas || visualizerCanvas.style.display === "none") {
+      visualizerAnimId = null;
+      return;
+    }
+    visualizerAnimId = requestAnimationFrame(drawFrame);
 
     const dt = Math.min(0.1, (now - lastTime) / 1000);
     lastTime = now;
@@ -1143,10 +1164,6 @@ function initVisualizer() {
     }
 
     ctx.restore();
-  }
-
-  if (typeof requestAnimationFrame !== "undefined") {
-    drawFrame(performance.now());
   }
 }
 

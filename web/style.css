@@ -457,9 +457,9 @@ button {
   z-index: 1;
 }
 
-/* Leaflet tile tint toward ink palette */
+/* Leaflet tile tint */
 .leaflet-tile-pane {
-  filter: brightness(0.82) contrast(1.15) sepia(0.18) hue-rotate(185deg);
+  opacity: 0.95;
 }
 
 .map-canvas {
@@ -478,27 +478,19 @@ button {
   z-index: 2;
 }
 
-/* Subtle Film Grain Noise */
+/* Film grain hidden to prevent GPU redraw thrashing */
 .film-grain {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 99;
-  opacity: 0.04;
+  display: none;
 }
 
-/* Warm radial glow behind left panel and right card */
+/* Warm radial glow behind panels with native soft gradient */
 .warm-glow {
   position: absolute;
   pointer-events: none;
   border-radius: 50%;
-  filter: blur(90px);
   opacity: 0.08;
   z-index: 2;
-  background: radial-gradient(circle, #F2A93B 0%, rgba(242, 169, 59, 0) 70%);
+  background: radial-gradient(circle, rgba(242, 169, 59, 0.6) 0%, rgba(242, 169, 59, 0) 70%);
 }
 
 .glow-left {
@@ -515,7 +507,7 @@ button {
   height: 580px;
 }
 
-/* Very slow drifting faint great-circle arcs */
+/* Static ambient arcs without GPU keyframe loops */
 .ambience-arcs {
   position: absolute;
   inset: 0;
@@ -523,8 +515,7 @@ button {
   height: 100%;
   pointer-events: none;
   z-index: 2;
-  opacity: 0.06;
-  animation: arc-drift 75s infinite ease-in-out;
+  opacity: 0.05;
 }
 
 @keyframes arc-drift {
