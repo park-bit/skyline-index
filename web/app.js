@@ -2388,7 +2388,22 @@ function setupEventListeners() {
       if (searchInput) searchInput.value = "";
       if (clearSearchBtn) clearSearchBtn.style.display = "none";
       if (searchResults) searchResults.style.display = "none";
+      selectedAirport = null;
+      const card = document.getElementById("airport-card");
+      if (card) {
+        card.style.display = "none";
+        card.dataset.userClosed = "true";
+      }
+      const summary = document.getElementById("selected-summary");
+      if (summary) summary.style.display = "none";
+      routeLayerGroup.clearLayers();
+      if (selectedHaloMarker) {
+        map.removeLayer(selectedHaloMarker);
+        selectedHaloMarker = null;
+      }
       closeCountryCard();
+      if (map) map.setView([20, 0], 2);
+      updateUrlState();
       renderMarkers();
     });
   }

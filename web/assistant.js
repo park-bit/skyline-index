@@ -2109,44 +2109,61 @@ function initAssistant() {
   const elClearBtn = document.getElementById("btn-elevenlabs-clear");
   const elStatus = document.getElementById("assistant-elevenlabs-status");
 
+  const settingsElKeyInput = document.getElementById("settings-elevenlabs-key");
+  const settingsElSaveBtn = document.getElementById("btn-settings-elevenlabs-save");
+  const settingsElClearBtn = document.getElementById("btn-settings-elevenlabs-clear");
+  const settingsElStatus = document.getElementById("settings-elevenlabs-status");
+
   function updateElStatus() {
-    if (!elStatus) return;
     const hasKey = Boolean(getElevenLabsApiKey());
+    let msg = "";
+    let color = "";
     if (elevenlabsExhausted) {
-      elStatus.textContent = "Credits exhausted or invalid key. Falling back to Kokoro AI and device voice.";
-      elStatus.style.color = "var(--accent-amber, #e5a00d)";
+      msg = "Credits exhausted or invalid key. Falling back to Kokoro AI and device voice.";
+      color = "var(--accent-amber, #e5a00d)";
     } else if (hasKey) {
-      elStatus.textContent = "Using ElevenLabs Laura (British female) with fallback.";
-      elStatus.style.color = "var(--accent-green, #10b981)";
+      msg = "Using ElevenLabs Laura (British female) with fallback.";
+      color = "var(--accent-green, #10b981)";
     } else {
-      elStatus.textContent = "Default: Laura (British female) with Kokoro and device fallback.";
-      elStatus.style.color = "";
+      msg = "Default: Laura (British female) with Kokoro and device fallback.";
+      color = "";
     }
+    if (elStatus) {
+      elStatus.textContent = msg;
+      elStatus.style.color = color;
+    }
+    if (settingsElStatus) {
+      settingsElStatus.textContent = msg;
+      settingsElStatus.style.color = color;
+    }
+    const curKey = getElevenLabsApiKey();
+    if (elKeyInput && elKeyInput.value !== curKey) elKeyInput.value = curKey;
+    if (settingsElKeyInput && settingsElKeyInput.value !== curKey) settingsElKeyInput.value = curKey;
   }
 
-  if (elKeyInput) {
-    elKeyInput.value = getElevenLabsApiKey();
-    updateElStatus();
+  function saveElKey(val) {
+    try {
+      localStorage.setItem("skyline_elevenlabs_key", (val || "").trim());
+      elevenlabsExhausted = false;
+      updateElStatus();
+    } catch (e) {}
   }
-  if (elSaveBtn && elKeyInput) {
-    elSaveBtn.addEventListener("click", () => {
-      try {
-        localStorage.setItem("skyline_elevenlabs_key", elKeyInput.value.trim());
-        elevenlabsExhausted = false;
-        updateElStatus();
-      } catch (e) {}
-    });
+
+  function clearElKey() {
+    try {
+      localStorage.removeItem("skyline_elevenlabs_key");
+      elevenlabsExhausted = false;
+      updateElStatus();
+    } catch (e) {}
   }
-  if (elClearBtn && elKeyInput) {
-    elClearBtn.addEventListener("click", () => {
-      try {
-        localStorage.removeItem("skyline_elevenlabs_key");
-        elKeyInput.value = "";
-        elevenlabsExhausted = false;
-        updateElStatus();
-      } catch (e) {}
-    });
-  }
+
+  if (elSaveBtn && elKeyInput) elSaveBtn.addEventListener("click", () => saveElKey(elKeyInput.value));
+  if (elClearBtn) elClearBtn.addEventListener("click", clearElKey);
+
+  if (settingsElSaveBtn && settingsElKeyInput) settingsElSaveBtn.addEventListener("click", () => saveElKey(settingsElKeyInput.value));
+  if (settingsElClearBtn) settingsElClearBtn.addEventListener("click", clearElKey);
+
+  updateElStatus();
 
   // Request persistent browser storage so cached TTS model is not evicted
   if (typeof navigator !== "undefined" && navigator.storage && navigator.storage.persist) {

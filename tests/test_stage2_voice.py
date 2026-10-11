@@ -47,6 +47,7 @@ def test_voice_picker_and_kokoro_options(web_server):
         }""")
 
         values = [opt["value"] for opt in voice_options]
+        assert "elevenlabs_laura" in values, f"Expected elevenlabs_laura in options: {values}"
         assert "bf_emma" in values, f"Expected bf_emma in options: {values}"
         assert "bm_george" in values, f"Expected bm_george in options: {values}"
         assert "af_sarah" in values, f"Expected af_sarah in options: {values}"
@@ -54,7 +55,7 @@ def test_voice_picker_and_kokoro_options(web_server):
 
         default_opt = next((opt for opt in voice_options if opt["selected"]), None)
         assert default_opt is not None, "Expected an option to be selected by default"
-        assert default_opt["value"] == "bf_emma", f"Expected bf_emma default, got {default_opt['value']}"
+        assert default_opt["value"] == "elevenlabs_laura", f"Expected elevenlabs_laura default, got {default_opt['value']}"
 
         browser.close()
 

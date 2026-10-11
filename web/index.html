@@ -124,6 +124,15 @@
             <select id="settings-voice-select" class="settings-select" aria-label="Assistant voice"></select>
             <div class="voice-fallback-msg" id="settings-voice-fallback" style="display:none;">British voice not available on this device</div>
           </div>
+          <div class="settings-group" id="settings-group-elevenlabs">
+            <label for="settings-elevenlabs-key">ElevenLabs API key <span class="assistant-llm-note">(free tier Laura TTS)</span></label>
+            <div style="display:flex;gap:6px;margin-top:4px;">
+              <input type="password" id="settings-elevenlabs-key" class="settings-select" placeholder="xi-api-key" aria-label="ElevenLabs API key" autocomplete="off" style="flex:1;">
+              <button type="button" class="cp-chip" id="btn-settings-elevenlabs-save" style="padding:4px 8px;font-size:11px;">Save</button>
+              <button type="button" class="cp-chip" id="btn-settings-elevenlabs-clear" style="padding:4px 8px;font-size:11px;">Clear</button>
+            </div>
+            <div id="settings-elevenlabs-status" class="assistant-llm-note" style="margin-top:4px;font-size:11px;">Default: Laura (British female) with Kokoro and device fallback.</div>
+          </div>
           <div class="settings-group" id="settings-group-smart-mode" style="display:none;">
             <div class="settings-row-label">
               <label for="toggle-smart-mode">Smart mode</label>
