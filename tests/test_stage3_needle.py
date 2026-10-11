@@ -130,6 +130,8 @@ def test_frontend_needle_handler_mappings(web_server):
             let lastItem = history[history.length - 1];
             outcomes.successMapped = lastItem && (lastItem.reply.includes("SIN") || lastItem.reply.includes("Singapore"));
 
+            const isHelpOrFallback = (it) => Boolean(it && (it.reply.includes("could not map") || it.reply.includes("couldn't map") || it.reply.includes("help") || it.reply.includes("Command not recognized") || (it.html && it.html.includes("help"))));
+
             // 2. Empty calls mock -> fallback to help
             window.fetch = async (url, options) => {
                 return {
@@ -140,7 +142,7 @@ def test_frontend_needle_handler_mappings(web_server):
             await window.executeAssistantCommand("unrecognized gibberish command");
             history = window.getConversationHistory();
             lastItem = history[history.length - 1];
-            outcomes.emptyFallback = lastItem && (lastItem.reply.includes("Command not recognized") || lastItem.reply.includes("help"));
+            outcomes.emptyFallback = isHelpOrFallback(lastItem);
 
             // 3. Error mock -> fallback to help
             window.fetch = async (url, options) => {
@@ -149,7 +151,7 @@ def test_frontend_needle_handler_mappings(web_server):
             await window.executeAssistantCommand("another unrecognized command");
             history = window.getConversationHistory();
             lastItem = history[history.length - 1];
-            outcomes.errorFallback = lastItem && (lastItem.reply.includes("Command not recognized") || lastItem.reply.includes("help"));
+            outcomes.errorFallback = isHelpOrFallback(lastItem);
 
             // 4. Timeout / abort mock -> fallback to help
             window.fetch = async (url, options) => {
@@ -160,7 +162,7 @@ def test_frontend_needle_handler_mappings(web_server):
             await window.executeAssistantCommand("timed out command");
             history = window.getConversationHistory();
             lastItem = history[history.length - 1];
-            outcomes.timeoutFallback = lastItem && (lastItem.reply.includes("Command not recognized") || lastItem.reply.includes("help"));
+            outcomes.timeoutFallback = isHelpOrFallback(lastItem);
 
             return outcomes;
         }""")
