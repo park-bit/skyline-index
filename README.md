@@ -16,12 +16,14 @@ Map demo: https://skyline-index-web.vercel.app/
 
 ## Repository Layout
 
+- `api/`: FastAPI smart mode backend service with Needle 3 foundation model tool-calling, Gemini fallback, and ElevenLabs TTS proxy.
 - `data/`: Tracked route topology inputs (`data/inputs/routes.dat`), panel parquets (`data/processed/`), and output artifacts (`data/outputs/` containing forecasts, candidate routes, and models).
 - `reports/`: Validation summaries covering temporal folds, baseline comparisons, feature ablations, and probabilistic data reconstruction.
-- `scripts/`: Data ingestion and panel preparation pipelines (`01_download.py`, `02_build_panel.py`, and `03_build_model_table.py`).
+- `scripts/`: Data ingestion, panel preparation, intelligence generation, and horizon 10 shrinkage pipelines (`01_download.py` through `05_horizon10_shrinkage.py`).
 - `src/`: Modules for airport metadata, network graph metrics, composite importance scoring, feature definitions, and target construction.
 - `tests/`: Automated test suite verifying schema contracts, uncertainty bounds, deterministic predictions, and pipeline execution.
-- `web/`: Client application with Leaflet map rendering, trajectory filters, route connectivity overlays, and opportunity tables.
+- `web/`: Client application with Leaflet map rendering, trajectory filters, route connectivity overlays, copilot panel, and scenario lab.
+- `render.yaml`: Blueprint for Render deployment of the smart mode API service.
 
 ## Data Sources
 
@@ -91,7 +93,7 @@ Split conformal prediction intervals centered on the ensemble point forecast pro
 Key model behaviors:
 - At horizon 5, LightGBM achieves lower change MAE than persistence (4.319 versus 4.538 on Fold 1, and 2.824 versus 3.481 on Fold 2).
 - Riser precision at horizon 5 is unstable across folds, measuring 0.074 to 0.108 on Fold 1 before rising to 0.394 to 0.401 on Fold 2.
-- At horizon 10, supervised models lose to persistence on change MAE (persistence achieves 5.282, compared to 11.044 for LightGBM and 10.768 for the damped ensemble). Over a decade, multi-year fluctuations mean-revert, and zero predicted change yields lower average error than supervised extrapolation. The damped model is shipped to provide directional signals, but both numbers are documented.
+- At horizon 10, supervised models lose to persistence on change MAE (persistence achieves 5.282, compared to 11.044 for LightGBM and 10.768 for the damped ensemble). Over a decade, multi-year fluctuations mean-revert, and zero predicted change yields lower average error than supervised extrapolation. The damped model is shipped to provide directional signals, but both numbers are documented. +10 year forecasts are damped (alpha 0.04), so they stay close to the present value.
 - Fold 1 coverage at horizon 5 reaches 62.2 percent, below the 70 percent target, and is labeled as a rough range. Folds 2 and 3 reach 89.5 percent and 85.3 percent and are labeled as calibrated intervals.
 - Measured coverage at horizon 10 reaches 32.3 percent when calibrated on the training slice (target year 2014, earlier than test target years 2023 to 2025), remaining below the 70 percent target. Horizon 10 bands are labeled as indicative only.
 
@@ -106,13 +108,47 @@ Predicted class shares:
 
 Feature ablation yields a 5-year change MAE of 3.891 with all 46 features, 3.907 without network metrics, 3.608 without macroeconomic drivers, and 3.630 using traffic features alone.
 
-## Opportunity Radar
+## Features
 
+### Global Aviation Map
+The interactive Leaflet map renders 4,079 active commercial airports across the globe. Features include:
+- Color-coded trajectory markers: Established Hubs (gold), Emerging (green), Stable (slate), and Declining (rose).
+- Multi-horizon forecast switching across Current (2025), +5 Years (2030), and +10 Years (2035).
+- Direct route connectivity overlays with great-circle arcs and capacity metrics.
+- Anti-collision docked panel layout preserving bottom map statistics across desktop and mobile screens.
+
+### Copilot and Voice Assistant
+A natural conversational interface running locally in the browser:
+- Audio-reactive 320px wireframe icosphere visualizer with concentric rotating rings and glow pulses.
+- Voice synthesis defaulting to ElevenLabs Laura (British female) with automatic fallback to Kokoro AI (82M ONNX Web Worker) and native device speech.
+- Zero-latency local parser resolving IATA codes, city aliases (DEL, BOM), airport comparisons, route lookups, and forecast trajectory queries.
+- Optional Smart Mode backend powered by the Needle 3 foundation model and Gemini fallback.
+
+### Airport Intelligence
+Detailed operational dossiers for every commercial airport:
+- Historical percentile trajectory from 2000 to 2025.
+- Infrastructure and physical capacity breakdown: runway counts, longest runway, and lighting specifications.
+- Demographic catchment scale: metropolitan anchor population, national GDP per capita, and tourism arrivals.
+- Route portfolio: top connected airline destinations, domestic versus international flight frequency, and regional market share.
+
+### Scenario Lab
+An interactive simulation sandbox for aviation analysts and planners:
+- Test hypothetical route additions, airline hub realignments, and airport capacity expansions.
+- Model network resilience and traffic redistribution following major hub closures or airspace restrictions.
+- Compare projected network centrality changes against baseline conformal forecast intervals.
+
+### Opportunity Radar
 The Opportunity Radar identifies unserved airport pairs using gravity modeling, Adamic-Adar common neighbor centrality, and endpoint momentum multipliers.
+- Validation on route splits with distance and endpoint size matched negatives yields combined ROC AUC of 0.738 (gravity 0.644, preferential attachment 0.624, Adamic-Adar 0.740) and precision at 100 of 0.870.
+- Exports the top 250 unserved airline route candidates, along with filtered views for 60 investor risers and 60 tourism destinations. All entries represent statistical model candidates rather than confirmed commercial demand.
 
-Validation on route splits with distance and endpoint size matched negatives yields combined ROC AUC of 0.738 (gravity 0.644, preferential attachment 0.624, Adamic-Adar 0.740) and precision at 100 of 0.870.
-
-The radar exports the top 250 unserved airline route candidates, along with filtered views for 60 investor risers and 60 tourism destinations. All entries represent statistical model candidates rather than confirmed commercial demand.
+### Methodology
+An open, calibrated forecasting framework:
+- Composite importance percentile rank (0 to 100) combining Network Topology (47%), Passenger Traffic (48%), and Catchment Scale (5%).
+- Probabilistic reconstruction of missing historical traffic via LightGBM and Ridge models calibrated to World Bank national totals.
+- Gravity link prediction for historical network topology.
+- Split conformal prediction intervals providing calibrated uncertainty bands for all point forecasts.
+- Supervised 5-year models and damped 10-year mean-reversion horizons.
 
 ## Tried and not shipped
 
@@ -143,6 +179,8 @@ python scripts/01_download.py
 python scripts/02_build_panel.py
 python scripts/03_build_model_table.py
 jupyter nbconvert --to notebook --execute --inplace training_notebook.ipynb
+python scripts/04_build_intelligence.py
+python scripts/05_horizon10_shrinkage.py
 ```
 
 Or run the pipeline script:
