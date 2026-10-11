@@ -111,6 +111,9 @@ Feature ablation yields a 5-year change MAE of 3.891 with all 46 features, 3.907
 ## Features
 
 ### Global Aviation Map
+
+![Global Aviation Map](docs/map.png)
+
 The interactive Leaflet map renders 4,079 active commercial airports across the globe. Features include:
 - Color-coded trajectory markers: Established Hubs (gold), Emerging (green), Stable (slate), and Declining (rose).
 - Multi-horizon forecast switching across Current (2025), +5 Years (2030), and +10 Years (2035).
@@ -118,6 +121,9 @@ The interactive Leaflet map renders 4,079 active commercial airports across the 
 - Anti-collision docked panel layout preserving bottom map statistics across desktop and mobile screens.
 
 ### Copilot and Voice Assistant
+
+![Skyline Copilot and Voice Assistant](docs/copilot.png)
+
 A natural conversational interface running locally in the browser:
 - Audio-reactive 320px wireframe icosphere visualizer with concentric rotating rings and glow pulses.
 - Voice synthesis defaulting to ElevenLabs Laura (British female) with automatic fallback to Kokoro AI (82M ONNX Web Worker) and native device speech.
@@ -125,6 +131,9 @@ A natural conversational interface running locally in the browser:
 - Optional Smart Mode backend powered by the Needle 3 foundation model and Gemini fallback.
 
 ### Airport Intelligence
+
+![Airport Intelligence Hub](docs/intelligence.png)
+
 Detailed operational dossiers for every commercial airport:
 - Historical percentile trajectory from 2000 to 2025.
 - Infrastructure and physical capacity breakdown: runway counts, longest runway, and lighting specifications.
@@ -132,12 +141,18 @@ Detailed operational dossiers for every commercial airport:
 - Route portfolio: top connected airline destinations, domestic versus international flight frequency, and regional market share.
 
 ### Scenario Lab
+
+![Scenario Lab](docs/scenario_lab.png)
+
 An interactive simulation sandbox for aviation analysts and planners:
 - Test hypothetical route additions, airline hub realignments, and airport capacity expansions.
 - Model network resilience and traffic redistribution following major hub closures or airspace restrictions.
 - Compare projected network centrality changes against baseline conformal forecast intervals.
 
 ### Opportunity Radar
+
+![Opportunity Radar](docs/radar.png)
+
 The Opportunity Radar identifies unserved airport pairs using gravity modeling, Adamic-Adar common neighbor centrality, and endpoint momentum multipliers.
 - Validation on route splits with distance and endpoint size matched negatives yields combined ROC AUC of 0.738 (gravity 0.644, preferential attachment 0.624, Adamic-Adar 0.740) and precision at 100 of 0.870.
 - Exports the top 250 unserved airline route candidates, along with filtered views for 60 investor risers and 60 tourism destinations. All entries represent statistical model candidates rather than confirmed commercial demand.

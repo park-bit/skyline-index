@@ -2533,6 +2533,161 @@ body.radar-tab-active .leaflet-control-zoom {
   background: rgba(255, 107, 94, 0.15);
 }
 
+.assistant-send-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent-amber, #F2A93B);
+  color: #0b0e12;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 4px;
+  padding: 0;
+  transition: transform 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.assistant-send-btn:hover {
+  transform: scale(1.08);
+  background: #f7bf57;
+}
+
+.assistant-send-btn:active {
+  transform: scale(0.95);
+}
+
+.assistant-pause-btn {
+  color: var(--accent-amber);
+}
+
+.assistant-visualizer.in-welcome-modal {
+  position: relative !important;
+  right: auto !important;
+  top: auto !important;
+  transform: none !important;
+  margin: 0 auto !important;
+  width: 130px !important;
+  height: 130px !important;
+  display: block !important;
+  z-index: 10001 !important;
+  transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Welcome Intro Modal (blank rounded square) */
+.welcome-intro-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(5, 7, 10, 0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s;
+}
+
+.welcome-intro-backdrop.is-closing {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.welcome-intro-card {
+  width: 320px;
+  min-height: 320px;
+  background: rgba(14, 18, 24, 0.90);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 35px rgba(0, 210, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  text-align: center;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s;
+}
+
+.welcome-intro-backdrop.is-closing .welcome-intro-card {
+  transform: scale(0.92);
+  opacity: 0;
+}
+
+.welcome-intro-skip-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted-foreground);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.welcome-intro-skip-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.welcome-visualizer-slot {
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.welcome-intro-text {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+  padding: 0 10px;
+}
+
+.welcome-intro-sub {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.welcome-intro-tap {
+  margin-top: 14px;
+  padding: 6px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: rgba(0, 210, 255, 0.15);
+  border: 1px solid rgba(0, 210, 255, 0.35);
+  color: #38bdf8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.welcome-intro-tap:hover {
+  background: rgba(0, 210, 255, 0.25);
+  transform: translateY(-1px);
+}
+
 .skyline-pulse-ring {
   pointer-events: none;
   animation: amber-ring-pulse 1.8s infinite ease-out;

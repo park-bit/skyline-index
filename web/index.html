@@ -405,6 +405,24 @@
       </section>
     </div>
 
+    <!-- Welcome Intro Modal (blank rounded square with Laura TTS greeting) -->
+    <div class="welcome-intro-backdrop" id="welcome-intro-backdrop">
+      <div class="welcome-intro-card" id="welcome-intro-card">
+        <button type="button" class="welcome-intro-skip-btn" id="btn-welcome-skip" aria-label="Skip">&times;</button>
+        <div class="welcome-visualizer-slot" id="welcome-visualizer-slot">
+          <!-- Visualizer canvas mounted here initially -->
+        </div>
+        <div class="welcome-intro-text" id="welcome-intro-text">
+          Hey there! What do you want to search today?
+        </div>
+        <div class="welcome-intro-sub">Laura (ElevenLabs)</div>
+        <button type="button" class="welcome-intro-tap" id="btn-welcome-play">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+          <span>Start</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Bottom Center Zone (stacked reply panel, stat strip, and command bar) -->
     <div class="bottom-center-zone" id="bottom-center-zone">
       <div class="assistant-reply-panel glass" id="assistant-reply-panel" style="display:none;" role="region" aria-label="Skyline assistant history">
@@ -511,6 +529,12 @@
 
         <form class="assistant-input-form" id="assistant-form" action="javascript:void(0);">
           <input type="text" id="assistant-input" class="assistant-input" placeholder="Ask Skyline anything: which Indian airports grow most by 2035?" aria-label="Ask Skyline Copilot" autocomplete="off" />
+          <button type="submit" class="assistant-send-btn" id="btn-assistant-send" aria-label="Send message" title="Send message">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
         </form>
 
         <div class="assistant-waveform" id="assistant-waveform" aria-hidden="true" style="display:none;">
@@ -527,6 +551,15 @@
               <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
               <line x1="12" y1="19" x2="12" y2="23"/>
               <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+          <button type="button" class="assistant-action-btn assistant-pause-btn" id="btn-assistant-pause" aria-label="Pause speech" title="Pause or resume speech" style="display:none;">
+            <svg id="pause-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16"/>
+              <rect x="14" y="4" width="4" height="16"/>
+            </svg>
+            <svg id="play-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style="display:none;">
+              <polygon points="6 3 20 12 6 21 6 3"/>
             </svg>
           </button>
           <button type="button" class="assistant-action-btn" id="btn-assistant-speaker" aria-label="Toggle voice output" title="Toggle voice output">

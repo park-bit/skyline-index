@@ -69,6 +69,7 @@ def test_tts_worker_fallback_to_device(web_server):
 
         fallback_triggered = page.evaluate("""() => {
             localStorage.setItem("skyline_voice_enabled", "true");
+            localStorage.setItem("skyline_kokoro_voice", "bf_emma");
             let deviceSpeechCalled = false;
             window.speechSynthesis.speak = () => { deviceSpeechCalled = true; };
 

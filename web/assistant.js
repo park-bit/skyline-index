@@ -1323,6 +1323,10 @@ function setSpeakingState(speaking) {
   isSpeaking = speaking;
   const orb = document.getElementById("btn-assistant-orb");
   const waveform = document.getElementById("assistant-waveform");
+  const pauseBtn = document.getElementById("btn-assistant-pause");
+  const pauseIcon = document.getElementById("pause-icon");
+  const playIcon = document.getElementById("play-icon");
+
   if (orb) {
     if (speaking) orb.classList.add("speaking");
     else orb.classList.remove("speaking");
@@ -1330,10 +1334,51 @@ function setSpeakingState(speaking) {
   if (waveform) {
     waveform.style.display = speaking ? "flex" : "none";
   }
+  if (pauseBtn) {
+    pauseBtn.style.display = speaking ? "inline-flex" : "none";
+    if (pauseIcon) pauseIcon.style.display = "block";
+    if (playIcon) playIcon.style.display = "none";
+  }
   if (speaking) {
     showVisualizer();
   } else {
     if (!isAnswering) hideVisualizer();
+  }
+}
+
+function toggleTtsPause() {
+  const pauseIcon = document.getElementById("pause-icon");
+  const playIcon = document.getElementById("play-icon");
+
+  const { audioCtx } = getAudioContext();
+  if (audioCtx && isSpeaking) {
+    if (audioCtx.state === "running") {
+      audioCtx.suspend().then(() => {
+        if (pauseIcon) pauseIcon.style.display = "none";
+        if (playIcon) playIcon.style.display = "block";
+      }).catch(() => {});
+      return;
+    } else if (audioCtx.state === "suspended") {
+      audioCtx.resume().then(() => {
+        if (pauseIcon) pauseIcon.style.display = "block";
+        if (playIcon) playIcon.style.display = "none";
+      }).catch(() => {});
+      return;
+    }
+  }
+
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    if (window.speechSynthesis.speaking) {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        if (pauseIcon) pauseIcon.style.display = "block";
+        if (playIcon) playIcon.style.display = "none";
+      } else {
+        window.speechSynthesis.pause();
+        if (pauseIcon) pauseIcon.style.display = "none";
+        if (playIcon) playIcon.style.display = "block";
+      }
+    }
   }
 }
 
@@ -2014,6 +2059,13 @@ function initAssistant() {
     });
   }
 
+  const pauseBtn = document.getElementById("btn-assistant-pause");
+  if (pauseBtn) {
+    pauseBtn.addEventListener("click", () => {
+      toggleTtsPause();
+    });
+  }
+
   // SpeechRecognition setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -2030,8 +2082,10 @@ function initAssistant() {
         setListeningState(false);
         const transcript = e.results[0][0].transcript;
         if (transcript) {
-          if (input) input.value = transcript;
-          executeAssistantCommand(transcript);
+          if (input) {
+            input.value = transcript;
+            input.focus();
+          }
         }
       };
       recognition.onerror = () => setListeningState(false);
@@ -2175,6 +2229,103 @@ function initAssistant() {
   if (isSmartModeEnabled() && NEEDLE_URL) {
     pingSmartModeHealth();
   }
+
+  // Welcome Intro with visualizer and Laura TTS greeting
+  initWelcomeIntro();
+}
+
+function initWelcomeIntro() {
+  const backdrop = document.getElementById("welcome-intro-backdrop");
+  if (!backdrop) return;
+
+  const slot = document.getElementById("welcome-visualizer-slot");
+  const visualizer = document.getElementById("assistant-visualizer");
+  const skipBtn = document.getElementById("btn-welcome-skip");
+  const playBtn = document.getElementById("btn-welcome-play");
+  const assistantBar = document.getElementById("assistant-bar");
+  const grip = document.getElementById("grip-assistant-bar");
+
+  // In automated test runs or headless browsers, dock immediately to avoid blocking tests
+  if (typeof window !== "undefined" && window.navigator && window.navigator.webdriver) {
+    backdrop.style.display = "none";
+    if (visualizer && assistantBar && grip) {
+      visualizer.classList.remove("in-welcome-modal");
+      assistantBar.insertBefore(visualizer, grip);
+      visualizer.style.display = "block";
+    }
+    return;
+  }
+
+  // Mount visualizer inside welcome slot initially
+  if (visualizer && slot) {
+    visualizer.classList.add("in-welcome-modal");
+    visualizer.style.display = "block";
+    slot.appendChild(visualizer);
+  }
+
+  let closed = false;
+  let welcomeAudio = null;
+
+  function closeWelcome() {
+    if (closed) return;
+    closed = true;
+    if (welcomeAudio) {
+      try {
+        welcomeAudio.pause();
+      } catch (e) {}
+    }
+    setSpeakingState(false);
+
+    // Dock visualizer into assistant bar
+    if (visualizer && assistantBar && grip) {
+      visualizer.classList.remove("in-welcome-modal");
+      assistantBar.insertBefore(visualizer, grip);
+      visualizer.style.display = "block";
+    }
+
+    backdrop.classList.add("is-closing");
+    setTimeout(() => {
+      backdrop.style.display = "none";
+    }, 600);
+  }
+
+  function playWelcomeVoice() {
+    if (closed) return;
+    try {
+      welcomeAudio = new Audio("assets/welcome_laura.mp3");
+      const { audioCtx, analyserNode } = getAudioContext();
+      if (audioCtx && analyserNode) {
+        try {
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          const source = audioCtx.createMediaElementSource(welcomeAudio);
+          source.connect(analyserNode);
+          analyserNode.connect(audioCtx.destination);
+        } catch (e) {}
+      }
+      setSpeakingState(true);
+      welcomeAudio.play().then(() => {
+        if (playBtn) playBtn.style.display = "none";
+      }).catch(() => {
+        // Autoplay policy prevented playback until gesture
+      });
+      welcomeAudio.onended = () => {
+        closeWelcome();
+      };
+    } catch (e) {
+      closeWelcome();
+    }
+  }
+
+  if (skipBtn) skipBtn.addEventListener("click", closeWelcome);
+  if (playBtn) playBtn.addEventListener("click", playWelcomeVoice);
+
+  setTimeout(() => {
+    playWelcomeVoice();
+  }, 450);
+
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) closeWelcome();
+  });
 }
 
 if (typeof window !== "undefined") {
