@@ -2440,7 +2440,6 @@ function initWelcomeIntro() {
   const slot = document.getElementById("welcome-visualizer-slot");
   const visualizer = document.getElementById("assistant-visualizer");
   const skipBtn = document.getElementById("btn-welcome-skip");
-  const hint = document.getElementById("welcome-intro-hint");
   const assistantBar = document.getElementById("assistant-bar");
   const grip = document.getElementById("grip-assistant-bar");
 
@@ -2549,7 +2548,6 @@ function initWelcomeIntro() {
       const p = audio.play();
       if (p && p.then) {
         p.then(() => {
-          if (hint) hint.style.display = "none";
           setTimeout(() => {
             if (!closed && !finished) onFinished();
           }, 2600);
@@ -2557,7 +2555,6 @@ function initWelcomeIntro() {
           audioUnlocked = false;
           setSpeakingState(false);
           stopSyntheticAudioPulsing();
-          if (hint) hint.style.display = "inline-flex";
         });
       }
     } catch (e) {
@@ -2576,7 +2573,6 @@ function initWelcomeIntro() {
         window.speechSynthesis.speak(u);
         setSpeakingState(true);
         startSyntheticAudioPulsing();
-        if (hint) hint.style.display = "none";
         setTimeout(() => { if (onEnd) onEnd(); }, 2800);
       } catch (e) {
         if (onEnd) onEnd();
@@ -2614,16 +2610,19 @@ function initWelcomeIntro() {
 
   const onDocGesture = () => {
     if (!closed && !audioUnlocked) {
-      handleUserGesture();
+      doPlayVoiceline();
     }
   };
+  document.addEventListener("pointerdown", onDocGesture, { once: true, passive: true });
   document.addEventListener("click", onDocGesture, { once: true });
   document.addEventListener("keydown", onDocGesture, { once: true });
+  document.addEventListener("touchstart", onDocGesture, { once: true, passive: true });
 
-  // Attempt autoplay shortly after load
+  // Directly play voiceline immediately
+  doPlayVoiceline();
   setTimeout(() => {
-    doPlayVoiceline();
-  }, 250);
+    if (!closed && !audioUnlocked) doPlayVoiceline();
+  }, 150);
 
   // Safety fallback: if no user interaction after 7s, auto-morph so card never stays stuck
   setTimeout(() => {
